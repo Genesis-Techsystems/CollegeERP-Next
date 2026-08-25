@@ -659,184 +659,191 @@ export default function ExamInvigilatorAllotmentReportPage() {
       resultsVisible={hasFetched}
       filters={
         <>
-          <div className="grid grid-cols-1 items-end gap-2 md:grid-cols-12">
-            <div className="space-y-1 md:col-span-2">
-              <Label>Course *</Label>
-              <Select
-                value={courseId || null}
-                onChange={(v) => {
-                  setCourseId(v ?? "");
-                  setAcademicYearId("");
-                  setExamId("");
-                  setCollegeId("");
-                }}
-                options={courseOptions}
-                placeholder="Course"
-                isLoading={loadingFilters}
-              />
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>Exam Year *</Label>
-              <Select
-                value={academicYearId || null}
-                onChange={(v) => {
-                  setAcademicYearId(v ?? "");
-                  setExamId("");
-                  setCollegeId("");
-                }}
-                options={academicYearOptions}
-                placeholder="Exam Year"
-                disabled={!courseId}
-              />
-            </div>
-            <div className="space-y-1 md:col-span-8">
-              <Label>Exam Master *</Label>
-              <Select
-                value={examId || null}
-                onChange={(v) => setExamId(v ?? "")}
-                options={examOptions}
-                placeholder="Exam Master"
-                searchable={examOptions.length > 6}
-                wrapOptionLabels
-                disabled={!academicYearId}
-              />
+          {/* Angular: row1 fxFlex 20/20/60; row2 wrap 20/20/20/20/33/15/15/15/13/5 */}
+          <div className="inv-allot-report-filters space-y-2">
+            <div className="inv-allot-report-filters__row">
+              <div className="inv-allot-report-filters__fx20 space-y-1">
+                <Label>Course *</Label>
+                <Select
+                  value={courseId || null}
+                  onChange={(v) => {
+                    setCourseId(v ?? "");
+                    setAcademicYearId("");
+                    setExamId("");
+                    setCollegeId("");
+                  }}
+                  options={courseOptions}
+                  placeholder="Course"
+                  isLoading={loadingFilters}
+                />
+              </div>
+              <div className="inv-allot-report-filters__fx20 space-y-1">
+                <Label>Exam Year *</Label>
+                <Select
+                  value={academicYearId || null}
+                  onChange={(v) => {
+                    setAcademicYearId(v ?? "");
+                    setExamId("");
+                    setCollegeId("");
+                  }}
+                  options={academicYearOptions}
+                  placeholder="Exam Year"
+                  disabled={!courseId}
+                />
+              </div>
+              <div className="inv-allot-report-filters__fx60 space-y-1">
+                <Label>Exam Master *</Label>
+                <Select
+                  value={examId || null}
+                  onChange={(v) => setExamId(v ?? "")}
+                  options={examOptions}
+                  placeholder="Exam Master"
+                  searchable={examOptions.length > 6}
+                  wrapOptionLabels
+                  disabled={!academicYearId}
+                />
+              </div>
             </div>
 
-            <div className="space-y-1 md:col-span-2">
-              <Label>College *</Label>
-              <Select
-                value={collegeId || null}
-                onChange={(v) => {
-                  setCollegeId(v ?? "");
-                  setCourseGroupId("");
-                  setCourseYearId("");
-                  setEmpId("");
-                  setEmpOptions([]);
-                }}
-                options={collegeOptions}
-                placeholder="College"
-                disabled={!examId}
-              />
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>Course Group *</Label>
-              <Select
-                value={courseGroupId || null}
-                onChange={(v) => {
-                  setCourseGroupId(v ?? "");
-                  setCourseYearId("");
-                }}
-                options={courseGroupOptions}
-                placeholder="Course Group"
-                disabled={!collegeId}
-              />
-            </div>
-            <div className="space-y-1 md:col-span-1">
-              <Label>Course Years *</Label>
-              <Select
-                value={courseYearId || null}
-                onChange={(v) => {
-                  setCourseYearId(v ?? "");
-                  setEmpId("");
-                  setRows([]);
-                  setHasFetched(false);
-                }}
-                options={courseYearOptions}
-                placeholder="Course Years"
-                disabled={!courseGroupId}
-              />
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>Employee</Label>
-              <Select
-                value={empId || null}
-                onChange={(v) => {
-                  setEmpId(v ?? "");
-                  setRows([]);
-                  setHasFetched(false);
-                }}
-                options={empOptions}
-                placeholder="Employee"
-                searchable
-                clearable
-                onSearch={onSearchEmployee}
-                isLoading={searchingEmp}
-                disabled={!collegeId}
-              />
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>Room Search</Label>
-              <Select
-                value={roomId}
-                onChange={(v) => setRoomId(v ?? "0")}
-                options={roomOptions}
-                placeholder="All"
-                searchable
-                onSearch={onSearchRoom}
-                isLoading={searchingRoom}
-                wrapOptionLabels
-              />
-            </div>
-            <div className="space-y-1 md:col-span-1">
-              <Label>From Date</Label>
-              <DatePicker
-                value={fromDate}
-                onChange={(d) => {
-                  setFromDate(d);
-                  if (d && toDate && d.getTime() > toDate.getTime())
-                    setToDate(d);
-                }}
-                disabled={!dateRangeEnabled}
-                displayFormat="dd/MM/yyyy"
-                clearable={false}
-                placeholder="From Date"
-              />
-            </div>
-            <div className="space-y-1 md:col-span-1">
-              <Label>To Date</Label>
-              <DatePicker
-                value={toDate}
-                onChange={setToDate}
-                disabled={!dateRangeEnabled}
-                minDate={fromDate ?? undefined}
-                displayFormat="dd/MM/yyyy"
-                clearable={false}
-                placeholder="To Date"
-              />
-            </div>
-            <div className="flex items-center gap-2 pb-1 md:col-span-1">
-              <Checkbox
-                id="inv-allot-date-enable"
-                checked={dateRangeEnabled}
-                onCheckedChange={(c) => applyDateRangeMode(c === true)}
-              />
-              <Label
-                htmlFor="inv-allot-date-enable"
-                className="cursor-pointer text-[12px] font-normal"
-              >
-                {dateRangeEnabled ? "Enable" : "Disable"}
-              </Label>
-            </div>
-            <div className="flex items-end gap-2 md:col-span-12">
-              <Button
-                type="button"
-                onClick={() => void onGetList()}
-                disabled={loading || loadingFilters}
-                className="h-8 shrink-0 px-2.5 text-[12px]"
-              >
-                Get List
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 shrink-0"
-                title="Reset"
-                onClick={resetFilters}
-                disabled={loading || loadingFilters}
-              >
-                <RefreshCw className="h-4 w-4" />
-              </Button>
+            <div className="inv-allot-report-filters__row">
+              <div className="inv-allot-report-filters__fx10 space-y-1">
+                <Label>College *</Label>
+                <Select
+                  value={collegeId || null}
+                  onChange={(v) => {
+                    setCollegeId(v ?? "");
+                    setCourseGroupId("");
+                    setCourseYearId("");
+                    setEmpId("");
+                    setEmpOptions([]);
+                  }}
+                  options={collegeOptions}
+                  placeholder="College"
+                  disabled={!examId}
+                />
+              </div>
+              <div className="inv-allot-report-filters__fx10 space-y-1">
+                <Label>Course Group *</Label>
+                <Select
+                  value={courseGroupId || null}
+                  onChange={(v) => {
+                    setCourseGroupId(v ?? "");
+                    setCourseYearId("");
+                  }}
+                  options={courseGroupOptions}
+                  placeholder="Course Group"
+                  disabled={!collegeId}
+                />
+              </div>
+              <div className="inv-allot-report-filters__fx13 space-y-1">
+                <Label>Course Years *</Label>
+                <Select
+                  value={courseYearId || null}
+                  onChange={(v) => {
+                    setCourseYearId(v ?? "");
+                    setEmpId("");
+                    setRows([]);
+                    setHasFetched(false);
+                  }}
+                  options={courseYearOptions}
+                  placeholder="Course Years"
+                  disabled={!courseGroupId}
+                />
+              </div>
+              <div className="inv-allot-report-filters__fx15 space-y-1">
+                <Label>Employee</Label>
+                <Select
+                  value={empId || null}
+                  onChange={(v) => {
+                    setEmpId(v ?? "");
+                    setRows([]);
+                    setHasFetched(false);
+                  }}
+                  options={empOptions}
+                  placeholder="Employee"
+                  searchable
+                  clearable
+                  onSearch={onSearchEmployee}
+                  isLoading={searchingEmp}
+                  disabled={!collegeId}
+                />
+              </div>
+              <div className="inv-allot-report-filters__fx10 space-y-1">
+                <Label>Room Search</Label>
+                <Select
+                  value={roomId}
+                  onChange={(v) => setRoomId(v ?? "0")}
+                  options={roomOptions}
+                  placeholder="All"
+                  searchable
+                  onSearch={onSearchRoom}
+                  isLoading={searchingRoom}
+                  wrapOptionLabels
+                />
+              </div>
+              <div className="inv-allot-report-filters__fx10 space-y-1">
+                <Label>From Date</Label>
+                <DatePicker
+                  value={fromDate}
+                  onChange={(d) => {
+                    setFromDate(d);
+                    if (d && toDate && d.getTime() > toDate.getTime())
+                      setToDate(d);
+                  }}
+                  disabled={!dateRangeEnabled}
+                  displayFormat="dd/MM/yyyy"
+                  clearable={false}
+                  placeholder="From Date"
+                />
+              </div>
+              <div className="inv-allot-report-filters__fx7 space-y-1">
+                <Label>To Date</Label>
+                <DatePicker
+                  value={toDate}
+                  onChange={setToDate}
+                  disabled={!dateRangeEnabled}
+                  minDate={fromDate ?? undefined}
+                  displayFormat="dd/MM/yyyy"
+                  clearable={false}
+                  placeholder="To Date"
+                />
+              </div>
+              <div className="inv-allot-report-filters__fx7 flex items-center gap-2 pb-1">
+                <Checkbox
+                  id="inv-allot-date-enable"
+                  checked={dateRangeEnabled}
+                  onCheckedChange={(c) => applyDateRangeMode(c === true)}
+                />
+                <Label
+                  htmlFor="inv-allot-date-enable"
+                  className="cursor-pointer text-[12px] font-normal"
+                >
+                  {dateRangeEnabled ? "Enable" : "Disable"}
+                </Label>
+              </div>
+              <div className="inv-allot-report-filters__fx13 flex items-end">
+                <Button
+                  type="button"
+                  onClick={() => void onGetList()}
+                  disabled={loading || loadingFilters}
+                  className="h-8 w-full shrink-0 px-2.5 text-[12px]"
+                >
+                  Get List
+                </Button>
+              </div>
+              <div className="inv-allot-report-filters__fx5 flex items-end">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0"
+                  title="Reset"
+                  onClick={resetFilters}
+                  disabled={loading || loadingFilters}
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </div>
         </>

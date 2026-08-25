@@ -1276,145 +1276,150 @@ export function ExamFinalAnalysisReportPage({
   }, [kind, rows, colleges, collegeId, exams, examId]);
 
   const filterFields = (
-    <div className="grid grid-cols-1 items-end gap-2 md:grid-cols-12">
-      <div className="space-y-1 md:col-span-2">
-        <Label>Course *</Label>
-        <Select
-          value={courseId || null}
-          onChange={(v) => {
-            setCourseId(v ?? "");
-            setAcademicYearId("");
-            setExamId("");
-          }}
-          options={courses.map((r) => ({
-            value: String(num(r.fk_course_id)),
-            label: txt(r.course_code) || String(num(r.fk_course_id)),
-          }))}
-          isLoading={loadingFilters}
-        />
-      </div>
-      <div className="space-y-1 md:col-span-2">
-        <Label>Exam Year *</Label>
-        <Select
-          value={academicYearId || null}
-          onChange={(v) => {
-            setAcademicYearId(v ?? "");
-            setExamId("");
-          }}
-          options={academicYears.map((r) => ({
-            value: String(num(r.fk_academic_year_id)),
-            label: txt(r.academic_year) || String(num(r.fk_academic_year_id)),
-          }))}
-          disabled={!courseId}
-        />
-      </div>
-      <div className="space-y-1 md:col-span-4">
-        <Label>Exam Master *</Label>
-        <Select
-          value={examId || null}
-          onChange={(v) => setExamId(v ?? "")}
-          options={exams.map((r) => ({
-            value: String(num(r.fk_exam_id)),
-            label: examMasterLabel(r),
-          }))}
-          searchable
-          wrapOptionLabels
-          disabled={!academicYearId}
-        />
-      </div>
-      <div className="space-y-1 md:col-span-2">
-        <Label>Exam Type *</Label>
-        <Select
-          value={examTypeId}
-          onChange={(v) => setExamTypeId(v ?? "0")}
-          options={examTypeOptions}
-        />
-      </div>
-      <div className="space-y-1 md:col-span-2">
-        <Label>College *</Label>
-        <Select
-          value={collegeId || null}
-          onChange={(v) => {
-            setCollegeId(v ?? "");
-            setCourseGroupId("");
-            setCourseYearId("");
-          }}
-          options={colleges.map((r) => ({
-            value: String(num(r.fk_college_id)),
-            label: txt(r.college_code) || String(num(r.fk_college_id)),
-          }))}
-          disabled={!examId}
-        />
-      </div>
-      <div className="space-y-1 md:col-span-2">
-        <Label>Course Group *</Label>
-        <Select
-          value={courseGroupId || null}
-          onChange={(v) => {
-            setCourseGroupId(v ?? "");
-            setCourseYearId("");
-          }}
-          options={courseGroups.map((r) => ({
-            value: String(num(r.fk_course_group_id)),
-            label: txt(r.group_code) || String(num(r.fk_course_group_id)),
-          }))}
-          disabled={!collegeId}
-        />
-      </div>
-      <div className="space-y-1 md:col-span-2">
-        <Label>Course Year *</Label>
-        <Select
-          value={courseYearId || null}
-          onChange={(v) => setCourseYearId(v ?? "")}
-          options={courseYears.map((r) => ({
-            value: String(num(r.fk_course_year_id)),
-            label: txt(r.course_year_code) || String(num(r.fk_course_year_id)),
-          }))}
-          disabled={!courseGroupId}
-        />
-      </div>
-      {kind === "result-sheets" ? (
-        <div className="flex items-center gap-2 pb-1 md:col-span-2">
-          <Checkbox
-            id="is-reevaluation"
-            checked={isReevaluation}
-            onCheckedChange={(v) => setIsReevaluation(v === true)}
+    <div className="inv-allot-report-filters space-y-2">
+      <div className="inv-allot-report-filters__row">
+        <div className="inv-allot-report-filters__fx15">
+          <Label>Course *</Label>
+          <Select
+            value={courseId || null}
+            onChange={(v) => {
+              setCourseId(v ?? "");
+              setAcademicYearId("");
+              setExamId("");
+            }}
+            options={courses.map((r) => ({
+              value: String(num(r.fk_course_id)),
+              label: txt(r.course_code) || String(num(r.fk_course_id)),
+            }))}
+            isLoading={loadingFilters}
           />
-          <Label
-            htmlFor="is-reevaluation"
-            className="cursor-pointer font-normal"
-          >
-            Is Re-Evaluation
-          </Label>
         </div>
-      ) : null}
-      <div className="flex items-end gap-2 md:col-span-2">
-        <Button
-          type="button"
-          className="h-8 text-[12px]"
-          onClick={() => void onGetList()}
-          disabled={loading}
-        >
-          {kind === "final-analysis" || kind === "group-subjectwise"
-            ? "Get Report"
-            : "Get List"}
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          title="Reset"
-          onClick={() => {
-            setRows([]);
-            setHasFetched(false);
-            setIsReevaluation(false);
-            const c = courses[0];
-            if (c) setCourseId(String(num(c.fk_course_id)));
-          }}
-        >
-          <RefreshCw className="h-4 w-4" />
-        </Button>
+        <div className="inv-allot-report-filters__fx15">
+          <Label>Exam Year *</Label>
+          <Select
+            value={academicYearId || null}
+            onChange={(v) => {
+              setAcademicYearId(v ?? "");
+              setExamId("");
+            }}
+            options={academicYears.map((r) => ({
+              value: String(num(r.fk_academic_year_id)),
+              label: txt(r.academic_year) || String(num(r.fk_academic_year_id)),
+            }))}
+            disabled={!courseId}
+          />
+        </div>
+        <div className="inv-allot-report-filters__fx52">
+          <Label>Exam Master *</Label>
+          <Select
+            value={examId || null}
+            onChange={(v) => setExamId(v ?? "")}
+            options={exams.map((r) => ({
+              value: String(num(r.fk_exam_id)),
+              label: examMasterLabel(r),
+            }))}
+            searchable
+            wrapOptionLabels
+            disabled={!academicYearId}
+          />
+        </div>
+        <div className="inv-allot-report-filters__fx15">
+          <Label>Exam Type *</Label>
+          <Select
+            value={examTypeId}
+            onChange={(v) => setExamTypeId(v ?? "0")}
+            options={examTypeOptions}
+          />
+        </div>
+      </div>
+      <div className="inv-allot-report-filters__row">
+        <div className="inv-allot-report-filters__fx15">
+          <Label>College *</Label>
+          <Select
+            value={collegeId || null}
+            onChange={(v) => {
+              setCollegeId(v ?? "");
+              setCourseGroupId("");
+              setCourseYearId("");
+            }}
+            options={colleges.map((r) => ({
+              value: String(num(r.fk_college_id)),
+              label: txt(r.college_code) || String(num(r.fk_college_id)),
+            }))}
+            disabled={!examId}
+          />
+        </div>
+        <div className="inv-allot-report-filters__fx15">
+          <Label>Course Group *</Label>
+          <Select
+            value={courseGroupId || null}
+            onChange={(v) => {
+              setCourseGroupId(v ?? "");
+              setCourseYearId("");
+            }}
+            options={courseGroups.map((r) => ({
+              value: String(num(r.fk_course_group_id)),
+              label: txt(r.group_code) || String(num(r.fk_course_group_id)),
+            }))}
+            disabled={!collegeId}
+          />
+        </div>
+        <div className="inv-allot-report-filters__fx15">
+          <Label>Course Year *</Label>
+          <Select
+            value={courseYearId || null}
+            onChange={(v) => setCourseYearId(v ?? "")}
+            options={courseYears.map((r) => ({
+              value: String(num(r.fk_course_year_id)),
+              label:
+                txt(r.course_year_code) || String(num(r.fk_course_year_id)),
+            }))}
+            disabled={!courseGroupId}
+          />
+        </div>
+        {kind === "result-sheets" ? (
+          <div className="flex items-center gap-2 pb-1 inv-allot-report-filters__fx15">
+            <Checkbox
+              id="is-reevaluation"
+              checked={isReevaluation}
+              onCheckedChange={(v) => setIsReevaluation(v === true)}
+            />
+            <Label
+              htmlFor="is-reevaluation"
+              className="cursor-pointer font-normal"
+            >
+              Is Re-Evaluation
+            </Label>
+          </div>
+        ) : null}
+        <div className="flex items-end gap-2 inv-allot-report-filters__fx15">
+          <Button
+            type="button"
+            className="h-8 text-[12px] w-full"
+            onClick={() => void onGetList()}
+            disabled={loading}
+          >
+            {kind === "final-analysis" || kind === "group-subjectwise"
+              ? "Get Report"
+              : "Get Report"}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            title="Reset"
+            onClick={() => {
+              setRows([]);
+              setHasFetched(false);
+              setIsReevaluation(false);
+              const c = courses[0];
+              if (c) setCourseId(String(num(c.fk_course_id)));
+            }}
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
     </div>
   );

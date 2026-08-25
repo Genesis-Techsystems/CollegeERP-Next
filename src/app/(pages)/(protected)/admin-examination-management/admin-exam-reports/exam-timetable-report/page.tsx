@@ -697,7 +697,7 @@ export default function ExamTimetableReportPage() {
                 disabled={!courseId}
               />
             </div>
-            <div className="space-y-1 md:col-span-5">
+            <div className="space-y-1 md:col-span-8">
               <Label>Exam Master *</Label>
               <Select
                 value={examId || null}
@@ -709,7 +709,7 @@ export default function ExamTimetableReportPage() {
                 disabled={!academicYearId}
               />
             </div>
-            <div className="space-y-1 md:col-span-3">
+            <div className="space-y-1 md:col-span-2">
               <Label>College *</Label>
               <Select
                 value={collegeId || null}
@@ -737,7 +737,7 @@ export default function ExamTimetableReportPage() {
                 disabled={!collegeId}
               />
             </div>
-            <div className="space-y-1 md:col-span-1">
+            <div className="space-y-1 md:col-span-2">
               <Label>Course Years *</Label>
               <Select
                 value={courseYearId || null}
@@ -747,7 +747,7 @@ export default function ExamTimetableReportPage() {
                 disabled={!courseGroupId}
               />
             </div>
-            <div className="space-y-1 md:col-span-2">
+            <div className="space-y-1 md:col-span-1">
               <Label>Regulation</Label>
               <Select
                 value={regulationId}
@@ -757,7 +757,7 @@ export default function ExamTimetableReportPage() {
                 disabled={!collegeId}
               />
             </div>
-            <div className="space-y-1 md:col-span-2">
+            <div className="space-y-1 md:col-span-1">
               <Label>From Date</Label>
               <DatePicker
                 value={fromDate}
@@ -772,7 +772,7 @@ export default function ExamTimetableReportPage() {
                 placeholder="From Date"
               />
             </div>
-            <div className="space-y-1 md:col-span-2">
+            <div className="space-y-1 md:col-span-1">
               <Label>To Date</Label>
               <DatePicker
                 value={toDate}

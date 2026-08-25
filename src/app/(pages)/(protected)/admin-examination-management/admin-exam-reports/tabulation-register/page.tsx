@@ -703,167 +703,186 @@ export default function TabulationRegisterPage() {
 
   const filters = (
     <>
-      <GlobalFilterBarRow>
-        <GlobalFilterField label="Course *">
-          <Select
-            value={courseId || null}
-            onChange={(v) => {
-              setCourseId(v ?? "");
-              setAcademicYearId("");
-              setExamId("");
-            }}
-            options={courses.map((r) => ({
-              value: String(num(r.fk_course_id)),
-              label: txt(r.course_code) || String(num(r.fk_course_id)),
-            }))}
-            isLoading={loadingFilters}
-          />
-        </GlobalFilterField>
-        <GlobalFilterField label="Exam Year *">
-          <Select
-            value={academicYearId || null}
-            onChange={(v) => {
-              setAcademicYearId(v ?? "");
-              setExamId("");
-            }}
-            options={academicYears.map((r) => ({
-              value: String(num(r.fk_academic_year_id)),
-              label: txt(r.academic_year) || String(num(r.fk_academic_year_id)),
-            }))}
-            disabled={!courseId}
-          />
-        </GlobalFilterField>
-        <GlobalFilterField
-          label="Exam Master *"
-          className="min-w-[280px] flex-[2]"
-        >
-          <Select
-            value={examId || null}
-            onChange={(v) => setExamId(v ?? "")}
-            options={exams.map((r) => ({
-              value: String(num(r.fk_exam_id)),
-              label: examMasterLabel(r),
-            }))}
-            searchable
-            wrapOptionLabels
-            disabled={!academicYearId}
-          />
-        </GlobalFilterField>
-        <GlobalFilterField label="Exam Type *">
-          <Select
-            value={examTypeId}
-            onChange={(v) => setExamTypeId(v ?? "0")}
-            options={examTypeOptions}
-          />
-        </GlobalFilterField>
-      </GlobalFilterBarRow>
-
-      <GlobalFilterBarRow>
-        <GlobalFilterField label="College *">
-          <Select
-            value={collegeId || null}
-            onChange={(v) => {
-              setCollegeId(v ?? "");
-              setCourseGroupId("");
-              setCourseYearId("");
-            }}
-            options={colleges.map((r) => ({
-              value: String(num(r.fk_college_id)),
-              label: txt(r.college_code) || String(num(r.fk_college_id)),
-            }))}
-            disabled={!examId}
-          />
-        </GlobalFilterField>
-        <GlobalFilterField label="Course Group *">
-          <Select
-            value={courseGroupId || null}
-            onChange={(v) => {
-              setCourseGroupId(v ?? "");
-              setCourseYearId("");
-            }}
-            options={courseGroups.map((r) => ({
-              value: String(num(r.fk_course_group_id)),
-              label: txt(r.group_code) || String(num(r.fk_course_group_id)),
-            }))}
-            disabled={!collegeId}
-          />
-        </GlobalFilterField>
-        <GlobalFilterField label="Course Years *">
-          <Select
-            value={courseYearId || null}
-            onChange={(v) => setCourseYearId(v ?? "")}
-            options={courseYears.map((r) => ({
-              value: String(num(r.fk_course_year_id)),
-              label:
-                txt(r.course_year_code) || String(num(r.fk_course_year_id)),
-            }))}
-            disabled={!courseGroupId}
-          />
-        </GlobalFilterField>
-        <GlobalFilterField label="Student" className="min-w-[240px] flex-[1.5]">
-          <Select
-            value={hallticketNo || "0"}
-            onChange={(v) => setHallticketNo(v ?? "0")}
-            options={studentSelectOptions}
-            searchable
-            isLoading={searchingStudent}
-            onSearch={(term) => void onSearchStudent(term)}
-            placeholder="Search by name or hallticket"
-          />
-        </GlobalFilterField>
-      </GlobalFilterBarRow>
-
-      <GlobalFilterBarRow>
-        <GlobalFilterField
-          label="Is Re-Evaluation"
-          className="global-filter-field--shrink"
-        >
-          <div className="flex h-[30px] items-center gap-2">
-            <Checkbox
-              id="tabulation-reeval"
-              checked={isReEvaluation}
-              onCheckedChange={(v) => setIsReEvaluation(v === true)}
-            />
-            <Label
-              htmlFor="tabulation-reeval"
-              className="cursor-pointer text-[12px] font-normal"
-            >
-              Is Re-Evaluation
-            </Label>
+      <div className="inv-allot-report-filters space-y-2">
+        <div className="inv-allot-report-filters__row">
+          <div className="inv-allot-report-filters__fx13">
+            <GlobalFilterField label="Course *">
+              <Select
+                value={courseId || null}
+                onChange={(v) => {
+                  setCourseId(v ?? "");
+                  setAcademicYearId("");
+                  setExamId("");
+                }}
+                options={courses.map((r) => ({
+                  value: String(num(r.fk_course_id)),
+                  label: txt(r.course_code) || String(num(r.fk_course_id)),
+                }))}
+                isLoading={loadingFilters}
+              />
+            </GlobalFilterField>
           </div>
-        </GlobalFilterField>
-        <GlobalFilterField
-          label=""
-          className="global-filter-field--shrink global-filter-field--action"
-        >
-          <div className="flex items-end gap-2">
-            <Button
-              type="button"
-              className="h-[30px] px-3 text-[12px]"
-              onClick={() => void onGetReport()}
-              disabled={loading}
-            >
-              Get Report
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-[30px] w-[30px]"
-              title="Reset"
-              onClick={() => {
-                setRows([]);
-                setHasFetched(false);
-                setHallticketNo("0");
-                setIsReEvaluation(false);
-                setStudentOptions([]);
-              }}
-            >
-              <RefreshCw className="h-4 w-4" />
-            </Button>
+          <div className="inv-allot-report-filters__fx13">
+            <GlobalFilterField label="Exam Year *">
+              <Select
+                value={academicYearId || null}
+                onChange={(v) => {
+                  setAcademicYearId(v ?? "");
+                  setExamId("");
+                }}
+                options={academicYears.map((r) => ({
+                  value: String(num(r.fk_academic_year_id)),
+                  label:
+                    txt(r.academic_year) || String(num(r.fk_academic_year_id)),
+                }))}
+                disabled={!courseId}
+              />
+            </GlobalFilterField>
           </div>
-        </GlobalFilterField>
-      </GlobalFilterBarRow>
+          <div className="inv-allot-report-filters__fx35">
+            <GlobalFilterField
+              label="Exam Master *"
+              className="min-w-[280px] flex-[2]"
+            >
+              <Select
+                value={examId || null}
+                onChange={(v) => setExamId(v ?? "")}
+                options={exams.map((r) => ({
+                  value: String(num(r.fk_exam_id)),
+                  label: examMasterLabel(r),
+                }))}
+                searchable
+                wrapOptionLabels
+                disabled={!academicYearId}
+              />
+            </GlobalFilterField>
+          </div>
+          <div className="inv-allot-report-filters__fx15">
+            <GlobalFilterField label="Exam Type *">
+              <Select
+                value={examTypeId}
+                onChange={(v) => setExamTypeId(v ?? "0")}
+                options={examTypeOptions}
+              />
+            </GlobalFilterField>
+          </div>
+        </div>
+        <div className="inv-allot-report-filters__row">
+          <div className="inv-allot-report-filters__fx20">
+            <GlobalFilterField label="College *">
+              <Select
+                value={collegeId || null}
+                onChange={(v) => {
+                  setCollegeId(v ?? "");
+                  setCourseGroupId("");
+                  setCourseYearId("");
+                }}
+                options={colleges.map((r) => ({
+                  value: String(num(r.fk_college_id)),
+                  label: txt(r.college_code) || String(num(r.fk_college_id)),
+                }))}
+                disabled={!examId}
+              />
+            </GlobalFilterField>
+          </div>
+          <div className="inv-allot-report-filters__fx15">
+            <GlobalFilterField label="Course Group *">
+              <Select
+                value={courseGroupId || null}
+                onChange={(v) => {
+                  setCourseGroupId(v ?? "");
+                  setCourseYearId("");
+                }}
+                options={courseGroups.map((r) => ({
+                  value: String(num(r.fk_course_group_id)),
+                  label: txt(r.group_code) || String(num(r.fk_course_group_id)),
+                }))}
+                disabled={!collegeId}
+              />
+            </GlobalFilterField>
+          </div>
+          <div className="inv-allot-report-filters__fx15">
+            <GlobalFilterField label="Course Years *">
+              <Select
+                value={courseYearId || null}
+                onChange={(v) => setCourseYearId(v ?? "")}
+                options={courseYears.map((r) => ({
+                  value: String(num(r.fk_course_year_id)),
+                  label:
+                    txt(r.course_year_code) || String(num(r.fk_course_year_id)),
+                }))}
+                disabled={!courseGroupId}
+              />
+            </GlobalFilterField>
+          </div>
+          <div className="inv-allot-report-filters__fx15">
+            <GlobalFilterField
+              label="Student"
+              className="min-w-[240px] flex-[1.5]"
+            >
+              <Select
+                value={hallticketNo || "0"}
+                onChange={(v) => setHallticketNo(v ?? "0")}
+                options={studentSelectOptions}
+                searchable
+                isLoading={searchingStudent}
+                onSearch={(term) => void onSearchStudent(term)}
+                placeholder="Search by name or hallticket"
+              />
+            </GlobalFilterField>
+          </div>
+          <div className="inv-allot-report-filters__fx13">
+            <GlobalFilterField label="" className="global-filter-field--shrink">
+              <div className="flex h-[30px] items-center gap-2">
+                <Checkbox
+                  id="tabulation-reeval"
+                  checked={isReEvaluation}
+                  onCheckedChange={(v) => setIsReEvaluation(v === true)}
+                />
+                <Label
+                  htmlFor="tabulation-reeval"
+                  className="cursor-pointer text-[12px] font-normal"
+                >
+                  Is Re-Evaluation
+                </Label>
+              </div>
+            </GlobalFilterField>
+          </div>
+          <div className="inv-allot-report-filters__fx15">
+            <GlobalFilterField
+              label=""
+              className="global-filter-field--shrink global-filter-field--action"
+            >
+              <div className="flex items-end gap-2">
+                <Button
+                  type="button"
+                  className="h-[30px] w-full px-3 text-[12px]"
+                  onClick={() => void onGetReport()}
+                  disabled={loading}
+                >
+                  Get Report
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-[30px] w-[30px]"
+                  title="Reset"
+                  onClick={() => {
+                    setRows([]);
+                    setHasFetched(false);
+                    setHallticketNo("0");
+                    setIsReEvaluation(false);
+                    setStudentOptions([]);
+                  }}
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+              </div>
+            </GlobalFilterField>
+          </div>
+        </div>
+      </div>
     </>
   );
 

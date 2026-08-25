@@ -132,7 +132,7 @@
   --app-control-height: 30px;
   --app-control-font-size: 14px;
   --app-label-font-size: 13px;
-  --app-table-header-font-size: 15px;
+  --app-table-header-font-size: 14px;
   --app-table-row-font-size: 14px;
   --app-table-row-height: 35px;
   --app-table-header-color: #000000;
@@ -271,6 +271,110 @@
   padding: 1rem 1.25rem;
 }
 
+/*
+ * Compact `md:col-span-2` filter fields (college / year / group codes, etc.).
+ * One knob for all FilteredListPage / AngularFilterCard Tailwind grids —
+ * change `--filter-col-span-2-max` here; pages keep `md:col-span-2`.
+ */
+
+/* Invigilator Allotment Report — Angular fxFlex row widths (20/20/60 + wrap) */
+.inv-allot-report-filters__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  width: 100%;
+  gap: 0;
+}
+
+.inv-allot-report-filters__fx5,
+.inv-allot-report-filters__fx7,
+.inv-allot-report-filters__fx10,
+.inv-allot-report-filters__fx13,
+.inv-allot-report-filters__fx15,
+.inv-allot-report-filters__fx20,
+.inv-allot-report-filters__fx25,
+.inv-allot-report-filters__fx30,
+.inv-allot-report-filters__fx33,
+.inv-allot-report-filters__fx52,
+.inv-allot-report-filters__fx60 {
+  flex: 1 1 100%;
+  min-width: 0;
+  max-width: 100%;
+  padding: 0 0.5rem;
+  box-sizing: border-box;
+}
+
+/* GlobalFilterField nested in Angular fx wrappers fills the slot */
+.inv-allot-report-filters__fx5 > .global-filter-field,
+.inv-allot-report-filters__fx7 > .global-filter-field,
+.inv-allot-report-filters__fx10 > .global-filter-field,
+.inv-allot-report-filters__fx13 > .global-filter-field,
+.inv-allot-report-filters__fx15 > .global-filter-field,
+.inv-allot-report-filters__fx20 > .global-filter-field,
+.inv-allot-report-filters__fx25 > .global-filter-field,
+.inv-allot-report-filters__fx30 > .global-filter-field,
+.inv-allot-report-filters__fx33 > .global-filter-field,
+.inv-allot-report-filters__fx52 > .global-filter-field,
+.inv-allot-report-filters__fx40 > .global-filter-field,
+.inv-allot-report-filters__fx60 > .global-filter-field {
+  flex: none;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (min-width: 768px) {
+  .inv-allot-report-filters__fx5 {
+    flex: 0 0 5%;
+
+    max-width: 5%;
+  }
+  .inv-allot-report-filters__fx7 {
+    flex: 0 0 7%;
+    max-width: 7%;
+  }
+  .inv-allot-report-filters__fx10 {
+    flex: 0 0 10%;
+    max-width: 10%;
+  }
+  .inv-allot-report-filters__fx13 {
+    flex: 0 0 13%;
+    max-width: 13%;
+  }
+  .inv-allot-report-filters__fx15 {
+    flex: 0 0 15%;
+    max-width: 15%;
+  }
+  .inv-allot-report-filters__fx20 {
+    flex: 0 0 20%;
+    max-width: 20%;
+  }
+  .inv-allot-report-filters__fx25 {
+    flex: 0 0 25%;
+    max-width: 25%;
+  }
+  .inv-allot-report-filters__fx30 {
+    flex: 0 0 30%;
+    max-width: 30%;
+  }
+  .inv-allot-report-filters__fx33 {
+    flex: 0 0 33%;
+    max-width: 33%;
+  }
+  .inv-allot-report-filters__fx40 {
+    flex: 0 0 40%;
+    max-width: 40%;
+  }
+  .inv-allot-report-filters__fx52 {
+    flex: 0 0 52%;
+    max-width: 52%;
+  }
+  .inv-allot-report-filters__fx60 {
+    flex: 0 0 60%;
+    max-width: 60%;
+  }
+}
+
 .global-filter-bar__row--fields {
   display: flex;
   flex-wrap: wrap;
@@ -310,7 +414,7 @@
 }
 
 .global-filter-field {
-  flex: 1 1 12rem;
+  flex: 1 1 0rem;
   min-width: 10rem;
   max-width: 100%;
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ColDef } from "ag-grid-community";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { FilteredListPage } from "@/components/layout";
 import {
   GlobalFilterBarRow,
@@ -15,7 +15,13 @@ import { rowIndexGetter } from "@/lib/utils";
 import { dedupeBy, num, txt } from "@/common/utils/data-helpers";
 import { toastError, toastSuccess } from "@/lib/toast";
 import { toast } from "sonner";
-import { useCollegeLogo } from "@/hooks/useCollegeLogo";
+import { DEFAULT_COLLEGE_LOGO, useCollegeLogo } from "@/hooks/useCollegeLogo";
+import { useSessionContext } from "@/context/SessionContext";
+import { printHtmlInIframe } from "@/lib/print";
+import {
+  resolveAttendancePrintLogo,
+  toPrintLogoUrl,
+} from "@/app/(pages)/(protected)/reports/admin-attendance-reports/_lib/attendance-report-print";
 import {
   buildHtmlTable,
   exportHtmlTableAsExcel,
@@ -25,6 +31,7 @@ import {
   getEvalReportEvaluators,
   getEvalReportSubjectRows,
   getExamEvaluationDetailReport,
+  listActiveCollegesForGeneralSettings,
   type AnyRow,
 } from "@/services";
 import { useRouter } from "next/navigation";
@@ -39,6 +46,22 @@ const TOOLBAR = {
   exportExcel: false,
   columnFilters: false,
 } as const;
+
+/**
+ * Angular: `<span style="color: blue;font-weight: 600;">…</span>`
+ * Must be a renderer — `.ag-cell-value { color: #000 }` overrides cellStyle.
+ */
+function blueNumRenderer(p: ICellRendererParams<AnyRow>) {
+  const value = p.value ?? "";
+  return (
+    <span style={{ color: "blue", fontWeight: 600 }}>{String(value)}</span>
+  );
+}
+
+const BLUE_NUM_COL = {
+  cellRenderer: blueNumRenderer,
+  cellStyle: { textAlign: "center" } as const,
+};
 
 function formatExamLabel(exam: AnyRow): string {
   const name = txt(exam.exam_name);
@@ -62,8 +85,11 @@ function escapeHtml(value: string): string {
 }
 
 /** Angular printPage() — portrait report with logo + compact table. */
-function printEvaluationReport(rows: AnyRow[], logoUrl: string) {
-  if (!rows.length) return;
+function buildEvaluationPrintHtml(
+  rows: AnyRow[],
+  logoSrc: string,
+  fallbackLogo: string,
+): string {
   const rowHtml = rows
     .map((row, i) => {
       const assigned = num(row.evaluator_subject_evaluation_cnt);
@@ -89,7 +115,7 @@ function printEvaluationReport(rows: AnyRow[], logoUrl: string) {
       </tr>`;
     })
     .join("");
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Exam Evaluation Report</title>
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Exam Evaluation Report</title>
 <style>
 @page { size: A4 portrait; margin: 10mm; }
 * { box-sizing: border-box; }
@@ -153,8 +179,8 @@ td {
   text-align: center;
 }
 .num {
-  color: #1d4ed8;
-  font-weight: 700;
+  color: blue;
+  font-weight: 600;
   text-align: center;
 }
 </style></head>
@@ -162,7 +188,8 @@ td {
   <div class="report-shell">
     <div class="report-header">
       <div class="logo-wrap">
-        <img src="${escapeHtml(logoUrl)}" class="logo" alt="College Logo" />
+        <img src="${escapeHtml(logoSrc)}" class="logo" alt="College Logo"
+          onerror="this.onerror=null;this.src='${escapeHtml(fallbackLogo)}'" />
       </div>
       <div class="title-wrap">
         <p class="collegeName">Exam Evaluation Report</p>
@@ -192,33 +219,61 @@ td {
     </table>
   </div>
 </body></html>`;
+}
 
-  const frame = document.createElement("iframe");
-  frame.setAttribute("aria-hidden", "true");
-  frame.style.cssText =
-    "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
-  document.body.appendChild(frame);
-  const fdoc = frame.contentDocument;
-  const win = frame.contentWindow;
-  if (!fdoc || !win) {
-    frame.remove();
-    return;
+/**
+ * Angular getCollegeLogo(): active College list → Logo = list[0].logo
+ * Prefer session college when available, else first active college.
+ */
+async function printEvaluationReport(
+  rows: AnyRow[],
+  liveLogoUrl: string,
+  sessionCollegeId: number,
+): Promise<void> {
+  if (!rows.length) return;
+
+  let collegeId = sessionCollegeId > 0 ? sessionCollegeId : 0;
+  let collegeRow: AnyRow | undefined;
+  try {
+    const list = await listActiveCollegesForGeneralSettings();
+    if (collegeId > 0) {
+      collegeRow = list.find((c) => Number(c.collegeId) === collegeId) as
+        | AnyRow
+        | undefined;
+    }
+    if (!collegeRow && list.length > 0) {
+      // Angular: this.Logo = this.collegesLogoList[0].logo
+      collegeRow = list[0] as AnyRow;
+      collegeId = Number(collegeRow.collegeId) || collegeId;
+    }
+  } catch {
+    /* resolveAttendancePrintLogo still tries getCollegeById / hook */
   }
-  fdoc.open();
-  fdoc.write(html);
-  fdoc.close();
-  win.addEventListener("afterprint", () => frame.remove());
-  setTimeout(() => {
-    win.focus();
-    win.print();
-  }, 50);
+
+  const logoSrc = await resolveAttendancePrintLogo(
+    collegeRow ?? null,
+    collegeId,
+    liveLogoUrl,
+  );
+  const fallbackLogo = toPrintLogoUrl(DEFAULT_COLLEGE_LOGO);
+  printHtmlInIframe(buildEvaluationPrintHtml(rows, logoSrc, fallbackLogo));
 }
 
 export default function ExamEvaluationReportPage() {
   const router = useRouter();
+  const { user } = useSessionContext();
+  const sessionCollegeId = Number(
+    user?.collegeId ||
+      (typeof window !== "undefined"
+        ? globalThis.localStorage?.getItem("collegeId")
+        : 0) ||
+      0,
+  );
   const [loadingFilters, setLoadingFilters] = useState(false);
   const [loadingList, setLoadingList] = useState(false);
-  const collegeLogo = useCollegeLogo(null);
+  const collegeLogo = useCollegeLogo(
+    sessionCollegeId > 0 ? sessionCollegeId : null,
+  );
 
   const [baseRows, setBaseRows] = useState<AnyRow[]>([]);
   const [academicYears, setAcademicYears] = useState<AnyRow[]>([]);
@@ -634,21 +689,25 @@ export default function ExamEvaluationReportPage() {
         headerName: "Total Papers",
         minWidth: 110,
         valueGetter: (p) => num(p.data?.total_uploaded),
+        ...BLUE_NUM_COL,
       },
       {
         headerName: "Assigned",
         minWidth: 100,
         valueGetter: (p) => num(p.data?.total_evaluation_assgn_cnt),
+        ...BLUE_NUM_COL,
       },
       {
         headerName: "Not Assigned",
         minWidth: 110,
         valueGetter: (p) => num(p.data?.total_unassigned),
+        ...BLUE_NUM_COL,
       },
       {
         headerName: "Completed",
         minWidth: 100,
         valueGetter: (p) => num(p.data?.total_subject_evaluation_completed_cnt),
+        ...BLUE_NUM_COL,
       },
       {
         headerName: "Evaluator Type",
@@ -674,12 +733,14 @@ export default function ExamEvaluationReportPage() {
         headerName: "Assigned",
         minWidth: 100,
         valueGetter: (p) => num(p.data?.evaluator_subject_evaluation_cnt),
+        ...BLUE_NUM_COL,
       },
       {
         headerName: "Completed",
         minWidth: 100,
         valueGetter: (p) =>
           num(p.data?.evaluator_subject_evaluation_completed_cnt),
+        ...BLUE_NUM_COL,
       },
       {
         headerName: "Due",
@@ -687,6 +748,7 @@ export default function ExamEvaluationReportPage() {
         valueGetter: (p) =>
           num(p.data?.evaluator_subject_evaluation_cnt) -
           num(p.data?.evaluator_subject_evaluation_completed_cnt),
+        ...BLUE_NUM_COL,
       },
     ],
     [],
@@ -694,167 +756,188 @@ export default function ExamEvaluationReportPage() {
 
   const filters = (
     <>
-      <GlobalFilterBarRow>
-        <GlobalFilterField label="Course *">
-          <Select
-            options={courses.map((c) => ({
-              value: String(num(c.fk_course_id)),
-              label: txt(c.course_code),
-            }))}
-            value={courseId || null}
-            onChange={(v) => {
-              void selectedCourse(v ?? "", baseRows);
-            }}
-            disabled={loadingFilters}
-            placeholder="Course"
-          />
-        </GlobalFilterField>
-        <GlobalFilterField label="Exam Year *">
-          <Select
-            options={academicYears.map((y) => ({
-              value: String(num(y.fk_academic_year_id)),
-              label: txt(y.academic_year),
-            }))}
-            value={academicYearId || null}
-            onChange={(v) => {
-              void selectedAcademicYear(v ?? "", {
-                courseId,
-                base: baseRows,
-              });
-            }}
-            disabled={loadingFilters || !courseId}
-            placeholder="Exam Year"
-          />
-        </GlobalFilterField>
-        <GlobalFilterField
-          label="Exam Master *"
-          className="min-w-[280px] flex-[2]"
-        >
-          <Select
-            options={exams.map((e) => ({
-              value: String(num(e.fk_exam_id)),
-              label: formatExamLabel(e),
-            }))}
-            value={examId || null}
-            onChange={(v) => {
-              void selectedExam(v ?? "", {
-                courseId,
-                academicYearId,
-              });
-            }}
-            disabled={loadingFilters || !academicYearId}
-            placeholder="Exam Master"
-            searchable
-          />
-        </GlobalFilterField>
-      </GlobalFilterBarRow>
+      <div className="inv-allot-report-filters space-y-2">
+        <div className="inv-allot-report-filters__row">
+          <div className="inv-allot-report-filters__fx20">
+            <GlobalFilterField label="Course *">
+              <Select
+                options={courses.map((c) => ({
+                  value: String(num(c.fk_course_id)),
+                  label: txt(c.course_code),
+                }))}
+                value={courseId || null}
+                onChange={(v) => {
+                  void selectedCourse(v ?? "", baseRows);
+                }}
+                disabled={loadingFilters}
+                placeholder="Course"
+              />
+            </GlobalFilterField>
+          </div>
+          <div className="inv-allot-report-filters__fx20">
+            <GlobalFilterField label="Exam Year *">
+              <Select
+                options={academicYears.map((y) => ({
+                  value: String(num(y.fk_academic_year_id)),
+                  label: txt(y.academic_year),
+                }))}
+                value={academicYearId || null}
+                onChange={(v) => {
+                  void selectedAcademicYear(v ?? "", {
+                    courseId,
+                    base: baseRows,
+                  });
+                }}
+                disabled={loadingFilters || !courseId}
+                placeholder="Exam Year"
+              />
+            </GlobalFilterField>
+          </div>
+          <div className="inv-allot-report-filters__fx60">
+            <GlobalFilterField
+              label="Exam Master *"
+              className="min-w-[280px] flex-[2]"
+            >
+              <Select
+                options={exams.map((e) => ({
+                  value: String(num(e.fk_exam_id)),
+                  label: formatExamLabel(e),
+                }))}
+                value={examId || null}
+                onChange={(v) => {
+                  void selectedExam(v ?? "", {
+                    courseId,
+                    academicYearId,
+                  });
+                }}
+                disabled={loadingFilters || !academicYearId}
+                placeholder="Exam Master"
+                searchable
+              />
+            </GlobalFilterField>
+          </div>
+        </div>
 
-      <GlobalFilterBarRow>
-        <GlobalFilterField label="Regulation *">
-          <Select
-            options={[
-              { value: "0", label: "All" },
-              ...regulations.map((r) => ({
-                value: String(num(r.fk_regulation_id)),
-                label: txt(r.regulation_code),
-              })),
-            ]}
-            value={regulationId || null}
-            onChange={(v) => {
-              void selectedRegulation(v ?? "", {
-                courseId,
-                academicYearId,
-                examId,
-              });
-            }}
-            disabled={loadingFilters || !examId}
-            placeholder="Regulation"
-          />
-        </GlobalFilterField>
-        <GlobalFilterField label="Subject *" className="min-w-[240px] flex-[2]">
-          <Select
-            options={[
-              { value: "0", label: "All" },
-              ...subjects.map((s) => ({
-                value: String(num(s.fk_subject_id)),
-                label: `${txt(s.subject_name)} (${txt(s.subject_code)})`,
-              })),
-            ]}
-            value={subjectId || null}
-            onChange={(v) => {
-              void selectedSubject(v ?? "", {
-                courseId,
-                academicYearId,
-                examId,
-                regulationId,
-              });
-            }}
-            disabled={loadingFilters || regulationId === ""}
-            placeholder="Subject"
-            searchable
-          />
-        </GlobalFilterField>
-        <GlobalFilterField label="Evaluators" className="min-w-[200px]">
-          <Select
-            options={[
-              { value: "0", label: "All" },
-              ...evaluators.map((e) => ({
-                value: String(num(e.fk_exam_evaluator_profile_id)),
-                label: `${txt(e.evaluator_name)} (${txt(e.user_name)})`,
-              })),
-            ]}
-            value={evaluatorProfileId || null}
-            onChange={(v) => {
-              setEvaluatorProfileId(v ?? "");
-              clearResults();
-            }}
-            disabled={loadingFilters || subjectId === ""}
-            placeholder="Evaluators"
-            searchable
-          />
-        </GlobalFilterField>
-        <GlobalFilterField label="Is Re-Evaluation">
-          <div className="flex h-[30px] items-center gap-2">
-            <Checkbox
-              id="evalIsReevaluation"
-              checked={isReevaluation}
-              onCheckedChange={(v) => {
-                setIsReevaluation(v === true);
-                clearResults();
-              }}
-            />
-            <Label
-              htmlFor="evalIsReevaluation"
-              className="text-[12px] font-normal"
-            >
-              Is Re-Evaluation
-            </Label>
+        <div className="inv-allot-report-filters__row">
+          <div className="inv-allot-report-filters__fx13">
+            <GlobalFilterField label="Regulation *">
+              <Select
+                options={[
+                  { value: "0", label: "All" },
+                  ...regulations.map((r) => ({
+                    value: String(num(r.fk_regulation_id)),
+                    label: txt(r.regulation_code),
+                  })),
+                ]}
+                value={regulationId || null}
+                onChange={(v) => {
+                  void selectedRegulation(v ?? "", {
+                    courseId,
+                    academicYearId,
+                    examId,
+                  });
+                }}
+                disabled={loadingFilters || !examId}
+                placeholder="Regulation"
+              />
+            </GlobalFilterField>
           </div>
-        </GlobalFilterField>
-        <GlobalFilterField
-          label=""
-          className="global-filter-field--shrink global-filter-field--action"
-        >
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              onClick={() => void onGetList()}
-              disabled={loadingList}
-              className="h-[30px] px-3 text-[12px]"
+          <div className="inv-allot-report-filters__fx40">
+            <GlobalFilterField
+              label="Subject *"
+              className="min-w-[240px] flex-[2]"
             >
-              Get List
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={onBack}
-              className="h-[30px] px-3 text-[12px] bg-amber-400 hover:bg-amber-500 text-black"
-            >
-              Back
-            </Button>
+              <Select
+                options={[
+                  { value: "0", label: "All" },
+                  ...subjects.map((s) => ({
+                    value: String(num(s.fk_subject_id)),
+                    label: `${txt(s.subject_name)} (${txt(s.subject_code)})`,
+                  })),
+                ]}
+                value={subjectId || null}
+                onChange={(v) => {
+                  void selectedSubject(v ?? "", {
+                    courseId,
+                    academicYearId,
+                    examId,
+                    regulationId,
+                  });
+                }}
+                disabled={loadingFilters || regulationId === ""}
+                placeholder="Subject"
+                searchable
+              />
+            </GlobalFilterField>
           </div>
-        </GlobalFilterField>
-      </GlobalFilterBarRow>
+          <div className="inv-allot-report-filters__fx20">
+            <GlobalFilterField label="Evaluators">
+              <Select
+                options={[
+                  { value: "0", label: "All" },
+                  ...evaluators.map((e) => ({
+                    value: String(num(e.fk_exam_evaluator_profile_id)),
+                    label: `${txt(e.evaluator_name)} (${txt(e.user_name)})`,
+                  })),
+                ]}
+                value={evaluatorProfileId || null}
+                onChange={(v) => {
+                  setEvaluatorProfileId(v ?? "");
+                  clearResults();
+                }}
+                disabled={loadingFilters || subjectId === ""}
+                placeholder="Evaluators"
+                searchable
+              />
+            </GlobalFilterField>
+          </div>
+          <div className="inv-allot-report-filters__fx13">
+            <GlobalFilterField label="">
+              <div className="flex h-[30px] items-center gap-2">
+                <Checkbox
+                  id="evalIsReevaluation"
+                  checked={isReevaluation}
+                  onCheckedChange={(v) => {
+                    setIsReevaluation(v === true);
+                    clearResults();
+                  }}
+                />
+                <Label
+                  htmlFor="evalIsReevaluation"
+                  className="text-[12px] font-normal"
+                >
+                  Is Re-Evaluation
+                </Label>
+              </div>
+            </GlobalFilterField>
+          </div>
+          <div className="inv-allot-report-filters__fx13">
+            <GlobalFilterField
+              label=""
+              className="global-filter-field--shrink global-filter-field--action"
+            >
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  onClick={() => void onGetList()}
+                  disabled={loadingList}
+                  className="h-[30px] px-3 text-[12px] w-full"
+                >
+                  Get List
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={onBack}
+                  className="h-[30px] px-3 text-[12px] bg-amber-400 hover:bg-amber-500 text-black w-full"
+                >
+                  Back
+                </Button>
+              </div>
+            </GlobalFilterField>
+          </div>
+        </div>
+      </div>
     </>
   );
 
@@ -867,6 +950,7 @@ export default function ExamEvaluationReportPage() {
       columnDefs={columnDefs}
       loading={loadingList}
       pagination
+      fitColumnsToWidth={false}
       toolbar={TOOLBAR}
       toolbarTrailing={
         rows.length > 0 ? (
@@ -881,7 +965,9 @@ export default function ExamEvaluationReportPage() {
             <Button
               type="button"
               className="h-[30px] px-3 text-[12px]"
-              onClick={() => printEvaluationReport(rows, collegeLogo)}
+              onClick={() => {
+                void printEvaluationReport(rows, collegeLogo, sessionCollegeId);
+              }}
             >
               Print Report
             </Button>

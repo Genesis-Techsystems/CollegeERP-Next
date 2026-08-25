@@ -23,12 +23,16 @@ import {
   getGeneralDetails,
   getUnivExamFiltersRegSup,
   getUnivExamRestInRegExamStd,
+  listActiveCollegesForGeneralSettings,
   type AnyRow,
 } from "@/services";
 import { printHtmlInIframe } from "@/lib/print";
 import { DEFAULT_COLLEGE_LOGO, useCollegeLogo } from "@/hooks/useCollegeLogo";
 import {
+  isDefaultLogoUrl,
+  logoToDataUrl,
   resolveAttendancePrintLogo as resolveReportPrintLogo,
+  toCollegeLogoUrl,
   toPrintLogoUrl,
 } from "@/app/(pages)/(protected)/reports/admin-attendance-reports/_lib/attendance-report-print";
 
@@ -145,8 +149,10 @@ function printModerationReport(args: {
   examName: string;
   courseGroupCode: string;
   courseYearCode: string;
+  orgCode?: string;
   rows: Row[];
 }): void {
+  const isSuk = String(args.orgCode ?? "").toUpperCase() === "SUK";
   const bodyRows = args.rows
     .map(
       (r, i) =>
@@ -169,50 +175,124 @@ function printModerationReport(args: {
     )
     .join("");
 
-  const courseMeta = args.courseGroupCode
-    ? `<p style="text-align:left;width:50%;margin:0;">Course : ${escapeHtml(args.courseGroupCode)}</p>`
-    : "";
-  const semesterMeta = args.courseYearCode
-    ? `<p style="text-align:right;width:50%;margin:0;">Semester : ${escapeHtml(args.courseYearCode)}</p>`
-    : "";
+  // Angular non-SUK: logo 12% + titles 88%. SUK: full-width banner logo + centered titles.
+  // Prefer embedded data URL (no onerror→default wipe). Fallback only for http(s) src.
+  const logoOnError = args.collegeLogo.startsWith("data:")
+    ? ""
+    : ` onerror="this.onerror=null;this.src='${escapeHtml(args.fallbackLogo)}'"`;
+  const headerHtml = isSuk
+    ? `<div class="suk-banner">
+        <img src="${escapeHtml(args.collegeLogo)}" alt="College Logo"${logoOnError} />
+      </div>
+      <div class="suk-header">
+        ${args.collegeName ? `<p class="collegeName">${escapeHtml(args.collegeName)}</p>` : ""}
+        <p class="title">${escapeHtml(REPORT_TITLE)}</p>
+        ${args.examName ? `<p class="details">${escapeHtml(args.examName)}</p>` : ""}
+      </div>`
+    : `<div class="header-row">
+        <div class="logo-col">
+          <img src="${escapeHtml(args.collegeLogo)}" alt="College Logo"${logoOnError} />
+        </div>
+        <div class="title-col">
+          ${args.collegeName ? `<p class="collegeName">${escapeHtml(args.collegeName)}</p>` : ""}
+          <p class="title">${escapeHtml(REPORT_TITLE)}</p>
+          ${args.examName ? `<p class="details">${escapeHtml(args.examName)}</p>` : ""}
+        </div>
+      </div>`;
 
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(REPORT_TITLE)}</title><style>
-@page { size: A4 portrait; margin: 10mm; }
+@page { size: A4 portrait; margin: 8mm; }
 * { box-sizing: border-box; }
-body {
+html, body {
   font-family: Arial, Helvetica, sans-serif;
-  color: #000; margin: 0; padding: 8px 12px;
+  color: #000; margin: 0; padding: 8px 12px; background: #fff;
   -webkit-print-color-adjust: exact; print-color-adjust: exact;
 }
-.header-row { display: flex; align-items: flex-start; width: 100%; margin-bottom: 4px; }
-.logo-col { width: 12%; flex: 0 0 12%; padding-right: 8px; }
-.logo-col img { max-width: 100%; width: 90px; height: auto; display: block; object-fit: contain; }
-.title-col { width: 88%; flex: 1 1 88%; text-align: center; }
-.collegeName { text-align: center; font-size: 22px; font-weight: 550; margin: 16px 0 0; color: #000; }
-.title { text-align: center; font-size: 20px; font-weight: 550; margin: 2px 0 4px; color: #000; }
-.details { text-align: center; font-size: 16px; margin: 0 0 4px; color: #000; }
-.meta { display: flex; justify-content: space-between; width: 100%; margin: 4px 0 8px; font-size: 14px; color: #000; }
-table.mar { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
-th.table-th, td.table-td { border: 1px solid #333; padding: 6px 5px; vertical-align: top; word-break: break-word; }
-th.table-th { background: #c3d9ff; font-weight: 550; text-align: center; }
+.header-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 2px;
+}
+.logo-col {
+  flex: 0 0 12%;
+  width: 12%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding-right: 8px;
+}
+.logo-col img {
+  max-width: 100%;
+  width: 90px;
+  height: auto;
+  max-height: 95px;
+  display: block;
+  object-fit: contain;
+}
+.title-col { flex: 1 1 88%; width: 88%; text-align: center; }
+.suk-banner { width: 100%; text-align: center; margin: 0 0 4px; }
+.suk-banner img { width: 100%; max-width: 1200px; height: auto; display: block; margin: 0 auto; }
+.suk-header { text-align: center; margin: 0 0 6px; }
+.collegeName {
+  text-align: center !important;
+  font-size: 30px !important;
+  font-weight: 550 !important;
+  margin: 16px 0 -10px !important;
+  color: #000 !important;
+}
+.title {
+  text-align: center !important;
+  font-size: 25px !important;
+  font-weight: 550 !important;
+  margin: 2px 0 4px !important;
+  color: #000 !important;
+}
+.details {
+  text-align: center !important;
+  font-size: 23px !important;
+  margin: 0 0 6px !important;
+  color: #000 !important;
+}
+.meta {
+  display: flex;
+  width: 100%;
+  margin: 6px 0 8px;
+  font-size: 14px;
+  color: #000;
+}
+.meta p { margin: 0; color: #000 !important; }
+.meta .course { text-align: left !important; width: 50%; }
+.meta .semester { text-align: right !important; width: 50%; }
+table.mar {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 10px;
+}
+th.table-th, td.table-td {
+  border: 1px solid #000;
+  padding: 6px 4px;
+  vertical-align: middle;
+  word-break: break-word;
+  font-size: 11px;
+}
+th.table-th {
+  background: #f2f2f2 !important;
+  font-weight: 600;
+  text-align: center !important;
+}
 tr { break-inside: avoid; page-break-inside: avoid; }
 thead { display: table-header-group; }
-.instructtable { width: 100%; margin-top: 8px; font-size: 12px; }
+.instructtable { width: 100%; margin-top: 8px; font-size: 12px; border: none; }
+.instructtable td { border: none; padding: 0; }
 .instructtable strong { color: #0014ff; }
-.instructtable ol { margin: 4px 0 0; padding-left: 20px; }
+.instructtable ol { margin: 4px 0 0; padding-left: 22px; }
 </style></head><body>
-  <div class="header-row">
-    <div class="logo-col">
-      <img src="${escapeHtml(args.collegeLogo)}" alt="College Logo"
-        onerror="this.onerror=null;this.src='${escapeHtml(args.fallbackLogo)}'" />
-    </div>
-    <div class="title-col">
-      ${args.collegeName ? `<p class="collegeName">${escapeHtml(args.collegeName)}</p>` : ""}
-      <p class="title">${escapeHtml(REPORT_TITLE)}</p>
-      ${args.examName ? `<p class="details">${escapeHtml(args.examName)}</p>` : ""}
-    </div>
+  ${headerHtml}
+  <div class="meta">
+    <p class="course">Course : ${escapeHtml(args.courseGroupCode || "")}</p>
+    <p class="semester">Semester : ${escapeHtml(args.courseYearCode || "")}</p>
   </div>
-  ${courseMeta || semesterMeta ? `<div class="meta">${courseMeta}${semesterMeta}</div>` : ""}
   <table class="mar">
     <thead>
       <tr>
@@ -242,7 +322,7 @@ thead { display: table-header-group; }
   </table>
   <table class="instructtable">
     <tr>
-      <td colspan="100%">
+      <td>
         <strong>Moderation Marks :</strong>
         <ol>
           <li>If the pass in a subject is &lt; 30% then 4 is added.</li>
@@ -662,7 +742,8 @@ function ModerationReportsPage() {
           txt(course?.course_code),
           Number(courseGroupId) > 0 ? txt(group?.group_code) : "",
           Number(courseYearId) > 0 ? txt(year?.course_year_code) : "",
-          exam ? examMasterLabel(exam) : "",
+          // Angular selectedData: exam_name only (no date range / Regular/Supple tags)
+          exam ? txt(exam.exam_name ?? exam.examName) : "",
         ]
           .filter(Boolean)
           .join(" / "),
@@ -737,9 +818,6 @@ function ModerationReportsPage() {
 
     const college =
       colleges.find((r) => num(r.fk_college_id) === Number(collegeId)) ?? null;
-    const collegeRecord = await getCollegeById(Number(collegeId)).catch(
-      () => null,
-    );
     const exam = exams.find((r) => num(r.fk_exam_id) === Number(examId));
     const group = courseGroups.find(
       (r) => num(r.fk_course_group_id) === Number(courseGroupId),
@@ -747,19 +825,54 @@ function ModerationReportsPage() {
     const year = courseYears.find(
       (r) => num(r.fk_course_year_id) === Number(courseYearId),
     );
-    const logoSrc = await resolveReportPrintLogo(
-      null,
-      Number(collegeId || 0),
-      collegeLogo || DEFAULT_COLLEGE_LOGO,
-    );
+
+    // Angular getColleges(): list active College rows, pick logo + collegeName by id
+    let collegeName = "";
+    let rawLogo = "";
+    try {
+      const collegeList = await listActiveCollegesForGeneralSettings();
+      const match = collegeList.find(
+        (c) => Number(c.collegeId) === Number(collegeId),
+      );
+      collegeName = txt(match?.collegeName);
+      rawLogo = txt(match?.logo);
+    } catch {
+      /* fall through */
+    }
+    if (!collegeName || !rawLogo) {
+      const collegeRecord = await getCollegeById(Number(collegeId)).catch(
+        () => null,
+      );
+      if (!collegeName) {
+        collegeName = txt(
+          collegeRecord?.collegeName ??
+            college?.college_name ??
+            college?.collegeName ??
+            college?.college_code,
+        );
+      }
+      if (!rawLogo) rawLogo = txt(collegeRecord?.logo);
+    }
+
+    // Prefer live hook URL, then Angular logo (MINIO + path), embed as data URL for iframe
+    let logoSrc = "";
+    if (collegeLogo && !isDefaultLogoUrl(collegeLogo)) {
+      logoSrc = await logoToDataUrl(collegeLogo);
+    }
+    if (!logoSrc.startsWith("data:image") && rawLogo) {
+      const angularUrl = toCollegeLogoUrl(rawLogo) || rawLogo;
+      logoSrc = await logoToDataUrl(angularUrl);
+    }
+    if (!logoSrc.startsWith("data:image")) {
+      logoSrc = await resolveReportPrintLogo(
+        null,
+        Number(collegeId || 0),
+        collegeLogo || DEFAULT_COLLEGE_LOGO,
+      );
+    }
 
     printModerationReport({
-      collegeName: txt(
-        collegeRecord?.collegeName ??
-          college?.college_name ??
-          college?.collegeName ??
-          college?.college_code,
-      ),
+      collegeName,
       collegeLogo: logoSrc,
       fallbackLogo: toPrintLogoUrl(DEFAULT_COLLEGE_LOGO),
       examName: txt(exam?.exam_name ?? exam?.examName),
@@ -769,8 +882,14 @@ function ModerationReportsPage() {
           : "",
       courseYearCode:
         Number(courseYearId) > 0
-          ? txt(year?.course_year_code ?? year?.courseYearCode)
+          ? txt(
+              year?.course_year_name ??
+                year?.courseYearName ??
+                year?.course_year_code ??
+                year?.courseYearCode,
+            )
           : "",
+      orgCode: String(globalThis?.localStorage?.getItem("orgCode") ?? ""),
       rows,
     });
   }

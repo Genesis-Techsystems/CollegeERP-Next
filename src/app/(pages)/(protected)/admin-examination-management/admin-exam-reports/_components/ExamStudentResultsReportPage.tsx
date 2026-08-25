@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ColDef } from "ag-grid-community";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { format, parseISO } from "date-fns";
 import { Printer, RefreshCw } from "lucide-react";
 import { printHtmlInIframe } from "@/lib/print";
@@ -161,6 +161,26 @@ const PASS_OPTIONS: SelectOption[] = [
   { value: "0", label: "Fail" },
 ];
 
+/** Angular: `{{student_name}} <span style="color: blue;">({{hallticket_no}})</span>` */
+function studentRenderer(p: ICellRendererParams<Row>) {
+  const name = txt(p.data?.student_name ?? p.data?.studentName);
+  const ht = txt(p.data?.hallticket_no ?? p.data?.hallticketNo);
+  if (!name && !ht) return <span className="text-muted-foreground">—</span>;
+  if (!ht) return <span className="whitespace-normal break-words">{name}</span>;
+  if (!name) {
+    return (
+      <span className="whitespace-normal break-words" style={{ color: "blue" }}>
+        ({ht})
+      </span>
+    );
+  }
+  return (
+    <span className="whitespace-normal break-words">
+      {name} <span style={{ color: "blue" }}>({ht})</span>
+    </span>
+  );
+}
+
 function summaryCols(): ColDef<Row>[] {
   return [
     {
@@ -171,18 +191,21 @@ function summaryCols(): ColDef<Row>[] {
     },
     {
       headerName: "Student",
-      minWidth: 180,
+      minWidth: 450,
       flex: 1,
+      wrapText: true,
+      autoHeight: true,
       valueGetter: (p) => {
         const name = txt(p.data?.student_name ?? p.data?.studentName);
         const ht = txt(p.data?.hallticket_no ?? p.data?.hallticketNo);
         if (name && ht) return `${name} (${ht})`;
         return name || ht || "—";
       },
+      cellRenderer: studentRenderer,
     },
     {
       headerName: "Course Details",
-      minWidth: 140,
+      minWidth: 120,
       flex: 0,
       valueGetter: (p) => {
         const a = txt(p.data?.college_code ?? p.data?.collegeCode);
@@ -356,6 +379,8 @@ export function ExamStudentResultsReportPage({
   const [regulationRows, setRegulationRows] = useState<Row[]>([]);
   const [rows, setRows] = useState<Row[]>([]);
   const [studentOptions, setStudentOptions] = useState<SelectOption[]>([]);
+  /** Full studentsearch rows — Angular `searchStudents` for `selectedStd` cascade */
+  const [searchStudents, setSearchStudents] = useState<Row[]>([]);
 
   const [courseId, setCourseId] = useState("");
   const [academicYearId, setAcademicYearId] = useState("");
@@ -420,9 +445,8 @@ export function ExamStudentResultsReportPage({
   );
 
   const exams = useMemo(() => {
-    if (mode === "student") {
-      return dedupeBy(baseRows, (r) => num(r.fk_exam_id));
-    }
+    // Angular selectedStd → selectedAcademicYear filters by course + year
+    if (mode === "student" && (!courseId || !academicYearId)) return [];
     return dedupeBy(
       baseRows.filter(
         (r) =>
@@ -565,6 +589,7 @@ export function ExamStudentResultsReportPage({
     setFilterSummary("");
     setStudentId("");
     setStudentOptions([]);
+    setSearchStudents([]);
     if (next === "course") {
       const first = courses[0];
       if (first) setCourseId(String(num(first.fk_course_id)));
@@ -588,6 +613,7 @@ export function ExamStudentResultsReportPage({
     setCollegeId("");
     setStudentId("");
     setStudentOptions([]);
+    setSearchStudents([]);
     setIsPass("-1");
     setBacklogCount("0");
     setBelowCredits("0");
@@ -606,13 +632,16 @@ export function ExamStudentResultsReportPage({
     const q = term.trim();
     if (q.length <= 4) {
       setStudentOptions([]);
+      setSearchStudents([]);
       return;
     }
     setSearchingStudent(true);
     try {
       const list = await searchStudentsForExamResultsSummary(q);
+      const rowsList = Array.isArray(list) ? list : [];
+      setSearchStudents(rowsList);
       setStudentOptions(
-        (Array.isArray(list) ? list : [])
+        rowsList
           .map((r) => {
             const id = num(r.studentId ?? r.student_id);
             const roll = txt(r.rollNumber ?? r.roll_number ?? r.hallticketNo);
@@ -626,9 +655,50 @@ export function ExamStudentResultsReportPage({
       );
     } catch {
       setStudentOptions([]);
+      setSearchStudents([]);
     } finally {
       setSearchingStudent(false);
     }
+  }
+
+  /**
+   * Angular `selectedStd()` (Summary By Student):
+   * copy college/course/year from studentsearch row → selectedAcademicYear
+   * (filter exams + auto-pick first) → selectedExam → univ_exam_rest_in_regexamstd.
+   */
+  function onSelectStudent(v: string | null) {
+    const id = v ?? "";
+    setStudentId(id);
+    setRows([]);
+    setHasFetched(false);
+    setFilterSummary("");
+
+    if (!id) {
+      setCourseId("");
+      setAcademicYearId("");
+      setExamId("");
+      setCollegeId("");
+      setCourseGroupId("");
+      setCourseYearId("");
+      setRegulationId("0");
+      return;
+    }
+
+    const std = searchStudents.find(
+      (x) => num(x.studentId ?? x.student_id) === Number(id),
+    );
+    if (!std) return;
+
+    const nextCourse = String(num(std.courseId ?? std.course_id));
+    const nextYear = String(num(std.academicYearId ?? std.academic_year_id));
+    // Angular selectedAcademicYear clears college/group/year before selectedExam reloads them
+    setCollegeId("");
+    setCourseGroupId("");
+    setCourseYearId("");
+    setRegulationId("0");
+    setExamId("");
+    setCourseId(nextCourse !== "0" ? nextCourse : "");
+    setAcademicYearId(nextYear !== "0" ? nextYear : "");
   }
 
   const courseOptions: SelectOption[] = useMemo(
@@ -852,13 +922,16 @@ export function ExamStudentResultsReportPage({
       .map((r, i) => {
         const name = txt(r.student_name);
         const ht = txt(r.hallticket_no);
-        const student = name && ht ? `${name} (${ht})` : name || ht;
+        const studentHtml =
+          name && ht
+            ? `${escapeHtml(name)} <span style="color: blue;">(${escapeHtml(ht)})</span>`
+            : escapeHtml(name || ht || "—");
         const course = [txt(r.college_code), txt(r.group_code)]
           .filter(Boolean)
           .join(" / ");
         return `<tr>
           <td>${i + 1}</td>
-          <td>${escapeHtml(student || "—")}</td>
+          <td>${studentHtml}</td>
           <td>${escapeHtml(course || "—")}</td>
           <td>${escapeHtml(dash(r.total_internal_marks))}</td>
           <td>${escapeHtml(dash(r.total_external_marks))}</td>
@@ -894,7 +967,7 @@ export function ExamStudentResultsReportPage({
       resultsVisible={hasFetched}
       filters={
         <>
-          <div className="mb-2 flex flex-wrap items-center gap-4 text-[12px]">
+          <div className="mb-2 flex flex-wrap items-center gap-4 text-[14px]">
             <label className="flex cursor-pointer items-center gap-2">
               <input
                 type="radio"
@@ -914,181 +987,181 @@ export function ExamStudentResultsReportPage({
               {modeLabels.student}
             </label>
           </div>
+          <div className="inv-allot-report-filters space-y-2">
+            <div className="inv-allot-report-filters__row">
+              {mode === "course" ? (
+                <>
+                  <div className="inv-allot-report-filters__fx20 space-y-1">
+                    <Label>Course *</Label>
+                    <Select
+                      value={courseId || null}
+                      onChange={(v) => {
+                        setCourseId(v ?? "");
+                        setAcademicYearId("");
+                        setExamId("");
+                        setCollegeId("");
+                      }}
+                      options={courseOptions}
+                      placeholder="Course"
+                      isLoading={loadingFilters}
+                    />
+                  </div>
+                  <div className="inv-allot-report-filters__fx20 space-y-1">
+                    <Label>Exam Year *</Label>
+                    <Select
+                      value={academicYearId || null}
+                      onChange={(v) => {
+                        setAcademicYearId(v ?? "");
+                        setExamId("");
+                        setCollegeId("");
+                      }}
+                      options={academicYearOptions}
+                      placeholder="Exam Year"
+                      disabled={!courseId}
+                    />
+                  </div>
+                </>
+              ) : (
+                <div className="inv-allot-report-filters__fx30 space-y-1">
+                  <Label>Student *</Label>
+                  <Select
+                    value={studentId || null}
+                    onChange={onSelectStudent}
+                    options={studentOptions}
+                    placeholder="Search student…"
+                    searchable
+                    clearable
+                    onSearch={onSearchStudent}
+                    isLoading={searchingStudent}
+                  />
+                </div>
+              )}
 
-          <div className="grid grid-cols-1 items-end gap-2 md:grid-cols-12">
-            {mode === "course" ? (
-              <>
-                <div className="space-y-1 md:col-span-2">
-                  <Label>Course *</Label>
-                  <Select
-                    value={courseId || null}
-                    onChange={(v) => {
-                      setCourseId(v ?? "");
-                      setAcademicYearId("");
-                      setExamId("");
-                      setCollegeId("");
-                    }}
-                    options={courseOptions}
-                    placeholder="Course"
-                    isLoading={loadingFilters}
-                  />
-                </div>
-                <div className="space-y-1 md:col-span-2">
-                  <Label>Exam Year *</Label>
-                  <Select
-                    value={academicYearId || null}
-                    onChange={(v) => {
-                      setAcademicYearId(v ?? "");
-                      setExamId("");
-                      setCollegeId("");
-                    }}
-                    options={academicYearOptions}
-                    placeholder="Exam Year"
-                    disabled={!courseId}
-                  />
-                </div>
-              </>
-            ) : (
-              <div className="space-y-1 md:col-span-3">
-                <Label>Student *</Label>
+              <div className={"inv-allot-report-filters__fx60 space-y-1"}>
+                <Label>Exam Master *</Label>
                 <Select
-                  value={studentId || null}
-                  onChange={(v) => {
-                    setStudentId(v ?? "");
-                    setRows([]);
-                    setHasFetched(false);
-                  }}
-                  options={studentOptions}
-                  placeholder="Search student…"
-                  searchable
-                  clearable
-                  onSearch={onSearchStudent}
-                  isLoading={searchingStudent}
+                  value={examId || null}
+                  onChange={(v) => setExamId(v ?? "")}
+                  options={examOptions}
+                  placeholder="Exam Master"
+                  searchable={examOptions.length > 6}
+                  wrapOptionLabels
+                  disabled={
+                    mode === "student"
+                      ? !studentId || !academicYearId
+                      : !academicYearId
+                  }
                 />
               </div>
-            )}
-
-            <div
-              className={`space-y-1 ${mode === "course" ? "md:col-span-5" : "md:col-span-6"}`}
-            >
-              <Label>Exam Master *</Label>
-              <Select
-                value={examId || null}
-                onChange={(v) => setExamId(v ?? "")}
-                options={examOptions}
-                placeholder="Exam Master"
-                searchable={examOptions.length > 6}
-                wrapOptionLabels
-                disabled={mode === "course" ? !academicYearId : false}
-              />
             </div>
+            <div className="inv-allot-report-filters__row">
+              {mode === "course" ? (
+                <>
+                  <div className="inv-allot-report-filters__fx20 space-y-1">
+                    <Label>College{kind === "summary" ? " *" : ""}</Label>
+                    <Select
+                      value={collegeId || (kind === "summary" ? null : "0")}
+                      onChange={(v) => {
+                        setCollegeId(v ?? (kind === "summary" ? "" : "0"));
+                        setCourseGroupId(kind === "summary" ? "" : "0");
+                        setCourseYearId(kind === "summary" ? "" : "0");
+                      }}
+                      options={collegeOptions}
+                      placeholder="College"
+                      disabled={!examId}
+                    />
+                  </div>
+                  <div className="inv-allot-report-filters__fx15 space-y-1">
+                    <Label>Course Group{kind === "summary" ? " *" : ""}</Label>
+                    <Select
+                      value={courseGroupId || (kind === "summary" ? null : "0")}
+                      onChange={(v) => {
+                        setCourseGroupId(v ?? (kind === "summary" ? "" : "0"));
+                        setCourseYearId(kind === "summary" ? "" : "0");
+                      }}
+                      options={courseGroupOptions}
+                      placeholder="Course Group"
+                      disabled={!collegeId && kind === "summary"}
+                    />
+                  </div>
+                  <div className="inv-allot-report-filters__fx20 space-y-1">
+                    <Label>Course Years{kind === "summary" ? " *" : ""}</Label>
+                    <Select
+                      value={courseYearId || (kind === "summary" ? null : "0")}
+                      onChange={(v) =>
+                        setCourseYearId(v ?? (kind === "summary" ? "" : "0"))
+                      }
+                      options={courseYearOptions}
+                      placeholder="Course Years"
+                      disabled={!courseGroupId && kind === "summary"}
+                    />
+                  </div>
+                  <div className="inv-allot-report-filters__fx15 space-y-1">
+                    <Label>Regulation</Label>
+                    <Select
+                      value={regulationId}
+                      onChange={(v) => setRegulationId(v ?? "0")}
+                      options={regulationOptions}
+                      placeholder="All"
+                    />
+                  </div>
+                </>
+              ) : null}
 
-            {mode === "course" ? (
-              <>
-                <div className="space-y-1 md:col-span-3">
-                  <Label>College{kind === "summary" ? " *" : ""}</Label>
-                  <Select
-                    value={collegeId || (kind === "summary" ? null : "0")}
-                    onChange={(v) => {
-                      setCollegeId(v ?? (kind === "summary" ? "" : "0"));
-                      setCourseGroupId(kind === "summary" ? "" : "0");
-                      setCourseYearId(kind === "summary" ? "" : "0");
-                    }}
-                    options={collegeOptions}
-                    placeholder="College"
-                    disabled={!examId}
+              {kind === "backlog" ? (
+                <div className="inv-allot-report-filters__fx10 space-y-1">
+                  <Label>{">"} Backlogs</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={backlogCount}
+                    onChange={(e) => setBacklogCount(e.target.value)}
+                    className="h-8 text-[12px]"
                   />
                 </div>
+              ) : kind === "credits" ? (
                 <div className="space-y-1 md:col-span-2">
-                  <Label>Course Group{kind === "summary" ? " *" : ""}</Label>
-                  <Select
-                    value={courseGroupId || (kind === "summary" ? null : "0")}
-                    onChange={(v) => {
-                      setCourseGroupId(v ?? (kind === "summary" ? "" : "0"));
-                      setCourseYearId(kind === "summary" ? "" : "0");
-                    }}
-                    options={courseGroupOptions}
-                    placeholder="Course Group"
-                    disabled={!collegeId && kind === "summary"}
+                  <Label>{"<"} Credits</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={belowCredits}
+                    onChange={(e) => setBelowCredits(e.target.value)}
+                    className="h-8 text-[12px]"
                   />
                 </div>
-                <div className="space-y-1 md:col-span-2">
-                  <Label>Course Years{kind === "summary" ? " *" : ""}</Label>
+              ) : (
+                <div className="inv-allot-report-filters__fx15 space-y-1">
+                  <Label>Result Status *</Label>
                   <Select
-                    value={courseYearId || (kind === "summary" ? null : "0")}
-                    onChange={(v) =>
-                      setCourseYearId(v ?? (kind === "summary" ? "" : "0"))
-                    }
-                    options={courseYearOptions}
-                    placeholder="Course Years"
-                    disabled={!courseGroupId && kind === "summary"}
+                    value={isPass}
+                    onChange={(v) => setIsPass(v ?? "-1")}
+                    options={PASS_OPTIONS}
                   />
                 </div>
-                <div className="space-y-1 md:col-span-2">
-                  <Label>Regulation</Label>
-                  <Select
-                    value={regulationId}
-                    onChange={(v) => setRegulationId(v ?? "0")}
-                    options={regulationOptions}
-                    placeholder="All"
-                  />
-                </div>
-              </>
-            ) : null}
+              )}
 
-            {kind === "backlog" ? (
-              <div className="space-y-1 md:col-span-2">
-                <Label>{">"} Backlogs</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={backlogCount}
-                  onChange={(e) => setBacklogCount(e.target.value)}
-                  className="h-8 text-[12px]"
-                />
+              <div className="inv-allot-report-filters__fx10 space-y-1 flex gap-5">
+                <Button
+                  type="button"
+                  onClick={() => void onGetList()}
+                  disabled={loading || loadingFilters}
+                  className="h-8 shrink-0 px-2.5 text-[12px]"
+                >
+                  Get List
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0"
+                  title="Reset"
+                  onClick={resetFilters}
+                  disabled={loading || loadingFilters}
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
               </div>
-            ) : kind === "credits" ? (
-              <div className="space-y-1 md:col-span-2">
-                <Label>{"<"} Credits</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={belowCredits}
-                  onChange={(e) => setBelowCredits(e.target.value)}
-                  className="h-8 text-[12px]"
-                />
-              </div>
-            ) : (
-              <div className="space-y-1 md:col-span-2">
-                <Label>Result Status *</Label>
-                <Select
-                  value={isPass}
-                  onChange={(v) => setIsPass(v ?? "-1")}
-                  options={PASS_OPTIONS}
-                />
-              </div>
-            )}
-
-            <div className="flex items-end gap-2 md:col-span-2">
-              <Button
-                type="button"
-                onClick={() => void onGetList()}
-                disabled={loading || loadingFilters}
-                className="h-8 shrink-0 px-2.5 text-[12px]"
-              >
-                Get List
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 shrink-0"
-                title="Reset"
-                onClick={resetFilters}
-                disabled={loading || loadingFilters}
-              >
-                <RefreshCw className="h-4 w-4" />
-              </Button>
             </div>
           </div>
         </>
@@ -1098,6 +1171,7 @@ export function ExamStudentResultsReportPage({
       loading={loading}
       pagination
       paginationPageSize={10}
+      fitColumnsToWidth={false}
       getRowId={getRowId}
       toolbar={{
         search: true,

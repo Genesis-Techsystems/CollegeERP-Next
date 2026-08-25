@@ -6,13 +6,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColDef } from "ag-grid-community";
-import { Printer, RefreshCw } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { FilteredListPage } from "@/components/layout";
 import { Select, type SelectOption } from "@/common/components/select";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toastError } from "@/lib/toast";
 import { toast } from "sonner";
+import { resolveReportCatalogHref } from "@/lib/report-catalog";
 import {
   fetchTimetableFilterRows,
   getAssignmentPendingListRows,
@@ -104,6 +105,8 @@ const COLS: ColDef<Row>[] = [
 ];
 
 export default function AssignmentPendingListReportPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [loadingFilters, setLoadingFilters] = useState(false);
   const [hasFetched, setHasFetched] = useState(false);
@@ -360,6 +363,11 @@ export default function AssignmentPendingListReportPage() {
     }
   }
 
+  /** Angular goBack() → navigate to `?path=` or Report Catalog (`report-catalyst`). */
+  function goBack() {
+    router.push(resolveReportCatalogHref(searchParams.get("path")));
+  }
+
   const getRowId = useCallback(
     (p: { data?: Row; node?: { rowIndex?: number | null } }) =>
       `row-${p.node?.rowIndex ?? 0}-${txt(p.data?.assignment_name)}-${txt(p.data?.subject_code)}`,
@@ -368,12 +376,12 @@ export default function AssignmentPendingListReportPage() {
 
   return (
     <FilteredListPage
-      title="Assignment Pending List"
+      title="Assignment Pending List Report"
       resultsVisible={hasFetched && rows.length > 0}
       filters={
-        <div className="space-y-2">
-          <div className="grid grid-cols-1 items-end gap-2 md:grid-cols-12">
-            <div className="space-y-1 md:col-span-2">
+        <div className="inv-allot-report-filters space-y-2">
+          <div className="inv-allot-report-filters__row">
+            <div className="inv-allot-report-filters__fx20 space-y-1">
               <Label>College *</Label>
               <Select
                 value={collegeId || null}
@@ -387,7 +395,7 @@ export default function AssignmentPendingListReportPage() {
                 isLoading={loadingFilters}
               />
             </div>
-            <div className="space-y-1 md:col-span-2">
+            <div className="inv-allot-report-filters__fx20 space-y-1">
               <Label>Academic Year *</Label>
               <Select
                 value={academicYearId || null}
@@ -401,7 +409,7 @@ export default function AssignmentPendingListReportPage() {
                 disabled={!collegeId}
               />
             </div>
-            <div className="space-y-1 md:col-span-2">
+            <div className="inv-allot-report-filters__fx20 space-y-1">
               <Label>Course *</Label>
               <Select
                 value={courseId || null}
@@ -415,7 +423,7 @@ export default function AssignmentPendingListReportPage() {
                 disabled={!academicYearId}
               />
             </div>
-            <div className="space-y-1 md:col-span-2">
+            <div className="inv-allot-report-filters__fx20 space-y-1">
               <Label>Course Group *</Label>
               <Select
                 value={courseGroupId || null}
@@ -429,7 +437,7 @@ export default function AssignmentPendingListReportPage() {
                 disabled={!courseId}
               />
             </div>
-            <div className="space-y-1 md:col-span-2">
+            <div className="inv-allot-report-filters__fx20 space-y-1">
               <Label>Course Year *</Label>
               <Select
                 value={courseYearId || null}
@@ -448,8 +456,8 @@ export default function AssignmentPendingListReportPage() {
               />
             </div>
           </div>
-          <div className="grid grid-cols-1 items-end gap-2 md:grid-cols-12">
-            <div className="space-y-1 md:col-span-2">
+          <div className="inv-allot-report-filters__row">
+            <div className="inv-allot-report-filters__fx20 space-y-1">
               <Label>Section</Label>
               <Select
                 value={sectionId}
@@ -457,28 +465,23 @@ export default function AssignmentPendingListReportPage() {
                 options={sectionOptions}
               />
             </div>
-            <div className="flex items-end gap-2 md:col-span-2">
+            <div className="flex items-end inv-allot-report-filters__fx15 space-y-1">
               <Button
                 type="button"
-                className="h-8 text-[12px]"
+                className="h-8 w-full text-[12px]"
                 onClick={() => void onGetList()}
                 disabled={loading}
               >
                 Get List
               </Button>
+            </div>
+            <div className="inv-allot-report-filters__fx15 space-y-1 flex">
               <Button
                 type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                title="Reset"
-                onClick={() => {
-                  setRows([]);
-                  setHasFetched(false);
-                  setSectionId("0");
-                }}
+                className="back-btn w-full mb-0.4 h-8 text-[12px]"
+                onClick={goBack}
               >
-                <RefreshCw className="h-4 w-4" />
+                Back
               </Button>
             </div>
           </div>

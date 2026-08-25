@@ -623,168 +623,172 @@ tr { break-inside: avoid; }
       title="Final Marks Pre Moderation Report"
       resultsVisible={hasFetched}
       filters={
-        <div className="grid grid-cols-1 items-end gap-2 md:grid-cols-12">
-          <div className="space-y-1 md:col-span-2">
-            <Label>Course *</Label>
-            <Select
-              value={courseId || null}
-              onChange={(v) => {
-                setCourseId(v ?? "");
-                setAcademicYearId("");
-                setExamId("");
-              }}
-              options={courses.map((r) => ({
-                value: String(num(r.fk_course_id)),
-                label: txt(r.course_code) || String(num(r.fk_course_id)),
-              }))}
-              isLoading={loadingFilters}
-            />
+        <div className="inv-allot-report-filters space-y-2">
+          <div className="inv-allot-report-filters__row">
+            <div className="inv-allot-report-filters__fx20">
+              <Label>Course *</Label>
+              <Select
+                value={courseId || null}
+                onChange={(v) => {
+                  setCourseId(v ?? "");
+                  setAcademicYearId("");
+                  setExamId("");
+                }}
+                options={courses.map((r) => ({
+                  value: String(num(r.fk_course_id)),
+                  label: txt(r.course_code) || String(num(r.fk_course_id)),
+                }))}
+                isLoading={loadingFilters}
+              />
+            </div>
+            <div className="inv-allot-report-filters__fx20">
+              <Label>Exam Year *</Label>
+              <Select
+                value={academicYearId || null}
+                onChange={(v) => {
+                  setAcademicYearId(v ?? "");
+                  setExamId("");
+                }}
+                options={academicYears.map((r) => ({
+                  value: String(num(r.fk_academic_year_id)),
+                  label:
+                    txt(r.academic_year) || String(num(r.fk_academic_year_id)),
+                }))}
+                disabled={!courseId}
+              />
+            </div>
+            <div className="inv-allot-report-filters__fx60">
+              <Label>Exam Master *</Label>
+              <Select
+                value={examId || null}
+                onChange={(v) => setExamId(v ?? "")}
+                options={exams.map((r) => ({
+                  value: String(num(r.fk_exam_id)),
+                  label: examMasterLabel(r),
+                }))}
+                searchable
+                wrapOptionLabels
+                disabled={!academicYearId}
+              />
+            </div>
           </div>
-          <div className="space-y-1 md:col-span-2">
-            <Label>Exam Year *</Label>
-            <Select
-              value={academicYearId || null}
-              onChange={(v) => {
-                setAcademicYearId(v ?? "");
-                setExamId("");
-              }}
-              options={academicYears.map((r) => ({
-                value: String(num(r.fk_academic_year_id)),
-                label:
-                  txt(r.academic_year) || String(num(r.fk_academic_year_id)),
-              }))}
-              disabled={!courseId}
-            />
-          </div>
-          <div className="space-y-1 md:col-span-4">
-            <Label>Exam Master *</Label>
-            <Select
-              value={examId || null}
-              onChange={(v) => setExamId(v ?? "")}
-              options={exams.map((r) => ({
-                value: String(num(r.fk_exam_id)),
-                label: examMasterLabel(r),
-              }))}
-              searchable
-              wrapOptionLabels
-              disabled={!academicYearId}
-            />
-          </div>
-          <div className="space-y-1 md:col-span-2">
-            <Label>College *</Label>
-            <Select
-              value={collegeId || null}
-              onChange={(v) => {
-                setCollegeId(v ?? "");
-                setCourseGroupId("");
-                setCourseYearId("");
-                setRegulationId("");
-                setSubjectId("");
-                setSubjectRows([]);
-              }}
-              options={colleges.map((r) => ({
-                value: String(num(r.fk_college_id)),
-                label: txt(r.college_code) || String(num(r.fk_college_id)),
-              }))}
-              disabled={!examId}
-            />
-          </div>
-          <div className="space-y-1 md:col-span-2">
-            <Label>Course Group *</Label>
-            <Select
-              value={courseGroupId || null}
-              onChange={(v) => {
-                setCourseGroupId(v ?? "");
-                setCourseYearId("");
-                setRegulationId("");
-                setSubjectId("");
-                setSubjectRows([]);
-              }}
-              options={courseGroups.map((r) => ({
-                value: String(num(r.fk_course_group_id)),
-                label: txt(r.group_code) || String(num(r.fk_course_group_id)),
-              }))}
-              disabled={!collegeId}
-            />
-          </div>
-          <div className="space-y-1 md:col-span-2">
-            <Label>Course Years *</Label>
-            <Select
-              value={courseYearId || null}
-              onChange={(v) => {
-                setCourseYearId(v ?? "");
-                setRegulationId("");
-                setSubjectId("");
-                setSubjectRows([]);
-              }}
-              options={courseYears.map((r) => ({
-                value: String(num(r.fk_course_year_id)),
-                label:
-                  txt(r.course_year_code) || String(num(r.fk_course_year_id)),
-              }))}
-              disabled={!courseGroupId}
-            />
-          </div>
-          <div className="space-y-1 md:col-span-2">
-            <Label>Regulation</Label>
-            <Select
-              value={regulationId || null}
-              onChange={(v) => {
-                setRegulationId(v ?? "");
-                setSubjectId("");
-                setSubjectRows([]);
-              }}
-              options={regulations.map((r) => ({
-                value: String(num(r.fk_regulation_id)),
-                label:
-                  txt(r.regulation_code) || String(num(r.fk_regulation_id)),
-              }))}
-              disabled={!courseYearId}
-              isLoading={loadingFilters}
-            />
-          </div>
-          <div className="space-y-1 md:col-span-4">
-            <Label>Subject *</Label>
-            <Select
-              value={subjectId || null}
-              onChange={(v) => setSubjectId(v ?? "")}
-              options={subjects.map((r) => ({
-                value: String(num(r.fk_subject_id)),
-                label: subjectLabel(r),
-              }))}
-              searchable
-              wrapOptionLabels
-              disabled={!regulationId}
-              isLoading={loadingSubjects}
-            />
-          </div>
-          <div className="flex items-end gap-2 md:col-span-2">
-            <Button
-              type="button"
-              className="h-8 text-[12px]"
-              onClick={() => void onGetList()}
-              disabled={loading}
-            >
-              Get Reports
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              title="Reset"
-              onClick={() => {
-                setRows([]);
-                setHasFetched(false);
-                setSubjectId("");
-                setSubjectRows([]);
-                setRegulationId("");
-                const c = courses[0];
-                if (c) setCourseId(String(num(c.fk_course_id)));
-              }}
-            >
-              <RefreshCw className="h-4 w-4" />
-            </Button>
+          <div className="inv-allot-report-filters__row">
+            <div className="inv-allot-report-filters__fx15">
+              <Label>College *</Label>
+              <Select
+                value={collegeId || null}
+                onChange={(v) => {
+                  setCollegeId(v ?? "");
+                  setCourseGroupId("");
+                  setCourseYearId("");
+                  setRegulationId("");
+                  setSubjectId("");
+                  setSubjectRows([]);
+                }}
+                options={colleges.map((r) => ({
+                  value: String(num(r.fk_college_id)),
+                  label: txt(r.college_code) || String(num(r.fk_college_id)),
+                }))}
+                disabled={!examId}
+              />
+            </div>
+            <div className="inv-allot-report-filters__fx15">
+              <Label>Course Group *</Label>
+              <Select
+                value={courseGroupId || null}
+                onChange={(v) => {
+                  setCourseGroupId(v ?? "");
+                  setCourseYearId("");
+                  setRegulationId("");
+                  setSubjectId("");
+                  setSubjectRows([]);
+                }}
+                options={courseGroups.map((r) => ({
+                  value: String(num(r.fk_course_group_id)),
+                  label: txt(r.group_code) || String(num(r.fk_course_group_id)),
+                }))}
+                disabled={!collegeId}
+              />
+            </div>
+            <div className="inv-allot-report-filters__fx15">
+              <Label>Course Years *</Label>
+              <Select
+                value={courseYearId || null}
+                onChange={(v) => {
+                  setCourseYearId(v ?? "");
+                  setRegulationId("");
+                  setSubjectId("");
+                  setSubjectRows([]);
+                }}
+                options={courseYears.map((r) => ({
+                  value: String(num(r.fk_course_year_id)),
+                  label:
+                    txt(r.course_year_code) || String(num(r.fk_course_year_id)),
+                }))}
+                disabled={!courseGroupId}
+              />
+            </div>
+            <div className="inv-allot-report-filters__fx15">
+              <Label>Regulation</Label>
+              <Select
+                value={regulationId || null}
+                onChange={(v) => {
+                  setRegulationId(v ?? "");
+                  setSubjectId("");
+                  setSubjectRows([]);
+                }}
+                options={regulations.map((r) => ({
+                  value: String(num(r.fk_regulation_id)),
+                  label:
+                    txt(r.regulation_code) || String(num(r.fk_regulation_id)),
+                }))}
+                disabled={!courseYearId}
+                isLoading={loadingFilters}
+              />
+            </div>
+            <div className="inv-allot-report-filters__fx25">
+              <Label>Subject *</Label>
+              <Select
+                value={subjectId || null}
+                onChange={(v) => setSubjectId(v ?? "")}
+                options={subjects.map((r) => ({
+                  value: String(num(r.fk_subject_id)),
+                  label: subjectLabel(r),
+                }))}
+                searchable
+                wrapOptionLabels
+                disabled={!regulationId}
+                isLoading={loadingSubjects}
+              />
+            </div>
+            <div className="flex items-end gap-2 inv-allot-report-filters__fx15">
+              <Button
+                type="button"
+                className="h-8 text-[12px] w-full"
+                onClick={() => void onGetList()}
+                disabled={loading}
+              >
+                Get Reports
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                title="Reset"
+                onClick={() => {
+                  setRows([]);
+                  setHasFetched(false);
+                  setSubjectId("");
+                  setSubjectRows([]);
+                  setRegulationId("");
+                  const c = courses[0];
+                  if (c) setCourseId(String(num(c.fk_course_id)));
+                }}
+              >
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
       }

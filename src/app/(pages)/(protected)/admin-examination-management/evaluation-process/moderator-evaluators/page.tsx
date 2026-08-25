@@ -86,7 +86,7 @@ type SelectAllHeaderParams = IHeaderParams & {
 
 function SelectAllHeader(props: SelectAllHeaderParams) {
   return (
-    <label className="flex h-full w-full cursor-pointer items-center justify-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-[hsl(var(--primary))]">
+    <label className="flex h-full w-full cursor-pointer items-center justify-start gap-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-[hsl(var(--primary))]">
       <input
         type="checkbox"
         className="h-4 w-4 accent-[hsl(var(--primary))]"
@@ -109,13 +109,15 @@ function makeCheckRenderer(
     const id = num(row.pk_exam_evaluator_profile_id);
     if (!id) return null;
     return (
-      <input
-        type="checkbox"
-        className="h-4 w-4 accent-[hsl(var(--primary))]"
-        checked={selectedIds.includes(id)}
-        onChange={(e) => onToggle(id, e.target.checked)}
-        aria-label={`Select ${txt(row.evaluator_name)}`}
-      />
+      <div className="flex h-full w-full items-center justify-start">
+        <input
+          type="checkbox"
+          className="h-4 w-4 accent-[hsl(var(--primary))]"
+          checked={selectedIds.includes(id)}
+          onChange={(e) => onToggle(id, e.target.checked)}
+          aria-label={`Select ${txt(row.evaluator_name)}`}
+        />
+      </div>
     );
   };
 }
@@ -587,6 +589,12 @@ export default function ModeratorEvaluatorsPage() {
           onToggle: (checked: boolean) => toggleAllRef.current(checked),
         },
         cellRenderer: makeCheckRenderer(selectedEvaluatorIds, toggleOne),
+        cellStyle: {
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "flex-start",
+        },
+        headerClass: "text-left",
       },
       { headerName: "SI.No", valueGetter: rowIndexGetter, width: 80, flex: 0 },
       {

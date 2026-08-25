@@ -639,208 +639,194 @@ export default function SubjectwiseResultReportPage() {
       title="Subject Wise Result Report"
       filters={
         <div className="space-y-3">
-          <div className="grid grid-cols-1 items-end gap-2 md:grid-cols-12">
-            <div className="space-y-1 md:col-span-2">
-              <Label>Course *</Label>
-              <Select
-                value={courseId || null}
-                onChange={(v) => {
-                  setRows([]);
-                  setSubjectId("");
-                  setSubjectTypeId("");
-                  setCourseId(v ?? "");
-                  setAcademicYearId("");
-                  setExamId("");
-                }}
-                options={courses.map((r) => ({
-                  value: String(num(r.fk_course_id)),
-                  label: txt(r.course_code) || String(num(r.fk_course_id)),
-                }))}
-                isLoading={loadingFilters}
-              />
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>Exam Year *</Label>
-              <Select
-                value={academicYearId || null}
-                onChange={(v) => {
-                  setRows([]);
-                  setSubjectId("");
-                  setSubjectTypeId("");
-                  setAcademicYearId(v ?? "");
-                  setExamId("");
-                }}
-                options={academicYears.map((r) => ({
-                  value: String(num(r.fk_academic_year_id)),
-                  label:
-                    txt(r.academic_year) || String(num(r.fk_academic_year_id)),
-                }))}
-                disabled={!courseId}
-              />
-            </div>
-            <div className="space-y-1 md:col-span-4">
-              <Label>Exam Master *</Label>
-              <Select
-                value={examId || null}
-                onChange={(v) => {
-                  setRows([]);
-                  setSubjectId("");
-                  setSubjectTypeId("");
-                  setExamId(v ?? "");
-                }}
-                options={exams.map((r) => ({
-                  value: String(num(r.fk_exam_id)),
-                  label: examMasterLabel(r),
-                }))}
-                searchable
-                wrapOptionLabels
-                disabled={!academicYearId}
-              />
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>College *</Label>
-              <Select
-                value={collegeId || null}
-                onChange={(v) => {
-                  setRows([]);
-                  setSubjectId("");
-                  setSubjectTypeId("");
-                  setCollegeId(v ?? "");
-                  setCourseGroupId("");
-                  setCourseYearId("");
-                  setRegulationId("");
-                }}
-                options={colleges.map((r) => ({
-                  value: String(num(r.fk_college_id)),
-                  label: txt(r.college_code) || String(num(r.fk_college_id)),
-                }))}
-                disabled={!examId}
-              />
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>Course Group *</Label>
-              <Select
-                value={courseGroupId || null}
-                onChange={(v) => {
-                  setRows([]);
-                  setSubjectId("");
-                  setSubjectTypeId("");
-                  setCourseGroupId(v ?? "");
-                  setCourseYearId("");
-                  setRegulationId("");
-                }}
-                options={[
-                  { value: "0", label: "All" },
-                  ...courseGroups.map((r) => ({
-                    value: String(num(r.fk_course_group_id)),
+          <div className="inv-allot-report-filters space-y-2">
+            <div className="inv-allot-report-filters__row">
+              <div className="inv-allot-report-filters__fx20">
+                <Label>Course *</Label>
+                <Select
+                  value={courseId || null}
+                  onChange={(v) => {
+                    setRows([]);
+                    setSubjectId("");
+                    setSubjectTypeId("");
+                    setCourseId(v ?? "");
+                    setAcademicYearId("");
+                    setExamId("");
+                  }}
+                  options={courses.map((r) => ({
+                    value: String(num(r.fk_course_id)),
+                    label: txt(r.course_code) || String(num(r.fk_course_id)),
+                  }))}
+                  isLoading={loadingFilters}
+                />
+              </div>
+              <div className="inv-allot-report-filters__fx20">
+                <Label>Exam Year *</Label>
+                <Select
+                  value={academicYearId || null}
+                  onChange={(v) => {
+                    setRows([]);
+                    setSubjectId("");
+                    setSubjectTypeId("");
+                    setAcademicYearId(v ?? "");
+                    setExamId("");
+                  }}
+                  options={academicYears.map((r) => ({
+                    value: String(num(r.fk_academic_year_id)),
                     label:
-                      txt(r.group_code) || String(num(r.fk_course_group_id)),
-                  })),
-                ]}
-                disabled={!collegeId}
-              />
+                      txt(r.academic_year) ||
+                      String(num(r.fk_academic_year_id)),
+                  }))}
+                  disabled={!courseId}
+                />
+              </div>
+              <div className="inv-allot-report-filters__fx60">
+                <Label>Exam Master *</Label>
+                <Select
+                  value={examId || null}
+                  onChange={(v) => {
+                    setRows([]);
+                    setSubjectId("");
+                    setSubjectTypeId("");
+                    setExamId(v ?? "");
+                  }}
+                  options={exams.map((r) => ({
+                    value: String(num(r.fk_exam_id)),
+                    label: examMasterLabel(r),
+                  }))}
+                  searchable
+                  wrapOptionLabels
+                  disabled={!academicYearId}
+                />
+              </div>
             </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>Course Years *</Label>
-              <Select
-                value={courseYearId || null}
-                onChange={(v) => {
-                  setRows([]);
-                  setSubjectId("");
-                  setSubjectTypeId("");
-                  setCourseYearId(v ?? "");
-                  setRegulationId("");
-                }}
-                options={[
-                  { value: "0", label: "All" },
-                  ...courseYears.map((r) => ({
-                    value: String(num(r.fk_course_year_id)),
+            <div className="inv-allot-report-filters__row">
+              <div className="inv-allot-report-filters__fx13">
+                <Label>College *</Label>
+                <Select
+                  value={collegeId || null}
+                  onChange={(v) => {
+                    setRows([]);
+                    setSubjectId("");
+                    setSubjectTypeId("");
+                    setCollegeId(v ?? "");
+                    setCourseGroupId("");
+                    setCourseYearId("");
+                    setRegulationId("");
+                  }}
+                  options={colleges.map((r) => ({
+                    value: String(num(r.fk_college_id)),
+                    label: txt(r.college_code) || String(num(r.fk_college_id)),
+                  }))}
+                  disabled={!examId}
+                />
+              </div>
+              <div className="inv-allot-report-filters__fx13">
+                <Label>Course Group *</Label>
+                <Select
+                  value={courseGroupId || null}
+                  onChange={(v) => {
+                    setRows([]);
+                    setSubjectId("");
+                    setSubjectTypeId("");
+                    setCourseGroupId(v ?? "");
+                    setCourseYearId("");
+                    setRegulationId("");
+                  }}
+                  options={[
+                    { value: "0", label: "All" },
+                    ...courseGroups.map((r) => ({
+                      value: String(num(r.fk_course_group_id)),
+                      label:
+                        txt(r.group_code) || String(num(r.fk_course_group_id)),
+                    })),
+                  ]}
+                  disabled={!collegeId}
+                />
+              </div>
+              <div className="inv-allot-report-filters__fx13">
+                <Label>Course Years *</Label>
+                <Select
+                  value={courseYearId || null}
+                  onChange={(v) => {
+                    setRows([]);
+                    setSubjectId("");
+                    setSubjectTypeId("");
+                    setCourseYearId(v ?? "");
+                    setRegulationId("");
+                  }}
+                  options={[
+                    { value: "0", label: "All" },
+                    ...courseYears.map((r) => ({
+                      value: String(num(r.fk_course_year_id)),
+                      label:
+                        txt(r.course_year_code) ||
+                        String(num(r.fk_course_year_id)),
+                    })),
+                  ]}
+                  disabled={!collegeId}
+                />
+              </div>
+              <div className="inv-allot-report-filters__fx13">
+                <Label>Regulation</Label>
+                <Select
+                  value={regulationId || null}
+                  onChange={(v) => {
+                    setRows([]);
+                    setSubjectId("");
+                    setSubjectTypeId("");
+                    setRegulationId(v ?? "");
+                  }}
+                  options={regulationOptions}
+                  disabled={!collegeId}
+                />
+              </div>
+              <div className="inv-allot-report-filters__fx13">
+                <Label>Subject Type</Label>
+                <Select
+                  value={subjectTypeId || null}
+                  onChange={(v) => {
+                    setSubjectTypeId(v ?? "");
+                    setSubjectId("");
+                  }}
+                  options={subjectTypes.map((r) => ({
+                    value: String(num(r.fk_subjecttype_catdet_id)),
                     label:
-                      txt(r.course_year_code) ||
-                      String(num(r.fk_course_year_id)),
-                  })),
-                ]}
-                disabled={!collegeId}
-              />
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>Regulation</Label>
-              <Select
-                value={regulationId || null}
-                onChange={(v) => {
-                  setRows([]);
-                  setSubjectId("");
-                  setSubjectTypeId("");
-                  setRegulationId(v ?? "");
-                }}
-                options={regulationOptions}
-                disabled={!collegeId}
-              />
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>Subject Type</Label>
-              <Select
-                value={subjectTypeId || null}
-                onChange={(v) => {
-                  setSubjectTypeId(v ?? "");
-                  setSubjectId("");
-                }}
-                options={subjectTypes.map((r) => ({
-                  value: String(num(r.fk_subjecttype_catdet_id)),
-                  label:
-                    txt(r.subject_type) ||
-                    String(num(r.fk_subjecttype_catdet_id)),
-                }))}
-                disabled={!collegeId || !subjectTypes.length}
-                isLoading={loadingFilters}
-              />
-            </div>
-            <div className="space-y-1 md:col-span-3">
-              <Label>Subject *</Label>
-              <Select
-                value={subjectId || null}
-                onChange={(v) => setSubjectId(v ?? "")}
-                options={subjectsForType.map((r) => ({
-                  value: String(num(r.fk_subject_id)),
-                  label:
-                    [txt(r.subject_code), txt(r.subject_name)]
-                      .filter(Boolean)
-                      .join(" - ") || String(num(r.fk_subject_id)),
-                }))}
-                searchable
-                wrapOptionLabels
-                disabled={!subjectTypeId && subjectTypes.length > 0}
-                isLoading={loadingFilters}
-              />
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>Choose a exam date</Label>
-              <DatePicker
-                value={examDate}
-                onChange={setExamDate}
-                displayFormat="dd/MM/yyyy"
-                clearable={false}
-                disabled
-              />
-            </div>
-            <div className="flex items-end gap-2 md:col-span-1">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                title="Reset"
-                onClick={() => {
-                  setRows([]);
-                  setSubjectId("");
-                  setSubjectTypeId("");
-                  setExamDate(new Date());
-                  const c = courses[0];
-                  if (c) setCourseId(String(num(c.fk_course_id)));
-                }}
-              >
-                <RefreshCw className="h-4 w-4" />
-              </Button>
+                      txt(r.subject_type) ||
+                      String(num(r.fk_subjecttype_catdet_id)),
+                  }))}
+                  disabled={!collegeId || !subjectTypes.length}
+                  isLoading={loadingFilters}
+                />
+              </div>
+              <div className="inv-allot-report-filters__fx20">
+                <Label>Subject *</Label>
+                <Select
+                  value={subjectId || null}
+                  onChange={(v) => setSubjectId(v ?? "")}
+                  options={subjectsForType.map((r) => ({
+                    value: String(num(r.fk_subject_id)),
+                    label:
+                      [txt(r.subject_code), txt(r.subject_name)]
+                        .filter(Boolean)
+                        .join(" - ") || String(num(r.fk_subject_id)),
+                  }))}
+                  searchable
+                  wrapOptionLabels
+                  disabled={!subjectTypeId && subjectTypes.length > 0}
+                  isLoading={loadingFilters}
+                />
+              </div>
+              <div className="inv-allot-report-filters__fx15">
+                <Label>Choose a exam date</Label>
+                <DatePicker
+                  value={examDate}
+                  onChange={setExamDate}
+                  displayFormat="dd/MM/yyyy"
+                  clearable={false}
+                  disabled
+                />
+              </div>
             </div>
           </div>
 

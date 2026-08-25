@@ -1,12 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColDef } from "ag-grid-community";
 import { FilteredListPage } from "@/components/layout";
-import {
-  GlobalFilterBarRow,
-  GlobalFilterField,
-} from "@/common/components/forms";
+import { GlobalFilterField } from "@/common/components/forms";
 import { Select } from "@/common/components/select";
 import { Button } from "@/components/ui/button";
 import { rowIndexGetter } from "@/lib/utils";
@@ -17,6 +14,7 @@ import {
   buildHtmlTable,
   exportHtmlTableAsExcel,
 } from "../../_lib/export-html-table";
+import { printHtmlInIframe } from "@/lib/print";
 import {
   getExamCenterCollegesReportCenters,
   getExamCenterCollegesReportFilters,
@@ -64,8 +62,33 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
+/** Angular option value: `obj.univExamcenterId` */
 function centerId(row: AnyRow): number {
-  return num(row.univExamcenterId ?? row.univ_examcenter_id);
+  return num(
+    row.univExamcenterId ??
+      row.univExamCenterId ??
+      row.univ_examcenter_id ??
+      row.univ_exam_center_id,
+  );
+}
+
+/** Angular option label: `obj.examcenterCode` */
+function centerCode(row: AnyRow): string {
+  return txt(
+    row.examcenterCode ??
+      row.examCenterCode ??
+      row.examcenter_code ??
+      row.ec_code,
+  );
+}
+
+function centerName(row: AnyRow): string {
+  return txt(
+    row.examcenterName ??
+      row.examCenterName ??
+      row.examcenter_name ??
+      row.ec_name,
+  );
 }
 
 function toExportRows(rows: AnyRow[]): Record<string, unknown>[] {
@@ -79,7 +102,7 @@ function toExportRows(rows: AnyRow[]): Record<string, unknown>[] {
 
 function printReport(rows: AnyRow[], subtitle: string) {
   if (!rows.length) return;
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Exam Center Colleges Report</title>
+  printHtmlInIframe(`<!doctype html><html><head><meta charset="utf-8"><title>Exam Center Colleges Report</title>
 <style>
 @page { size: A4 landscape; margin: 10mm; }
 body { font: 11px/1.4 Arial, sans-serif; color: #000; margin: 0; }
@@ -93,34 +116,17 @@ th { background: #f2f2f2; }
   <p class="title">Exam Center Colleges Report</p>
   <p class="sub">${escapeHtml(subtitle)}</p>
   ${buildHtmlTable([...EXPORT_COLS], toExportRows(rows))}
-</body></html>`;
-
-  const frame = document.createElement("iframe");
-  frame.setAttribute("aria-hidden", "true");
-  frame.style.cssText =
-    "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
-  document.body.appendChild(frame);
-  const fdoc = frame.contentDocument;
-  const win = frame.contentWindow;
-  if (!fdoc || !win) {
-    frame.remove();
-    return;
-  }
-  fdoc.open();
-  fdoc.write(html);
-  fdoc.close();
-  win.addEventListener("afterprint", () => frame.remove());
-  setTimeout(() => {
-    win.focus();
-    win.print();
-  }, 50);
+</body></html>`);
 }
 
 export default function ExamcenterCollegesReportPage() {
   const [loadingFilters, setLoadingFilters] = useState(false);
+  const [loadingCenters, setLoadingCenters] = useState(false);
   const [loadingList, setLoadingList] = useState(false);
 
   const [baseRows, setBaseRows] = useState<AnyRow[]>([]);
+  const [academicYears, setAcademicYears] = useState<AnyRow[]>([]);
+  const [exams, setExams] = useState<AnyRow[]>([]);
   const [centers, setCenters] = useState<AnyRow[]>([]);
   const [rows, setRows] = useState<AnyRow[]>([]);
 
@@ -140,26 +146,6 @@ export default function ExamcenterCollegesReportPage() {
     () => dedupeBy(baseRows, (r) => num(r.fk_course_id)),
     [baseRows],
   );
-  const academicYears = useMemo(() => {
-    if (!courseId) return [];
-    return dedupeBy(
-      baseRows.filter((r) => num(r.fk_course_id) === Number(courseId)),
-      (r) => num(r.fk_academic_year_id),
-    );
-  }, [baseRows, courseId]);
-  const exams = useMemo(() => {
-    if (!courseId || !academicYearId) return [];
-    // Angular: filter out internal exams
-    return dedupeBy(
-      baseRows.filter(
-        (r) =>
-          num(r.fk_course_id) === Number(courseId) &&
-          num(r.fk_academic_year_id) === Number(academicYearId) &&
-          !r.is_internal_exam,
-      ),
-      (r) => num(r.fk_exam_id),
-    );
-  }, [baseRows, courseId, academicYearId]);
 
   const selectedCourse = useMemo(
     () => courses.find((c) => num(c.fk_course_id) === Number(courseId)),
@@ -181,16 +167,28 @@ export default function ExamcenterCollegesReportPage() {
     [centers, univExamcenterId],
   );
 
+  const centerOptions = useMemo(
+    () =>
+      centers
+        .map((c) => {
+          const id = centerId(c);
+          const code = centerCode(c);
+          const name = centerName(c);
+          return {
+            value: String(id),
+            label: code || name || (id > 0 ? String(id) : ""),
+          };
+        })
+        .filter((o) => Number(o.value) > 0 && o.label),
+    [centers],
+  );
+
   const reportSubtitle = useMemo(() => {
     return [
       txt(selectedCourse?.course_code),
       txt(selectedYear?.academic_year),
       txt(selectedExam?.exam_name),
-      txt(
-        selectedCenter?.examcenterName ??
-          selectedCenter?.examcenter_name ??
-          selectedCenter?.ec_name,
-      ),
+      centerName(selectedCenter ?? {}) || centerCode(selectedCenter ?? {}),
     ]
       .filter(Boolean)
       .join(" / ");
@@ -200,7 +198,96 @@ export default function ExamcenterCollegesReportPage() {
     setRows([]);
   }
 
+  /**
+   * Angular selectedExam → listDetailsById(UnivExamCenters, isActive)
+   * then auto-select first center.
+   */
+  const selectedExamChange = useCallback(async (nextExamId: string) => {
+    setExamId(nextExamId);
+    setUnivExamcenterId("");
+    setCenters([]);
+    clearResults();
+    if (!nextExamId || Number(nextExamId) <= 0) return;
+
+    setLoadingCenters(true);
+    try {
+      const list = await getExamCenterCollegesReportCenters();
+      setCenters(list);
+      const firstId = list.map(centerId).find((id) => id > 0);
+      if (firstId) setUnivExamcenterId(String(firstId));
+    } catch (e) {
+      toastError(e, "Failed to load exam centers");
+      setCenters([]);
+    } finally {
+      setLoadingCenters(false);
+    }
+  }, []);
+
+  /**
+   * Angular selectedAcademicYear → filter exams (non-internal), auto-pick first,
+   * then selectedExam.
+   */
+  const selectedAcademicYearChange = useCallback(
+    async (nextYearId: string, course: string, sourceRows: AnyRow[]) => {
+      setAcademicYearId(nextYearId);
+      setExamId("");
+      setUnivExamcenterId("");
+      setExams([]);
+      setCenters([]);
+      clearResults();
+      if (!nextYearId || !course) return;
+
+      const examRows = dedupeBy(
+        sourceRows.filter(
+          (r) =>
+            num(r.fk_course_id) === Number(course) &&
+            num(r.fk_academic_year_id) === Number(nextYearId) &&
+            !r.is_internal_exam,
+        ),
+        (r) => num(r.fk_exam_id),
+      );
+      setExams(examRows);
+      if (examRows.length > 0) {
+        await selectedExamChange(String(num(examRows[0].fk_exam_id)));
+      }
+    },
+    [selectedExamChange],
+  );
+
+  /**
+   * Angular selectedCourse → filter academic years, auto-pick first,
+   * then selectedAcademicYear.
+   */
+  const selectedCourseChange = useCallback(
+    async (nextCourseId: string, sourceRows: AnyRow[]) => {
+      setCourseId(nextCourseId);
+      setAcademicYearId("");
+      setExamId("");
+      setUnivExamcenterId("");
+      setAcademicYears([]);
+      setExams([]);
+      setCenters([]);
+      clearResults();
+      if (!nextCourseId) return;
+
+      const yearRows = dedupeBy(
+        sourceRows.filter((r) => num(r.fk_course_id) === Number(nextCourseId)),
+        (r) => num(r.fk_academic_year_id),
+      );
+      setAcademicYears(yearRows);
+      if (yearRows.length > 0) {
+        await selectedAcademicYearChange(
+          String(num(yearRows[0].fk_academic_year_id)),
+          nextCourseId,
+          sourceRows,
+        );
+      }
+    },
+    [selectedAcademicYearChange],
+  );
+
   useEffect(() => {
+    let cancelled = false;
     async function loadBase() {
       setLoadingFilters(true);
       try {
@@ -208,65 +295,35 @@ export default function ExamcenterCollegesReportPage() {
           organizationId: organizationId || 0,
           employeeId,
         });
+        if (cancelled) return;
         setBaseRows(list);
         const first = dedupeBy(list, (r) => num(r.fk_course_id))[0];
-        if (first) setCourseId(String(num(first.fk_course_id)));
+        if (first) {
+          await selectedCourseChange(String(num(first.fk_course_id)), list);
+        }
       } catch (e) {
-        toastError(e, "Failed to load filters");
-        setBaseRows([]);
+        if (!cancelled) {
+          toastError(e, "Failed to load filters");
+          setBaseRows([]);
+        }
       } finally {
-        setLoadingFilters(false);
+        if (!cancelled) setLoadingFilters(false);
       }
     }
     void loadBase();
-  }, [employeeId, organizationId]);
-
-  useEffect(() => {
-    setAcademicYearId("");
-    setExamId("");
-    setUnivExamcenterId("");
-    setCenters([]);
-    clearResults();
-    if (!courseId || !academicYears.length) return;
-    setAcademicYearId(String(num(academicYears[0].fk_academic_year_id)));
-  }, [courseId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    setExamId("");
-    setUnivExamcenterId("");
-    setCenters([]);
-    clearResults();
-    if (!academicYearId || !exams.length) return;
-    setExamId(String(num(exams[0].fk_exam_id)));
-  }, [academicYearId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    async function loadCenters() {
-      setUnivExamcenterId("");
-      clearResults();
-      if (!examId) {
-        setCenters([]);
-        return;
-      }
-      setLoadingFilters(true);
-      try {
-        const list = await getExamCenterCollegesReportCenters();
-        setCenters(list);
-        if (list.length) {
-          setUnivExamcenterId(String(centerId(list[0])));
-        }
-      } catch (e) {
-        toastError(e, "Failed to load exam centers");
-        setCenters([]);
-      } finally {
-        setLoadingFilters(false);
-      }
-    }
-    void loadCenters();
-  }, [examId]);
+    return () => {
+      cancelled = true;
+    };
+  }, [employeeId, organizationId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function onGetList() {
-    if (!courseId || !academicYearId || !examId || !univExamcenterId) {
+    if (
+      !courseId ||
+      !academicYearId ||
+      !examId ||
+      !univExamcenterId ||
+      Number(univExamcenterId) <= 0
+    ) {
       toastInfo("Please Select Valid Filters");
       return;
     }
@@ -332,78 +389,93 @@ export default function ExamcenterCollegesReportPage() {
 
   const filters = (
     <>
-      <GlobalFilterBarRow>
-        <GlobalFilterField label="Course *">
-          <Select
-            value={courseId || null}
-            onChange={(v) => setCourseId(v ?? "")}
-            isLoading={loadingFilters}
-            options={courses.map((c) => ({
-              value: String(num(c.fk_course_id)),
-              label: txt(c.course_code),
-            }))}
-            placeholder="Course"
-            searchable
-          />
-        </GlobalFilterField>
-        <GlobalFilterField label="Academic Year *">
-          <Select
-            value={academicYearId || null}
-            onChange={(v) => setAcademicYearId(v ?? "")}
-            isLoading={loadingFilters}
-            options={academicYears.map((y) => ({
-              value: String(num(y.fk_academic_year_id)),
-              label: txt(y.academic_year),
-            }))}
-            placeholder="Academic Year"
-            searchable
-          />
-        </GlobalFilterField>
-        <GlobalFilterField label="Exam" className="min-w-[280px] flex-[2]">
-          <Select
-            value={examId || null}
-            onChange={(v) => setExamId(v ?? "")}
-            isLoading={loadingFilters}
-            options={exams.map((e) => ({
-              value: String(num(e.fk_exam_id)),
-              label: formatExamLabel(e),
-            }))}
-            placeholder="Exam"
-            searchable
-          />
-        </GlobalFilterField>
-      </GlobalFilterBarRow>
-      <GlobalFilterBarRow>
-        <GlobalFilterField label="Exam Center *">
-          <Select
-            value={univExamcenterId || null}
-            onChange={(v) => {
-              setUnivExamcenterId(v ?? "");
-              clearResults();
-            }}
-            isLoading={loadingFilters}
-            options={centers.map((c) => ({
-              value: String(centerId(c)),
-              label: txt(c.examcenterCode ?? c.examcenter_code ?? c.ec_code),
-            }))}
-            placeholder="Exam Center"
-            searchable
-          />
-        </GlobalFilterField>
-        <GlobalFilterField
-          label=""
-          className="global-filter-field--shrink global-filter-field--action"
-        >
-          <Button
-            type="button"
-            onClick={() => void onGetList()}
-            disabled={loadingList}
-            className="h-[30px] px-3 text-[12px]"
-          >
-            Get List
-          </Button>
-        </GlobalFilterField>
-      </GlobalFilterBarRow>
+      <div className="inv-allot-report-filters space-y-2">
+        <div className="inv-allot-report-filters__row">
+          <div className="inv-allot-report-filters__fx20">
+            <GlobalFilterField label="Course *">
+              <Select
+                value={courseId || null}
+                onChange={(v) => {
+                  void selectedCourseChange(v ?? "", baseRows);
+                }}
+                isLoading={loadingFilters}
+                options={courses.map((c) => ({
+                  value: String(num(c.fk_course_id)),
+                  label: txt(c.course_code),
+                }))}
+                placeholder="Course"
+                searchable
+              />
+            </GlobalFilterField>
+          </div>
+          <div className="inv-allot-report-filters__fx20">
+            <GlobalFilterField label="Academic Year *">
+              <Select
+                value={academicYearId || null}
+                onChange={(v) => {
+                  void selectedAcademicYearChange(v ?? "", courseId, baseRows);
+                }}
+                isLoading={loadingFilters}
+                options={academicYears.map((y) => ({
+                  value: String(num(y.fk_academic_year_id)),
+                  label: txt(y.academic_year),
+                }))}
+                placeholder="Academic Year"
+                searchable
+              />
+            </GlobalFilterField>
+          </div>
+          <div className="inv-allot-report-filters__fx60">
+            <GlobalFilterField label="Exam" className="min-w-[280px] flex-[2]">
+              <Select
+                value={examId || null}
+                onChange={(v) => {
+                  void selectedExamChange(v ?? "");
+                }}
+                isLoading={loadingFilters}
+                options={exams.map((e) => ({
+                  value: String(num(e.fk_exam_id)),
+                  label: formatExamLabel(e),
+                }))}
+                placeholder="Exam"
+                searchable
+              />
+            </GlobalFilterField>
+          </div>
+        </div>
+        <div className="inv-allot-report-filters__row">
+          <div className="inv-allot-report-filters__fx30">
+            <GlobalFilterField label="Exam Center *">
+              <Select
+                value={univExamcenterId || null}
+                onChange={(v) => {
+                  setUnivExamcenterId(v ?? "");
+                  clearResults();
+                }}
+                isLoading={loadingCenters}
+                options={centerOptions}
+                placeholder="Exam Center"
+                searchable
+              />
+            </GlobalFilterField>
+          </div>
+          <div className="inv-allot-report-filters__fx15">
+            <GlobalFilterField
+              label=""
+              className="global-filter-field--shrink global-filter-field--action"
+            >
+              <Button
+                type="button"
+                onClick={() => void onGetList()}
+                disabled={loadingList || loadingCenters}
+                className="h-[30px] px-3 text-[12px] w-full"
+              >
+                Get List
+              </Button>
+            </GlobalFilterField>
+          </div>
+        </div>
+      </div>
     </>
   );
 

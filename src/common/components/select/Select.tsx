@@ -63,6 +63,8 @@ export interface SelectProps {
   disabled?: boolean;
   /** Show a search input inside the dropdown. Enabled by default app-wide. */
   searchable?: boolean;
+  /** Placeholder for the in-panel search box (Angular ngx-mat-select-search). */
+  searchPlaceholder?: string;
   /** Called with the (debounced) search term; also called with '' when the dropdown closes. */
   onSearch?: (term: string) => void;
   /** Fires when the popover opens or closes (after internal state updates). */
@@ -173,6 +175,7 @@ export function Select({
   error,
   disabled = false,
   searchable = true,
+  searchPlaceholder = "Search...",
   onSearch,
   onOpenChange,
   isLoading = false,
@@ -391,7 +394,7 @@ export function Select({
                 aria-label="Search options"
                 value={searchTerm}
                 onChange={handleSearchChange}
-                placeholder="Search..."
+                placeholder={searchPlaceholder}
                 className="mat-select-panel__search-input"
               />
             </div>

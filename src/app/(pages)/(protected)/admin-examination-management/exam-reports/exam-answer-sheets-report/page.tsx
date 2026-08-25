@@ -531,94 +531,106 @@ export default function ExamAnswerSheetsReportPage() {
   );
 
   const filters = (
-    <GlobalFilterBarRow>
-      <GlobalFilterField label="Course *">
-        <Select
-          value={courseId || null}
-          onChange={(v) => setCourseId(v ?? "")}
-          isLoading={loadingFilters}
-          options={courses.map((c) => ({
-            value: String(num(c.fk_course_id)),
-            label: txt(c.course_code),
-          }))}
-          placeholder="Course"
-          searchable
-        />
-      </GlobalFilterField>
-      <GlobalFilterField label="Exam Year *">
-        <Select
-          value={academicYearId || null}
-          onChange={(v) => setAcademicYearId(v ?? "")}
-          isLoading={loadingFilters}
-          options={academicYears.map((y) => ({
-            value: String(num(y.fk_academic_year_id)),
-            label: txt(y.academic_year),
-          }))}
-          placeholder="Exam Year"
-          searchable
-        />
-      </GlobalFilterField>
-      <GlobalFilterField
-        label="Exam Master *"
-        className="min-w-[280px] flex-[2]"
-      >
-        <Select
-          value={examId || null}
-          onChange={(v) => setExamId(v ?? "")}
-          isLoading={loadingFilters}
-          options={exams.map((e) => ({
-            value: String(num(e.fk_exam_id)),
-            label: formatExamLabel(e),
-          }))}
-          placeholder="Exam Master"
-          searchable
-        />
-      </GlobalFilterField>
-      <GlobalFilterField label="Exam Timetable *">
-        <Select
-          value={examTimetableId || null}
-          onChange={(v) => {
-            setExamTimetableId(v ?? "");
-            clearResults();
-          }}
-          isLoading={loadingFilters}
-          options={[
-            { value: "0", label: "All" },
-            ...timetables.map((t) => ({
-              value: String(num(t.examTimetableId)),
-              label: formatTimetableLabel(t),
-            })),
-          ]}
-          placeholder="Exam Timetable"
-          searchable
-        />
-      </GlobalFilterField>
-      <GlobalFilterField
-        label=""
-        className="global-filter-field--shrink global-filter-field--action"
-      >
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            onClick={() => void onGetList()}
-            disabled={loadingList}
-            className="h-[30px] px-3 text-[12px]"
-          >
-            Get List
-          </Button>
-          {showBack && (
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={onBack}
-              className="h-[30px] px-3 text-[12px] bg-amber-400 hover:bg-amber-500 text-black"
-            >
-              Back
-            </Button>
-          )}
+    <div className="inv-allot-report-filters space-y-2">
+      <div className="inv-allot-report-filters__row">
+        <div className="inv-allot-report-filters__fx13">
+          <GlobalFilterField label="Course *">
+            <Select
+              value={courseId || null}
+              onChange={(v) => setCourseId(v ?? "")}
+              isLoading={loadingFilters}
+              options={courses.map((c) => ({
+                value: String(num(c.fk_course_id)),
+                label: txt(c.course_code),
+              }))}
+              placeholder="Course"
+              searchable
+            />
+          </GlobalFilterField>
         </div>
-      </GlobalFilterField>
-    </GlobalFilterBarRow>
+        <div className="inv-allot-report-filters__fx13">
+          <GlobalFilterField label="Exam Year *">
+            <Select
+              value={academicYearId || null}
+              onChange={(v) => setAcademicYearId(v ?? "")}
+              isLoading={loadingFilters}
+              options={academicYears.map((y) => ({
+                value: String(num(y.fk_academic_year_id)),
+                label: txt(y.academic_year),
+              }))}
+              placeholder="Exam Year"
+              searchable
+            />
+          </GlobalFilterField>
+        </div>
+        <div className="inv-allot-report-filters__fx40">
+          <GlobalFilterField
+            label="Exam Master *"
+            className="min-w-[280px] flex-[2]"
+          >
+            <Select
+              value={examId || null}
+              onChange={(v) => setExamId(v ?? "")}
+              isLoading={loadingFilters}
+              options={exams.map((e) => ({
+                value: String(num(e.fk_exam_id)),
+                label: formatExamLabel(e),
+              }))}
+              placeholder="Exam Master"
+              searchable
+            />
+          </GlobalFilterField>
+        </div>
+        <div className="inv-allot-report-filters__fx20">
+          <GlobalFilterField label="Exam Timetable *">
+            <Select
+              value={examTimetableId || null}
+              onChange={(v) => {
+                setExamTimetableId(v ?? "");
+                clearResults();
+              }}
+              isLoading={loadingFilters}
+              options={[
+                { value: "0", label: "All" },
+                ...timetables.map((t) => ({
+                  value: String(num(t.examTimetableId)),
+                  label: formatTimetableLabel(t),
+                })),
+              ]}
+              placeholder="Exam Timetable"
+              searchable
+            />
+          </GlobalFilterField>
+        </div>
+        <div className="inv-allot-report-filters__fx13">
+          <GlobalFilterField
+            label=""
+            className="global-filter-field--shrink global-filter-field--action"
+          >
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                onClick={() => void onGetList()}
+                disabled={loadingList}
+                className="h-[30px] px-3 text-[12px] w-full"
+              >
+                Get List
+              </Button>
+              {showBack && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={onBack}
+                  className="h-[30px] px-3 text-[12px] bg-amber-400 hover:bg-amber-500 text-black"
+                >
+                  Back
+                </Button>
+              )}
+            </div>
+          </GlobalFilterField>
+        </div>
+      </div>
+    </div>
   );
 
   return (

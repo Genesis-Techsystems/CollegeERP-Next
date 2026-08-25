@@ -4,10 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { RefreshCw } from "lucide-react";
 import { FilteredListPage } from "@/components/layout";
-import {
-  GlobalFilterBarRow,
-  GlobalFilterField,
-} from "@/common/components/forms";
+import { GlobalFilterField } from "@/common/components/forms";
 import { Select, type SelectOption } from "@/common/components/select";
 import { Button } from "@/components/ui/button";
 import { rowIndexGetter } from "@/lib/utils";
@@ -110,22 +107,39 @@ function formatRegDate(v: unknown): string {
   return s;
 }
 
-/** Subjects cell renderer — matches Angular: Name (CODE), Name (CODE) with blue codes */
+/**
+ * Subjects cell — Angular exam-student-registration-report:
+ * `CODE-Name^CODE-Name` → `Name (CODE), Name (CODE)` (comma-separated, wraps, blue).
+ */
 function subjectsRenderer(p: ICellRendererParams<Row>) {
   const raw = txt(p.data?.subject_name ?? p.data?.subjects);
   if (!raw) return <span className="text-muted-foreground">—</span>;
+
+  // Already display-formatted (no caret delimiter)
+  if (!raw.includes("^")) {
+    return (
+      <span
+        className="block whitespace-normal break-words text-left text-[12px] font-medium leading-snug"
+        style={{ color: "blue" }}
+      >
+        {raw}
+      </span>
+    );
+  }
+
   const parts = raw.split("^").filter(Boolean);
   return (
-    <span className="text-[12px] leading-snug">
+    <span className="block whitespace-normal break-words text-left text-[13px] font-medium leading-snug">
       {parts.map((part, i) => {
         const bits = part.split("-");
         const code = bits[0]?.trim() ?? "";
         const name = bits.slice(1).join("-").trim() || part.trim();
+        const label = code ? `(${code})` : part.trim();
         return (
           <span key={`${code}-${i}`}>
             {i > 0 ? ", " : ""}
             {name}
-            {code ? <span className="text-blue-700"> ({code})</span> : null}
+            {label ? <span className="text-blue-700"> {label}</span> : null}
           </span>
         );
       })}
@@ -695,6 +709,7 @@ export default function ExamRegistrationStudentReportPage() {
         headerName: "Exam",
         minWidth: 250,
         valueGetter: (p) => txt(p.data?.exam_name ?? p.data?.examName),
+        autoHeight: true,
       },
       {
         headerName: "Exam Type",
@@ -709,7 +724,11 @@ export default function ExamRegistrationStudentReportPage() {
       },
       {
         headerName: "Subjects",
-        minWidth: 220,
+        minWidth: 280,
+        flex: 1,
+        wrapText: true,
+        autoHeight: true,
+        cellStyle: { lineHeight: "1.35", paddingTop: 6, paddingBottom: 6 },
         cellRenderer: subjectsRenderer,
       },
       {
@@ -754,181 +773,194 @@ export default function ExamRegistrationStudentReportPage() {
   );
 
   const filters = (
-    <>
-      {/* Row 1: Course | Exam Year | Exam Master */}
-      <GlobalFilterBarRow>
-        <GlobalFilterField label="Course *">
-          <Select
-            value={courseId || null}
-            onChange={(v) => {
-              setCourseId(v ?? "");
-              setAcademicYearId("");
-              setExamId("");
-              setCollegeId("");
-            }}
-            isLoading={loadingFilters}
-            options={courses.map((c) => ({
-              value: String(num(c.fk_course_id)),
-              label: txt(c.course_code ?? c.courseCode),
-            }))}
-            placeholder="Course"
-            searchable
-          />
-        </GlobalFilterField>
+    <div className="inv-allot-report-filters space-y-2">
+      {/* Angular row1: Course 20 / Exam Year 20 / Exam Master 60 */}
+      <div className="inv-allot-report-filters__row">
+        <div className="inv-allot-report-filters__fx20">
+          <GlobalFilterField label="Course *">
+            <Select
+              value={courseId || null}
+              onChange={(v) => {
+                setCourseId(v ?? "");
+                setAcademicYearId("");
+                setExamId("");
+                setCollegeId("");
+              }}
+              isLoading={loadingFilters}
+              options={courses.map((c) => ({
+                value: String(num(c.fk_course_id)),
+                label: txt(c.course_code ?? c.courseCode),
+              }))}
+              placeholder="Course"
+              searchable
+            />
+          </GlobalFilterField>
+        </div>
 
-        <GlobalFilterField label="Exam Year *">
-          <Select
-            value={academicYearId || null}
-            onChange={(v) => {
-              setAcademicYearId(v ?? "");
-              setExamId("");
-              setCollegeId("");
-            }}
-            isLoading={loadingFilters}
-            options={academicYears.map((y) => ({
-              value: String(num(y.fk_academic_year_id)),
-              label: txt(y.academic_year ?? y.academicYear),
-            }))}
-            placeholder="Exam Year"
-            searchable
-            disabled={!courseId}
-          />
-        </GlobalFilterField>
+        <div className="inv-allot-report-filters__fx20">
+          <GlobalFilterField label="Exam Year *">
+            <Select
+              value={academicYearId || null}
+              onChange={(v) => {
+                setAcademicYearId(v ?? "");
+                setExamId("");
+                setCollegeId("");
+              }}
+              isLoading={loadingFilters}
+              options={academicYears.map((y) => ({
+                value: String(num(y.fk_academic_year_id)),
+                label: txt(y.academic_year ?? y.academicYear),
+              }))}
+              placeholder="Exam Year"
+              searchable
+              disabled={!courseId}
+            />
+          </GlobalFilterField>
+        </div>
 
-        <GlobalFilterField
-          label="Exam Master *"
-          className="min-w-[260px] flex-[2]"
-        >
-          <Select
-            value={examId || null}
-            onChange={(v) => setExamId(v ?? "")}
-            isLoading={loadingFilters}
-            options={exams.map((e) => ({
-              value: String(num(e.fk_exam_id)),
-              label: examMasterLabel(e),
-            }))}
-            placeholder="Exam Master"
-            searchable
-            disabled={!academicYearId}
-          />
-        </GlobalFilterField>
-      </GlobalFilterBarRow>
+        <div className="inv-allot-report-filters__fx60">
+          <GlobalFilterField label="Exam Master *">
+            <Select
+              value={examId || null}
+              onChange={(v) => setExamId(v ?? "")}
+              isLoading={loadingFilters}
+              options={exams.map((e) => ({
+                value: String(num(e.fk_exam_id)),
+                label: examMasterLabel(e),
+              }))}
+              placeholder="Exam Master"
+              searchable
+              wrapOptionLabels
+              disabled={!academicYearId}
+            />
+          </GlobalFilterField>
+        </div>
+      </div>
 
-      {/* Row 2: College | Course Group | Course Years | Regulation | Room | Student | Get List | Reset */}
-      <GlobalFilterBarRow>
-        <GlobalFilterField label="College *">
-          <Select
-            value={collegeId || null}
-            onChange={(v) => {
-              setCollegeId(v ?? "");
-              setCourseGroupId("");
-              setCourseYearId("");
-            }}
-            isLoading={loadingFilters}
-            options={colleges.map((c) => ({
-              value: String(num(c.fk_college_id)),
-              label: txt(c.college_code ?? c.collegeCode),
-            }))}
-            placeholder="College"
-            disabled={!examId}
-          />
-        </GlobalFilterField>
+      {/* Row 2: College | Course Group | Course Years | Regulation | Room | Student | actions */}
+      <div className="inv-allot-report-filters__row">
+        <div className="inv-allot-report-filters__fx15">
+          <GlobalFilterField label="College *">
+            <Select
+              value={collegeId || null}
+              onChange={(v) => {
+                setCollegeId(v ?? "");
+                setCourseGroupId("");
+                setCourseYearId("");
+              }}
+              isLoading={loadingFilters}
+              options={colleges.map((c) => ({
+                value: String(num(c.fk_college_id)),
+                label: txt(c.college_code ?? c.collegeCode),
+              }))}
+              placeholder="College"
+              disabled={!examId}
+            />
+          </GlobalFilterField>
+        </div>
 
-        <GlobalFilterField label="Course Group *">
-          <Select
-            value={courseGroupId || null}
-            onChange={(v) => {
-              setCourseGroupId(v ?? "");
-              setCourseYearId("");
-            }}
-            isLoading={loadingFilters}
-            options={courseGroups.map((g) => ({
-              value: String(num(g.fk_course_group_id)),
-              label: txt(g.group_code ?? g.groupCode),
-            }))}
-            placeholder="Course Group"
-            disabled={!collegeId}
-          />
-        </GlobalFilterField>
+        <div className="inv-allot-report-filters__fx15">
+          <GlobalFilterField label="Course Group *">
+            <Select
+              value={courseGroupId || null}
+              onChange={(v) => {
+                setCourseGroupId(v ?? "");
+                setCourseYearId("");
+              }}
+              isLoading={loadingFilters}
+              options={courseGroups.map((g) => ({
+                value: String(num(g.fk_course_group_id)),
+                label: txt(g.group_code ?? g.groupCode),
+              }))}
+              placeholder="Course Group"
+              disabled={!collegeId}
+            />
+          </GlobalFilterField>
+        </div>
 
-        <GlobalFilterField label="Course Years *">
-          <Select
-            value={courseYearId || null}
-            onChange={(v) => setCourseYearId(v ?? "")}
-            isLoading={loadingFilters}
-            options={courseYears.map((y) => ({
-              value: String(num(y.fk_course_year_id)),
-              label: txt(
-                y.course_year_code ?? y.courseYearCode ?? y.course_year_name,
-              ),
-            }))}
-            placeholder="Course Years"
-            disabled={!courseGroupId}
-          />
-        </GlobalFilterField>
-
-        <GlobalFilterField label="Regulation">
-          <Select
-            value={regulationId}
-            onChange={(v) => setRegulationId(v ?? "0")}
-            isLoading={loadingFilters}
-            options={[
-              { value: "0", label: "All" },
-              ...regulations.map((r) => ({
-                value: String(num(r.fk_regulation_id ?? r.regulationId)),
-                label: txt(r.regulation_code ?? r.regulationCode),
-              })),
-            ]}
-            placeholder="All"
-            disabled={!collegeId}
-          />
-        </GlobalFilterField>
-
-        <GlobalFilterField label="Room">
-          <Select
-            value={roomId}
-            onChange={(v) => setRoomId(v ?? "0")}
-            options={[
-              { value: "0", label: "All" },
-              ...roomRows.map((r) => ({
-                value: String(num(r.roomId ?? r.room_id)),
+        <div className="inv-allot-report-filters__fx15">
+          <GlobalFilterField label="Course Years *">
+            <Select
+              value={courseYearId || null}
+              onChange={(v) => setCourseYearId(v ?? "")}
+              isLoading={loadingFilters}
+              options={courseYears.map((y) => ({
+                value: String(num(y.fk_course_year_id)),
                 label: txt(
-                  r.roomCode ?? r.room_code ?? r.roomName ?? r.room_name,
+                  y.course_year_code ?? y.courseYearCode ?? y.course_year_name,
                 ),
-              })),
-            ]}
-            placeholder="All"
-            searchable={roomRows.length > 8}
-          />
-        </GlobalFilterField>
+              }))}
+              placeholder="Course Years"
+              disabled={!courseGroupId}
+            />
+          </GlobalFilterField>
+        </div>
 
-        <GlobalFilterField label="Student">
-          <Select
-            value={studentId || null}
-            onChange={(v) => {
-              setStudentId(v ?? "");
-              setRows([]);
-              setHasFetched(false);
-            }}
-            options={studentOptions}
-            placeholder="Student"
-            searchable
-            clearable
-            onSearch={onSearchStudent}
-            isLoading={searchingStudent}
-          />
-        </GlobalFilterField>
+        <div className="inv-allot-report-filters__fx15">
+          <GlobalFilterField label="Regulation">
+            <Select
+              value={regulationId}
+              onChange={(v) => setRegulationId(v ?? "0")}
+              isLoading={loadingFilters}
+              options={[
+                { value: "0", label: "All" },
+                ...regulations.map((r) => ({
+                  value: String(num(r.fk_regulation_id ?? r.regulationId)),
+                  label: txt(r.regulation_code ?? r.regulationCode),
+                })),
+              ]}
+              placeholder="All"
+              disabled={!collegeId}
+            />
+          </GlobalFilterField>
+        </div>
 
-        <GlobalFilterField
-          label=""
-          className="global-filter-field--shrink global-filter-field--action"
-        >
-          <div className="flex items-center gap-1">
+        <div className="inv-allot-report-filters__fx15">
+          <GlobalFilterField label="Room">
+            <Select
+              value={roomId}
+              onChange={(v) => setRoomId(v ?? "0")}
+              options={[
+                { value: "0", label: "All" },
+                ...roomRows.map((r) => ({
+                  value: String(num(r.roomId ?? r.room_id)),
+                  label: txt(
+                    r.roomCode ?? r.room_code ?? r.roomName ?? r.room_name,
+                  ),
+                })),
+              ]}
+              placeholder="All"
+              searchable={roomRows.length > 8}
+            />
+          </GlobalFilterField>
+        </div>
+
+        <div className="inv-allot-report-filters__fx15">
+          <GlobalFilterField label="Student">
+            <Select
+              value={studentId || null}
+              onChange={(v) => {
+                setStudentId(v ?? "");
+                setRows([]);
+                setHasFetched(false);
+              }}
+              options={studentOptions}
+              placeholder="Student"
+              searchable
+              clearable
+              onSearch={onSearchStudent}
+              isLoading={searchingStudent}
+            />
+          </GlobalFilterField>
+        </div>
+
+        <div className="inv-allot-report-filters__fx10 flex items-end pb-0.5">
+          <div className="flex w-full items-center gap-1">
             <Button
               type="button"
               onClick={() => void onGetList()}
               disabled={loadingList || loadingFilters}
-              className="h-[30px] px-3 text-[12px]"
+              className="h-[30px] flex-1 px-3 text-[12px]"
             >
               Get List
             </Button>
@@ -944,9 +976,9 @@ export default function ExamRegistrationStudentReportPage() {
               <RefreshCw className="h-3.5 w-3.5" />
             </Button>
           </div>
-        </GlobalFilterField>
-      </GlobalFilterBarRow>
-    </>
+        </div>
+      </div>
+    </div>
   );
 
   return (

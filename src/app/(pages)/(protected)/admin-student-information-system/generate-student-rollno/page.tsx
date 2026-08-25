@@ -11,6 +11,7 @@ import { useSessionContext } from "@/context/SessionContext";
 import { toastError, toastSuccess } from "@/lib/toast";
 import { printHtmlInIframe } from "@/lib/print";
 import { rowIndexGetter } from "@/lib/utils";
+import { MINIO_URL } from "@/config/constants/api";
 import {
   getStudentInfoCollegeFilters,
   listStudentsForRollNumberAssignment,
@@ -160,16 +161,30 @@ function exportRollExcel(rows: AnyRow[]) {
   URL.revokeObjectURL(url);
 }
 
-/** Angular Print Report — college title, filter line, boxed roll/hallticket cells. */
+/** Angular Print Report — logo + college title, filter line, boxed roll/hallticket. */
 function printAssignRollReport(params: {
   collegeName: string;
   filterLine: string;
+  logoUrl: string | null;
+  orgCode?: string;
   rows: AnyRow[];
 }) {
-  const { collegeName, filterLine, rows } = params;
+  const { collegeName, filterLine, logoUrl, orgCode = "", rows } = params;
+  const isSuk = orgCode.trim().toUpperCase() === "SUK";
+  const resolvedLogo =
+    logoUrl && logoUrl.trim() !== ""
+      ? logoUrl
+      : "/assets/images/avatars/default_logo.png";
+
   const bodyRows = rows
     .map((row, i) => {
-      const admission = pickText(row, ["admissionNumber", "admission_no"]);
+      const admission = pickText(row, [
+        "admissionNumber",
+        "admission_no",
+        "admissionNo",
+        "admNumber",
+        "admission_number",
+      ]);
       const name = pickText(row, ["firstName", "first_name", "studentName"]);
       const roll = String(row.rollNumber ?? row.roll_number ?? "");
       const hallticket = String(
@@ -179,11 +194,32 @@ function printAssignRollReport(params: {
   <td class="c">${i + 1}</td>
   <td class="c">${escapeHtml(admission)}</td>
   <td class="l">${escapeHtml(name)}</td>
-  <td class="c"><span class="box">${escapeHtml(roll)}</span></td>
-  <td class="c"><span class="box">${escapeHtml(hallticket)}</span></td>
+  <td class="c"><input class="rol" type="text" readonly value="${escapeHtml(roll)}" /></td>
+  <td class="c"><input class="rol" type="text" readonly value="${escapeHtml(hallticket)}" /></td>
 </tr>`;
     })
     .join("");
+
+  // Angular non-SUK: logo left + titles; SUK: full-width logo then titles
+  const headerHtml = isSuk
+    ? `<div class="hdr-suk">
+  <div class="logo-full">
+    <img src="${escapeHtml(resolvedLogo)}" alt="" onerror="this.src='/assets/images/avatars/default_logo.png'" />
+  </div>
+  <p class="collegeName">${escapeHtml(collegeName)}</p>
+  <p class="title">Assign Student Roll Number</p>
+  <p class="details">${escapeHtml(filterLine)}</p>
+</div>`
+    : `<div class="hdr">
+  <div class="logo">
+    <img src="${escapeHtml(resolvedLogo)}" alt="" onerror="this.src='/assets/images/avatars/default_logo.png'" />
+  </div>
+  <div class="titles">
+    <p class="collegeName">${escapeHtml(collegeName)}</p>
+    <p class="title">Assign Student Roll Number</p>
+    <p class="details">${escapeHtml(filterLine)}</p>
+  </div>
+</div>`;
 
   printHtmlInIframe(`<!DOCTYPE html>
 <html>
@@ -191,32 +227,65 @@ function printAssignRollReport(params: {
 <meta charset="utf-8" />
 <title>Assign Student Roll Number</title>
 <style>
-  @page { size: A4 portrait; margin: 12mm 10mm; }
+  @page { size: A4 portrait; margin: 8mm 8mm; }
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    padding: 8px 4px;
+    padding: 4px;
     background: #fff;
-    color: #111;
+    color: #000;
     font-family: Arial, Helvetica, sans-serif;
     font-size: 12px;
   }
-  .hdr { text-align: center; margin-bottom: 14px; }
-  .hdr h1 {
-    margin: 0 0 6px;
-    font-size: 20px;
-    font-weight: 700;
-    letter-spacing: 0.2px;
+  .hdr {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 12px;
   }
-  .hdr h2 {
-    margin: 0 0 6px;
-    font-size: 15px;
-    font-weight: 700;
+  .hdr .logo {
+    flex: 0 0 15%;
+    max-width: 120px;
   }
-  .hdr .meta {
+  .hdr .logo img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 90px;
+    object-fit: contain;
+  }
+  .hdr .titles {
+    flex: 1;
+    text-align: center;
+    padding-top: 4px;
+  }
+  .hdr-suk { text-align: center; margin-bottom: 12px; }
+  .hdr-suk .logo-full img {
+    display: block;
+    width: 100%;
+    max-height: 100px;
+    object-fit: contain;
+    margin: 0 auto 6px;
+  }
+  .collegeName {
+    margin: 8px 0 2px;
+    font-size: 23px;
+    font-weight: 550;
+    color: #000;
+    text-align: center;
+  }
+  .title {
+    margin: 0 0 2px;
+    font-size: 18px;
+    font-weight: 550;
+    color: #000;
+    text-align: center;
+  }
+  .details {
     margin: 0;
-    font-size: 13px;
-    font-weight: 400;
+    font-size: 16px;
+    color: #000;
+    text-align: center;
   }
   table {
     width: 100%;
@@ -226,29 +295,31 @@ function printAssignRollReport(params: {
   thead { display: table-header-group; }
   tr { page-break-inside: avoid; }
   th, td {
-    border: 1px solid #9bb8d4;
-    padding: 6px 8px;
+    border: 1px solid rgba(0, 0, 0, 0.22);
+    padding: 5px 6px;
     vertical-align: middle;
   }
   th {
-    background: #e8f0fe;
+    background: #f5f5f5;
     font-weight: 700;
     text-align: center;
     font-size: 12px;
   }
   td.c { text-align: center; }
   td.l { text-align: left; }
-  .box {
+  /* Angular .rol-input — keep input look in print */
+  input.rol {
     display: inline-block;
-    min-width: 140px;
-    max-width: 95%;
-    padding: 4px 8px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    background: #fff;
+    width: 95%;
+    max-width: 220px;
+    border: 1px solid #b3b1b1;
+    border-radius: 3px;
+    padding: 5px;
+    margin: 2px;
     text-align: center;
     font-size: 12px;
-    line-height: 1.3;
+    background: #fff;
+    color: #000;
   }
   col.si { width: 8%; }
   col.adm { width: 14%; }
@@ -258,11 +329,7 @@ function printAssignRollReport(params: {
 </style>
 </head>
 <body>
-  <div class="hdr">
-    <h1>${escapeHtml(collegeName)}</h1>
-    <h2>Assign Student Roll Number</h2>
-    <p class="meta">${escapeHtml(filterLine)}</p>
-  </div>
+  ${headerHtml}
   <table>
     <colgroup>
       <col class="si" />
@@ -458,11 +525,31 @@ export default function GenerateStudentRollnoPage() {
     const cr = courses.find((x) => pickNum(x, CRS) === courseId);
     const cg = courseGroups.find((x) => pickNum(x, GRP) === courseGroupId);
     const cy = courseYears.find((x) => pickNum(x, YR) === courseYearId);
+    const sec =
+      groupSectionId > 0
+        ? sectionRows.find((x) => pickNum(x, SEC) === groupSectionId)
+        : null;
     const collegeName =
       pickText(c, ["college_name", "collegeName"]) ||
       user?.collegeName ||
       pickText(c, ["college_code", "collegeCode"]) ||
       "College";
+    const logoPath = pickText(c, [
+      "logo_filename",
+      "logoFilename",
+      "logo",
+      "logoPath",
+      "logo_path",
+    ]);
+    const logoUrl = logoPath
+      ? /^(https?:\/\/|data:)/i.test(logoPath)
+        ? logoPath
+        : `${MINIO_URL}${logoPath.replace(/^\/+/, "")}`
+      : user?.collegeLogo
+        ? /^(https?:\/\/|data:)/i.test(user.collegeLogo)
+          ? user.collegeLogo
+          : `${MINIO_URL}${user.collegeLogo.replace(/^\/+/, "")}`
+        : null;
     return {
       collegeName,
       collegeCode: pickText(c, ["college_code", "collegeCode"]) || "—",
@@ -475,6 +562,15 @@ export default function GenerateStudentRollnoPage() {
           "courseYearName",
           "course_year_code",
         ]) || "—",
+      // Angular `{{section}}` — empty when Section = Select (0)
+      section:
+        pickText(sec, [
+          "section",
+          "section_name",
+          "sectionName",
+          "group_section_name",
+        ]) || "",
+      logoUrl,
     };
   }, [
     colleges,
@@ -487,7 +583,10 @@ export default function GenerateStudentRollnoPage() {
     courseGroupId,
     courseYears,
     courseYearId,
+    sectionRows,
+    groupSectionId,
     user?.collegeName,
+    user?.collegeLogo,
   ]);
 
   const tableSummary = useMemo(
@@ -496,9 +595,10 @@ export default function GenerateStudentRollnoPage() {
     [displayHeader, students.length],
   );
 
+  // Angular print details: college / AY / course / group / year / section
   const printFilterLine = useMemo(
     () =>
-      `${displayHeader.collegeCode} / ${displayHeader.academicYear} / ${displayHeader.course} / ${displayHeader.courseGroup} / ${displayHeader.courseYear} /`,
+      `${displayHeader.collegeCode} / ${displayHeader.academicYear} / ${displayHeader.course} / ${displayHeader.courseGroup} / ${displayHeader.courseYear} / ${displayHeader.section}`,
     [displayHeader],
   );
 
@@ -507,9 +607,14 @@ export default function GenerateStudentRollnoPage() {
       toastError(new Error("Empty"), "Load students first.");
       return;
     }
+    const orgCode =
+      globalThis?.localStorage?.getItem("orgCode") ??
+      String(user?.organizationCode ?? "");
     printAssignRollReport({
       collegeName: displayHeader.collegeName,
       filterLine: printFilterLine,
+      logoUrl: displayHeader.logoUrl,
+      orgCode,
       rows: students,
     });
   }
@@ -653,8 +758,8 @@ export default function GenerateStudentRollnoPage() {
       title="Assign Student Roll Number"
       filterTitle="Assign Student Roll Number Filter"
       className="print:space-y-2"
-      showTable={listVisible}
-      resultsVisible={listVisible}
+      showTable={listVisible && students.length > 0}
+      resultsVisible={listVisible && students.length > 0}
       loading={loadingList}
       pagination
       height="auto"
@@ -712,7 +817,7 @@ export default function GenerateStudentRollnoPage() {
         </div>
       }
       filters={
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           <Select
             label="College"
             placeholder="Select"
@@ -797,20 +902,21 @@ export default function GenerateStudentRollnoPage() {
             searchable
             className={selectClass()}
           />
+          <div className="mt-3 flex">
+            <Button
+              type="button"
+              className="h-9 px-4 text-[12px]"
+              onClick={() => void handleGetList()}
+              disabled={loadingList || loadingFilters}
+            >
+              {loadingList ? "Loading…" : "Get List"}
+            </Button>
+          </div>
         </div>
       }
-      filtersFooter={
-        <div className="mt-3 flex justify-end">
-          <Button
-            type="button"
-            className="h-9 px-4 text-[12px]"
-            onClick={() => void handleGetList()}
-            disabled={loadingList || loadingFilters}
-          >
-            {loadingList ? "Loading…" : "Get List"}
-          </Button>
-        </div>
-      }
+      // filtersFooter={
+
+      // }
     >
       {listVisible && students.length > 0 ? (
         <div className="flex justify-end print:hidden">

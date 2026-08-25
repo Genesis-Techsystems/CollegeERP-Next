@@ -778,190 +778,215 @@ export default function DailyEvaluatedReportPage() {
 
   const filters = (
     <>
-      <GlobalFilterBarRow>
-        <GlobalFilterField label="Course *">
-          <Select
-            options={courses.map((c) => ({
-              value: String(num(c.fk_course_id)),
-              label: txt(c.course_code),
-            }))}
-            value={courseId || null}
-            onChange={(v) => {
-              void selectedCourse(v ?? "", baseRows);
-            }}
-            disabled={loadingFilters}
-            placeholder="Course"
-          />
-        </GlobalFilterField>
-        <GlobalFilterField label="Exam Year *">
-          <Select
-            options={academicYears.map((y) => ({
-              value: String(num(y.fk_academic_year_id)),
-              label: txt(y.academic_year),
-            }))}
-            value={academicYearId || null}
-            onChange={(v) => {
-              void selectedAcademicYear(v ?? "", {
-                courseId,
-                base: baseRows,
-              });
-            }}
-            disabled={loadingFilters || !courseId}
-            placeholder="Exam Year"
-          />
-        </GlobalFilterField>
-        <GlobalFilterField
-          label="Exam Master *"
-          className="min-w-[280px] flex-[2]"
-        >
-          <Select
-            options={exams.map((e) => ({
-              value: String(num(e.fk_exam_id)),
-              label: formatExamLabel(e),
-            }))}
-            value={examId || null}
-            onChange={(v) => {
-              void selectedExam(v ?? "", {
-                courseId,
-                academicYearId,
-              });
-            }}
-            disabled={loadingFilters || !academicYearId}
-            placeholder="Exam Master"
-            searchable
-          />
-        </GlobalFilterField>
-      </GlobalFilterBarRow>
-
-      <GlobalFilterBarRow>
-        <GlobalFilterField label="Regulation *">
-          <Select
-            options={[
-              { value: "0", label: "All" },
-              ...regulations.map((r) => ({
-                value: String(num(r.fk_regulation_id)),
-                label: txt(r.regulation_code),
-              })),
-            ]}
-            value={regulationId || null}
-            onChange={(v) => {
-              void selectedRegulation(v ?? "", {
-                courseId,
-                academicYearId,
-                examId,
-              });
-            }}
-            disabled={loadingFilters || !examId}
-            placeholder="Regulation"
-          />
-        </GlobalFilterField>
-        <GlobalFilterField label="Subject *" className="min-w-[240px] flex-[2]">
-          <Select
-            options={[
-              { value: "0", label: "All" },
-              ...subjects.map((s) => ({
-                value: String(num(s.fk_subject_id)),
-                label: `${txt(s.subject_name)} (${txt(s.subject_code)})`,
-              })),
-            ]}
-            value={subjectId || null}
-            onChange={(v) => {
-              void selectedSubject(v ?? "", {
-                courseId,
-                academicYearId,
-                examId,
-                regulationId,
-              });
-            }}
-            disabled={loadingFilters || regulationId === ""}
-            placeholder="Subject"
-            searchable
-          />
-        </GlobalFilterField>
-        <GlobalFilterField label="Evaluators">
-          <Select
-            options={[
-              { value: "0", label: "All" },
-              ...evaluators.map((e) => ({
-                value: String(num(e.pk_exam_evaluator_profile_id)),
-                label: `${txt(e.evaluator_name)} (${txt(e.user_name)})`,
-              })),
-            ]}
-            value={evaluatorProfileId || null}
-            onChange={(v) => {
-              setEvaluatorProfileId(v ?? "");
-              clearResults();
-            }}
-            disabled={loadingFilters || subjectId === ""}
-            placeholder="Evaluators"
-            searchable
-          />
-        </GlobalFilterField>
-      </GlobalFilterBarRow>
-
-      <GlobalFilterBarRow>
-        <GlobalFilterField label="From Date">
-          <DatePicker
-            value={fromDate ? new Date(`${fromDate}T00:00:00`) : null}
-            onChange={(d) => {
-              setFromDate(d ? format(d, "yyyy-MM-dd") : "");
-              clearResults();
-            }}
-            placeholder="From Date"
-            displayFormat="dd/MM/yyyy"
-            maxDate={new Date()}
-          />
-        </GlobalFilterField>
-        <GlobalFilterField label="To Date">
-          <DatePicker
-            value={toDate ? new Date(`${toDate}T00:00:00`) : null}
-            onChange={(d) => {
-              setToDate(d ? format(d, "yyyy-MM-dd") : "");
-              clearResults();
-            }}
-            placeholder="To Date"
-            displayFormat="dd/MM/yyyy"
-          />
-        </GlobalFilterField>
-        <GlobalFilterField label="Is Re-Evaluation">
-          <div className="flex h-[30px] items-center gap-2">
-            <Checkbox
-              id="dailyIsReeval"
-              checked={isReevaluation}
-              onCheckedChange={(v) => {
-                setIsReevaluation(v === true);
-                clearResults();
-              }}
-            />
-            <Label htmlFor="dailyIsReeval" className="text-[12px] font-normal">
-              Is Re-Evaluation
-            </Label>
+      <div className="inv-allot-report-filters space-y-2">
+        <div className="inv-allot-report-filters__row">
+          <div className="inv-allot-report-filters__fx20">
+            <GlobalFilterField label="Course *">
+              <Select
+                options={courses.map((c) => ({
+                  value: String(num(c.fk_course_id)),
+                  label: txt(c.course_code),
+                }))}
+                value={courseId || null}
+                onChange={(v) => {
+                  void selectedCourse(v ?? "", baseRows);
+                }}
+                disabled={loadingFilters}
+                placeholder="Course"
+              />
+            </GlobalFilterField>
           </div>
-        </GlobalFilterField>
-        <GlobalFilterField
-          label=""
-          className="global-filter-field--shrink global-filter-field--action"
-        >
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              onClick={() => void onGetList()}
-              disabled={loadingList}
-              className="h-[30px] px-3 text-[12px]"
-            >
-              Get List
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={onBack}
-              className="h-[30px] px-3 text-[12px] bg-amber-400 text-black hover:bg-amber-500"
-            >
-              Back
-            </Button>
+          <div className="inv-allot-report-filters__fx20">
+            <GlobalFilterField label="Exam Year *">
+              <Select
+                options={academicYears.map((y) => ({
+                  value: String(num(y.fk_academic_year_id)),
+                  label: txt(y.academic_year),
+                }))}
+                value={academicYearId || null}
+                onChange={(v) => {
+                  void selectedAcademicYear(v ?? "", {
+                    courseId,
+                    base: baseRows,
+                  });
+                }}
+                disabled={loadingFilters || !courseId}
+                placeholder="Exam Year"
+              />
+            </GlobalFilterField>
           </div>
-        </GlobalFilterField>
-      </GlobalFilterBarRow>
+          <div className="inv-allot-report-filters__fx60">
+            <GlobalFilterField
+              label="Exam Master *"
+              className="min-w-[280px] flex-[2]"
+            >
+              <Select
+                options={exams.map((e) => ({
+                  value: String(num(e.fk_exam_id)),
+                  label: formatExamLabel(e),
+                }))}
+                value={examId || null}
+                onChange={(v) => {
+                  void selectedExam(v ?? "", {
+                    courseId,
+                    academicYearId,
+                  });
+                }}
+                disabled={loadingFilters || !academicYearId}
+                placeholder="Exam Master"
+                searchable
+              />
+            </GlobalFilterField>
+          </div>
+        </div>
+
+        <div className="inv-allot-report-filters__row">
+          <div className="inv-allot-report-filters__fx20">
+            <GlobalFilterField label="Regulation *">
+              <Select
+                options={[
+                  { value: "0", label: "All" },
+                  ...regulations.map((r) => ({
+                    value: String(num(r.fk_regulation_id)),
+                    label: txt(r.regulation_code),
+                  })),
+                ]}
+                value={regulationId || null}
+                onChange={(v) => {
+                  void selectedRegulation(v ?? "", {
+                    courseId,
+                    academicYearId,
+                    examId,
+                  });
+                }}
+                disabled={loadingFilters || !examId}
+                placeholder="Regulation"
+              />
+            </GlobalFilterField>
+          </div>
+          <div className="inv-allot-report-filters__fx60">
+            <GlobalFilterField
+              label="Subject *"
+              className="min-w-[240px] flex-[2]"
+            >
+              <Select
+                options={[
+                  { value: "0", label: "All" },
+                  ...subjects.map((s) => ({
+                    value: String(num(s.fk_subject_id)),
+                    label: `${txt(s.subject_name)} (${txt(s.subject_code)})`,
+                  })),
+                ]}
+                value={subjectId || null}
+                onChange={(v) => {
+                  void selectedSubject(v ?? "", {
+                    courseId,
+                    academicYearId,
+                    examId,
+                    regulationId,
+                  });
+                }}
+                disabled={loadingFilters || regulationId === ""}
+                placeholder="Subject"
+                searchable
+              />
+            </GlobalFilterField>
+          </div>
+          <div className="inv-allot-report-filters__fx20">
+            <GlobalFilterField label="Evaluators">
+              <Select
+                options={[
+                  { value: "0", label: "All" },
+                  ...evaluators.map((e) => ({
+                    value: String(num(e.pk_exam_evaluator_profile_id)),
+                    label: `${txt(e.evaluator_name)} (${txt(e.user_name)})`,
+                  })),
+                ]}
+                value={evaluatorProfileId || null}
+                onChange={(v) => {
+                  setEvaluatorProfileId(v ?? "");
+                  clearResults();
+                }}
+                disabled={loadingFilters || subjectId === ""}
+                placeholder="Evaluators"
+                searchable
+              />
+            </GlobalFilterField>
+          </div>
+        </div>
+
+        <div className="inv-allot-report-filters__row">
+          <div className="inv-allot-report-filters__fx15">
+            <GlobalFilterField label="From Date">
+              <DatePicker
+                value={fromDate ? new Date(`${fromDate}T00:00:00`) : null}
+                onChange={(d) => {
+                  setFromDate(d ? format(d, "yyyy-MM-dd") : "");
+                  clearResults();
+                }}
+                placeholder="From Date"
+                displayFormat="dd/MM/yyyy"
+                maxDate={new Date()}
+              />
+            </GlobalFilterField>
+          </div>
+          <div className="inv-allot-report-filters__fx15">
+            <GlobalFilterField label="To Date">
+              <DatePicker
+                value={toDate ? new Date(`${toDate}T00:00:00`) : null}
+                onChange={(d) => {
+                  setToDate(d ? format(d, "yyyy-MM-dd") : "");
+                  clearResults();
+                }}
+                placeholder="To Date"
+                displayFormat="dd/MM/yyyy"
+              />
+            </GlobalFilterField>
+          </div>
+          <div className="inv-allot-report-filters__fx15">
+            <GlobalFilterField label="">
+              <div className="flex h-[30px] items-center gap-2">
+                <Checkbox
+                  id="dailyIsReeval"
+                  checked={isReevaluation}
+                  onCheckedChange={(v) => {
+                    setIsReevaluation(v === true);
+                    clearResults();
+                  }}
+                />
+                <Label htmlFor="dailyIsReeval" className="text-[14px]">
+                  Is Re-Evaluation
+                </Label>
+              </div>
+            </GlobalFilterField>
+          </div>
+          <div className="inv-allot-report-filters__fx13">
+            <GlobalFilterField
+              label=""
+              className="global-filter-field--shrink global-filter-field--action"
+            >
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  onClick={() => void onGetList()}
+                  disabled={loadingList}
+                  className="h-[30px] px-3 text-[12px] w-full"
+                >
+                  Get List
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={onBack}
+                  className="h-[30px] px-3 text-[12px] bg-amber-400 text-black hover:bg-amber-500"
+                >
+                  Back
+                </Button>
+              </div>
+            </GlobalFilterField>
+          </div>
+        </div>
+      </div>
     </>
   );
 

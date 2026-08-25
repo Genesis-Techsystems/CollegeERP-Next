@@ -771,8 +771,8 @@ export default function PostExamVerifyExamMarksPage() {
         ...cols.map(
           (c): ColDef<AnyRow> => ({
             headerName: c.header,
-            minWidth: 120,
-            flex: 0,
+            minWidth: 140,
+            flex: 1,
             valueGetter: (p) => cellValue(p.data ?? {}, c.keys),
           }),
         ),
@@ -792,189 +792,213 @@ export default function PostExamVerifyExamMarksPage() {
 
   const filters = (
     <>
-      <GlobalFilterBarRow>
-        <GlobalFilterField label="Course *">
-          <Select
-            options={courses.map((c) => ({
-              value: String(num(c.fk_course_id)),
-              label: txt(c.course_code),
-            }))}
-            value={courseId || null}
-            onChange={(v) => {
-              void selectedCourse(v ?? "", baseRows);
-            }}
-            disabled={loadingFilters}
-            placeholder="Course"
-          />
-        </GlobalFilterField>
-        <GlobalFilterField label="Academic Year *">
-          <Select
-            options={academicYears.map((y) => ({
-              value: String(num(y.fk_academic_year_id)),
-              label: txt(y.academic_year),
-            }))}
-            value={academicYearId || null}
-            onChange={(v) => {
-              void selectedAcademicYear(v ?? "", {
-                courseId,
-                base: baseRows,
-              });
-            }}
-            disabled={loadingFilters || !courseId}
-            placeholder="Academic Year"
-          />
-        </GlobalFilterField>
-        <GlobalFilterField label="Exam *" className="min-w-[280px] flex-[2]">
-          <Select
-            options={exams.map((e) => ({
-              value: String(num(e.fk_exam_id)),
-              label: formatExamLabel(e),
-              labelNode: examLabelNode(e),
-              title: formatExamTooltip(e),
-            }))}
-            value={examId || null}
-            onChange={(v) => {
-              void selectedExam(v ?? "", { courseId, academicYearId });
-            }}
-            disabled={loadingFilters || !academicYearId}
-            placeholder="Exam"
-            searchable
-          />
-        </GlobalFilterField>
-      </GlobalFilterBarRow>
-      <GlobalFilterBarRow>
-        <GlobalFilterField label="Course Group *">
-          <Select
-            options={courseGroups.map((g) => ({
-              value: String(num(g.fk_course_group_id)),
-              label: txt(g.group_code),
-            }))}
-            value={courseGroupId || null}
-            onChange={(v) => {
-              void selectedGroup(v ?? "", {
-                courseId,
-                academicYearId,
-                examId,
-              });
-            }}
-            disabled={loadingFilters || !examId}
-            placeholder="Course Group"
-          />
-        </GlobalFilterField>
-        <GlobalFilterField label="Course Year *">
-          <Select
-            options={courseYears.map((y) => ({
-              value: String(num(y.fk_course_year_id)),
-              label: txt(y.course_year_code),
-            }))}
-            value={courseYearId || null}
-            onChange={(v) => {
-              void selectedYear(v ?? "", {
-                courseId,
-                academicYearId,
-                examId,
-                courseGroupId,
-              });
-            }}
-            disabled={loadingFilters || !courseGroupId}
-            placeholder="Course Year"
-          />
-        </GlobalFilterField>
-        <GlobalFilterField label="Regulation">
-          <Select
-            options={regulations.map((r) => ({
-              value: String(num(r.fk_regulation_id)),
-              label: txt(r.regulation_code),
-            }))}
-            value={regulationId || null}
-            onChange={(v) => {
-              void selectedRegulation(v ?? "", {
-                courseId,
-                academicYearId,
-                examId,
-                courseGroupId,
-                courseYearId,
-              });
-            }}
-            disabled={loadingFilters || !courseYearId}
-            placeholder="Regulation"
-          />
-        </GlobalFilterField>
-        <GlobalFilterField label="Subject" className="min-w-[220px] flex-[2]">
-          <Select
-            options={subjects.map((s) => ({
-              value: String(num(s.fk_subject_id)),
-              label: `${txt(s.subject_name)} - ${txt(s.subject_code)}`,
-              title: `${txt(s.subject_name)}(${txt(s.subject_code)})`,
-            }))}
-            value={subjectId || null}
-            onChange={(v) => {
-              setSubjectId(v ?? "");
-              clearResults();
-            }}
-            disabled={loadingFilters || !regulationId}
-            placeholder="Subject"
-            searchable
-          />
-        </GlobalFilterField>
-        <GlobalFilterField
-          label=""
-          className="global-filter-field--shrink global-filter-field--action"
-        >
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              onClick={() => void onGetList()}
-              disabled={loadingList}
-              className="h-[30px] px-3 text-[12px]"
-            >
-              Get List
-            </Button>
-            <Button
-              type="button"
-              onClick={onBack}
-              className="h-[30px] min-w-20 px-3 text-[12px] !border-0 !bg-[#ffcf46] !text-black shadow-sm hover:!bg-[#e5b535]"
-            >
-              Back
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              title="Reset"
-              onClick={onReset}
-              className="h-[30px] w-[30px]"
-            >
-              <RefreshCw className="h-3.5 w-3.5" />
-            </Button>
+      <div className="inv-allot-report-filters space-y-2">
+        <div className="inv-allot-report-filters__row">
+          <div className="inv-allot-report-filters__fx20">
+            <GlobalFilterField label="Course *">
+              <Select
+                options={courses.map((c) => ({
+                  value: String(num(c.fk_course_id)),
+                  label: txt(c.course_code),
+                }))}
+                value={courseId || null}
+                onChange={(v) => {
+                  void selectedCourse(v ?? "", baseRows);
+                }}
+                disabled={loadingFilters}
+                placeholder="Course"
+              />
+            </GlobalFilterField>
           </div>
-        </GlobalFilterField>
-      </GlobalFilterBarRow>
+          <div className="inv-allot-report-filters__fx20">
+            <GlobalFilterField label="Academic Year *">
+              <Select
+                options={academicYears.map((y) => ({
+                  value: String(num(y.fk_academic_year_id)),
+                  label: txt(y.academic_year),
+                }))}
+                value={academicYearId || null}
+                onChange={(v) => {
+                  void selectedAcademicYear(v ?? "", {
+                    courseId,
+                    base: baseRows,
+                  });
+                }}
+                disabled={loadingFilters || !courseId}
+                placeholder="Academic Year"
+              />
+            </GlobalFilterField>
+          </div>
+          <div className="inv-allot-report-filters__fx160">
+            <GlobalFilterField
+              label="Exam *"
+              className="min-w-[280px] flex-[2]"
+            >
+              <Select
+                options={exams.map((e) => ({
+                  value: String(num(e.fk_exam_id)),
+                  label: formatExamLabel(e),
+                  labelNode: examLabelNode(e),
+                  title: formatExamTooltip(e),
+                }))}
+                value={examId || null}
+                onChange={(v) => {
+                  void selectedExam(v ?? "", { courseId, academicYearId });
+                }}
+                disabled={loadingFilters || !academicYearId}
+                placeholder="Exam"
+                searchable
+              />
+            </GlobalFilterField>
+          </div>
+        </div>
+        <div className="inv-allot-report-filters__row">
+          <div className="inv-allot-report-filters__fx15">
+            <GlobalFilterField label="Course Group *">
+              <Select
+                options={courseGroups.map((g) => ({
+                  value: String(num(g.fk_course_group_id)),
+                  label: txt(g.group_code),
+                }))}
+                value={courseGroupId || null}
+                onChange={(v) => {
+                  void selectedGroup(v ?? "", {
+                    courseId,
+                    academicYearId,
+                    examId,
+                  });
+                }}
+                disabled={loadingFilters || !examId}
+                placeholder="Course Group"
+              />
+            </GlobalFilterField>
+          </div>
+          <div className="inv-allot-report-filters__fx15">
+            <GlobalFilterField label="Course Year *">
+              <Select
+                options={courseYears.map((y) => ({
+                  value: String(num(y.fk_course_year_id)),
+                  label: txt(y.course_year_code),
+                }))}
+                value={courseYearId || null}
+                onChange={(v) => {
+                  void selectedYear(v ?? "", {
+                    courseId,
+                    academicYearId,
+                    examId,
+                    courseGroupId,
+                  });
+                }}
+                disabled={loadingFilters || !courseGroupId}
+                placeholder="Course Year"
+              />
+            </GlobalFilterField>
+          </div>
+          <div className="inv-allot-report-filters__fx15">
+            <GlobalFilterField label="Regulation">
+              <Select
+                options={regulations.map((r) => ({
+                  value: String(num(r.fk_regulation_id)),
+                  label: txt(r.regulation_code),
+                }))}
+                value={regulationId || null}
+                onChange={(v) => {
+                  void selectedRegulation(v ?? "", {
+                    courseId,
+                    academicYearId,
+                    examId,
+                    courseGroupId,
+                    courseYearId,
+                  });
+                }}
+                disabled={loadingFilters || !courseYearId}
+                placeholder="Regulation"
+              />
+            </GlobalFilterField>
+          </div>
+          <div className="inv-allot-report-filters__fx33">
+            <GlobalFilterField
+              label="Subject"
+              className="min-w-[220px] flex-[2]"
+            >
+              <Select
+                options={subjects.map((s) => ({
+                  value: String(num(s.fk_subject_id)),
+                  label: `${txt(s.subject_name)} - ${txt(s.subject_code)}`,
+                  title: `${txt(s.subject_name)}(${txt(s.subject_code)})`,
+                }))}
+                value={subjectId || null}
+                onChange={(v) => {
+                  setSubjectId(v ?? "");
+                  clearResults();
+                }}
+                disabled={loadingFilters || !regulationId}
+                placeholder="Subject"
+                searchable
+              />
+            </GlobalFilterField>
+          </div>
+          <div className="inv-allot-report-filters__fx20">
+            <GlobalFilterField
+              label=""
+              className="global-filter-field--shrink global-filter-field--action"
+            >
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  onClick={() => void onGetList()}
+                  disabled={loadingList}
+                  className="h-[30px] px-3 text-[12px] w-full"
+                >
+                  Get List
+                </Button>
+                <Button
+                  type="button"
+                  onClick={onBack}
+                  className="h-[30px] mr-2 w-full px-3 text-[12px] !border-0 !bg-[#ffcf46] !text-black shadow-sm hover:!bg-[#e5b535]"
+                >
+                  Back
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  title="Reset"
+                  onClick={onReset}
+                  className="h-[30px] w-[30px]"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </GlobalFilterField>
+          </div>
+        </div>
+      </div>
     </>
   );
 
   return (
     <FilteredListPage
       notice={
-        <div className="mb-1 px-0">
+        <div className="mb-4 px-0">
           <RadioGroup
             value={mode}
             onValueChange={onModeChange}
             className="flex flex-wrap items-center gap-6"
           >
-            <label className="flex items-center gap-2 text-[12px]">
+            <label className="flex items-center gap-2 text-[14px]">
               <RadioGroupItem value="internal" id="pem-internal" />
               Internal Marks Status
             </label>
-            <label className="flex items-center gap-2 text-[12px]">
+            <label className="flex items-center gap-2 text-[14px]">
               <RadioGroupItem value="external" id="pem-external" />
               External Marks Status
             </label>
-            <label className="flex items-center gap-2 text-[12px]">
+            <label className="flex items-center gap-2 text-[14px]">
               <RadioGroupItem value="evaluation" id="pem-evaluation" />
-              External Evalaution Status
+              External Evaluation Status
             </label>
-            <label className="flex items-center gap-2 text-[12px]">
+            <label className="flex items-center gap-2 text-[14px]">
               <RadioGroupItem value="all" id="pem-all" />
               All
             </label>
