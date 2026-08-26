@@ -1,40 +1,44 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ColDef, ICellRendererParams } from "ag-grid-community";
-import { RefreshCw } from "lucide-react";
+/**
+ * Exam Student Registration Report — Angular
+ * `exam-reports/exam-registration-student-report`
+ *
+ * Filters: Course, Academic Year, Exam, Exam Type, Exam Timetable,
+ * Course Group, Course Years, Regulation, Subjects, Is Re-Evaluation.
+ * Get List → s_get_exam_std_reg_tt_details (exam_std_reg_details).
+ *
+ * Distinct from admin-exam-reports/exam-student-registration-report
+ * (College / Room / Student + exam_student_reg allotment API).
+ */
+
+import { useEffect, useMemo, useState } from "react";
+import type { ColDef } from "ag-grid-community";
+import { format, parseISO } from "date-fns";
 import { FilteredListPage } from "@/components/layout";
 import { GlobalFilterField } from "@/common/components/forms";
-import { Select, type SelectOption } from "@/common/components/select";
+import { Select } from "@/common/components/select";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { rowIndexGetter } from "@/lib/utils";
-import { num, txt } from "@/common/utils/data-helpers";
+import { dedupeBy, num, txt } from "@/common/utils/data-helpers";
 import { toastError, toastSuccess } from "@/lib/toast";
 import { toast } from "sonner";
 import { printHtmlInIframe } from "@/lib/print";
-import { DEFAULT_COLLEGE_LOGO, useCollegeLogo } from "@/hooks/useCollegeLogo";
+import { exportHtmlTableAsExcel } from "../../_lib/export-html-table";
 import {
-  resolveAttendancePrintLogo as resolveReportPrintLogo,
-  toPrintLogoUrl,
-} from "@/app/(pages)/(protected)/reports/admin-attendance-reports/_lib/attendance-report-print";
-import {
-  buildHtmlTable,
-  escapeHtml,
-  exportHtmlTableAsExcel,
-} from "../../_lib/export-html-table";
-import {
-  getCollegeById,
-  getExamStudentRegistrationReportRows,
-  getUnivExamFiltersRegSup,
-  getUnivExamRestInRegExamStd,
-  listActiveRooms,
-  listStudents,
-  type AnyRow,
+  getExamRegistrationReportBaseFilters,
+  getExamRegistrationReportFeeTypes,
+  getExamRegistrationReportRestFilters,
+  getExamRegistrationReportSubjects,
+  getExamRegistrationReportTimetables,
+  getExamStudentRegistrationReportList,
 } from "@/services";
 
-type Row = AnyRow;
+type AnyRow = Record<string, unknown>;
 
-const REPORT_TITLE = "Exam Student Registration Report";
+const REPORT_TITLE = "Exam Registration Students";
 
 const toastInfo = (msg: string) => toast.info(msg);
 
@@ -47,279 +51,183 @@ const TOOLBAR = {
   columnFilters: false,
 } as const;
 
-// Print/export columns — matches Angular print template (no Exam Form)
 const EXPORT_COLS = [
   { key: "si", header: "S.No" },
-  { key: "hallTicketNo", header: "Hall Ticket No." },
-  { key: "studentName", header: "Student Name" },
-  { key: "courseDetails", header: "Course Details" },
-  { key: "exam", header: "Exam" },
+  { key: "examDate", header: "Exam Date" },
+  { key: "subjectType", header: "Subject Type" },
+  { key: "subject", header: "Subject" },
+  { key: "college", header: "College" },
+  { key: "course", header: "Course" },
+  { key: "group", header: "Course Group" },
+  { key: "year", header: "Course Year" },
   { key: "examType", header: "Exam Type" },
-  { key: "registrationDate", header: "Registration Date" },
-  { key: "subjects", header: "Subjects" },
-  { key: "feePaid", header: "Fee Paid" },
-  { key: "hallTicketIssued", header: "HallTicket Issued" },
+  { key: "hallTicket", header: "Hall Ticket" },
 ] as const;
 
-function dedupeBy<T>(rows: T[], keyFn: (r: T) => number): T[] {
-  const seen = new Set<number>();
-  const out: T[] = [];
-  for (const r of rows) {
-    const k = keyFn(r);
-    if (!k || seen.has(k)) continue;
-    seen.add(k);
-    out.push(r);
-  }
-  return out;
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
-function examMasterLabel(r: Row): string {
-  const name = txt(r.exam_name ?? r.examName) || "Exam";
-  const from = txt(r.from_date ?? r.fromDate).slice(0, 10);
-  const to = txt(r.to_date ?? r.toDate).slice(0, 10);
-  const range = from && to ? ` (${from} - ${to})` : "";
+/** Angular date pipe for Exam option — `MMM d, yyyy`. */
+function parseExamDate(v: unknown): string {
+  const s = String(v ?? "").trim();
+  if (!s) return "";
+  try {
+    if (/^\d{4}-\d{2}-\d{2}/.test(s))
+      return format(parseISO(s.slice(0, 10)), "MMM d, yyyy");
+    return format(new Date(s), "MMM d, yyyy");
+  } catch {
+    return s;
+  }
+}
+
+function examTypeTags(exam: AnyRow): string[] {
   const tags: string[] = [];
-  if (r.is_internal_exam || r.isInternalExam) tags.push("(Internal)");
-  if (r.is_regular_exam || r.isRegularExam) tags.push("(Regular)");
-  if (r.is_supply_exam || r.isSupplyExam) tags.push("(Supple)");
+  if (exam.is_internal_exam || exam.isInternalExam) tags.push("(Internal)");
+  if (exam.is_regular_exam || exam.isRegularExam) tags.push("(Regular)");
+  if (exam.is_supply_exam || exam.isSupplyExam) tags.push("(Supple)");
+  return tags;
+}
+
+function formatExamLabel(exam: AnyRow): string {
+  const name = txt(exam.exam_name) || "Exam";
+  const from = parseExamDate(exam.from_date ?? exam.fromDate);
+  const to = parseExamDate(exam.to_date ?? exam.toDate);
+  const range = from && to ? ` (${from} - ${to})` : "";
+  const tags = examTypeTags(exam);
   return `${name}${range}${tags.length ? ` ${tags.join("")}` : ""}`;
 }
 
-function yesNo(v: unknown): string {
-  if (v === true || v === 1 || v === "1" || String(v).toLowerCase() === "true")
-    return "Yes";
-  return "No"; // false, 0, null, undefined → No (matches Angular)
-}
-
-/** Format date → dd/MM/yyyy like Angular `date:'dd/MM/yyyy'` */
-function formatRegDate(v: unknown): string {
-  const s = txt(v);
-  if (!s) return "";
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
-  const d = new Date(s);
-  if (!Number.isNaN(d.getTime())) {
-    const dd = String(d.getDate()).padStart(2, "0");
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    return `${dd}/${mm}/${d.getFullYear()}`;
-  }
-  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (m) return `${m[3]}/${m[2]}/${m[1]}`;
-  return s;
-}
-
-/**
- * Subjects cell — Angular exam-student-registration-report:
- * `CODE-Name^CODE-Name` → `Name (CODE), Name (CODE)` (comma-separated, wraps, blue).
- */
-function subjectsRenderer(p: ICellRendererParams<Row>) {
-  const raw = txt(p.data?.subject_name ?? p.data?.subjects);
-  if (!raw) return <span className="text-muted-foreground">—</span>;
-
-  // Already display-formatted (no caret delimiter)
-  if (!raw.includes("^")) {
-    return (
-      <span
-        className="block whitespace-normal break-words text-left text-[12px] font-medium leading-snug"
-        style={{ color: "blue" }}
-      >
-        {raw}
-      </span>
-    );
-  }
-
-  const parts = raw.split("^").filter(Boolean);
+function examMasterLabelNode(exam: AnyRow) {
+  const name = txt(exam.exam_name) || "Exam";
+  const from = parseExamDate(exam.from_date ?? exam.fromDate);
+  const to = parseExamDate(exam.to_date ?? exam.toDate);
+  const range = from && to ? ` (${from} - ${to})` : "";
+  const tags = examTypeTags(exam);
   return (
-    <span className="block whitespace-normal break-words text-left text-[13px] font-medium leading-snug">
-      {parts.map((part, i) => {
-        const bits = part.split("-");
-        const code = bits[0]?.trim() ?? "";
-        const name = bits.slice(1).join("-").trim() || part.trim();
-        const label = code ? `(${code})` : part.trim();
-        return (
-          <span key={`${code}-${i}`}>
-            {i > 0 ? ", " : ""}
-            {name}
-            {label ? <span className="text-blue-700"> {label}</span> : null}
-          </span>
-        );
-      })}
-    </span>
+    <>
+      {name}
+      {range}
+      {tags.length ? " " : null}
+      {tags.map((t) => (
+        <span key={t} style={{ color: "#0014ff", fontWeight: 500 }}>
+          {t}
+        </span>
+      ))}
+    </>
   );
 }
 
-/** Exam Form cell — shows – when no file path, matching Angular dash */
-function examFormRenderer(p: ICellRendererParams<Row>) {
-  const v = txt(
-    p.data?.exam_form ?? p.data?.examForm ?? p.data?.application_file_path,
-  );
-  if (!v) return <span className="text-muted-foreground">—</span>;
-  return <span>{v}</span>;
+function examMasterTooltip(exam: AnyRow): string {
+  const name = txt(exam.exam_name) || "Exam";
+  const from = parseExamDate(exam.from_date ?? exam.fromDate);
+  const to = parseExamDate(exam.to_date ?? exam.toDate);
+  return from && to ? `${name} (${from} - ${to})` : name;
 }
 
-/** Angular: `CODE-Name^CODE-Name` → `Name (CODE), Name (CODE)` */
-function formatSubjects(raw: unknown): string {
-  const s = txt(raw);
-  if (!s) return "";
-  return s
-    .split("^")
-    .map((part) => {
-      const bits = part.split("-");
-      if (bits.length < 2) return part.trim();
-      const code = bits[0]?.trim() ?? "";
-      const name = bits.slice(1).join("-").trim();
-      return name && code ? `${name} (${code})` : part.trim();
-    })
-    .filter(Boolean)
-    .join(", ");
+function feeTypeId(row: AnyRow): number {
+  return num(row.generalDetailId ?? row.general_detail_id);
 }
 
-/** Angular print subjects: name + blue `(code)` */
-function formatSubjectsHtml(raw: unknown): string {
-  const s = txt(raw);
-  if (!s) return "";
-  return s
-    .split("^")
-    .filter(Boolean)
-    .map((part, i) => {
-      const bits = part.split("-");
-      const code = bits[0]?.trim() ?? "";
-      const name = bits.slice(1).join("-").trim() || part.trim();
-      const piece = code
-        ? `${escapeHtml(name)} <span style="color:blue">(${escapeHtml(code)})</span>`
-        : escapeHtml(part.trim());
-      return i === 0 ? piece : `, ${piece}`;
-    })
-    .join("");
+function feeTypeCode(row: AnyRow): string {
+  return txt(row.generalDetailCode ?? row.general_detail_code);
 }
 
-function toExportRows(rows: Row[]): Record<string, unknown>[] {
+function timetableId(row: AnyRow): number {
+  return num(row.examTimetableId ?? row.exam_timetable_id);
+}
+
+function timetableLabel(row: AnyRow): string {
+  const date = txt(row.examDate ?? row.exam_date).slice(0, 10);
+  const session = txt(row.examSessionName ?? row.exam_session_name);
+  return session ? `${date} (${session})` : date;
+}
+
+function toExportRows(rows: AnyRow[]): Record<string, unknown>[] {
   return rows.map((row, i) => ({
     si: i + 1,
-    hallTicketNo: txt(
-      row.hallticket_no ?? row.hallticketNo ?? row.hallticket_number,
-    ),
-    studentName: txt(row.student_name ?? row.studentName),
-    courseDetails: (() => {
-      const c = txt(row.college_code ?? row.collegeCode);
-      const y = txt(row.course_year ?? row.courseYear);
-      if (c && y) return `${c} / ${y}`;
-      return c || y;
-    })(),
-    exam: txt(row.exam_name ?? row.examName),
-    examType: txt(row.exam_type ?? row.examType),
-    registrationDate: formatRegDate(
-      row.registration_date ?? row.registrationDate,
-    ),
-    subjects: formatSubjects(row.subject_name ?? row.subjects),
-    feePaid: yesNo(row.is_fee_paid ?? row.isFeePaid),
-    hallTicketIssued: yesNo(row.is_hallticket_issued ?? row.isHallticketIssued),
+    examDate: txt(row.exam_date),
+    subjectType: txt(row.subject_type),
+    subject: txt(row.subject),
+    college: txt(row.college_code),
+    course: txt(row.course_name),
+    group: txt(row.course_group),
+    year: txt(row.course_year),
+    examType: txt(row.exam_type),
+    hallTicket: txt(row.hallticket_number),
   }));
 }
 
+function buildTableHtml(rows: AnyRow[]): string {
+  const exportRows = toExportRows(rows);
+  const head = EXPORT_COLS.map(
+    (c) => `<th class="table-th">${escapeHtml(c.header)}</th>`,
+  ).join("");
+  const body = exportRows
+    .map(
+      (row) =>
+        `<tr>${EXPORT_COLS.map(
+          (c) =>
+            `<td class="table-td">${escapeHtml(String(row[c.key] ?? ""))}</td>`,
+        ).join("")}</tr>`,
+    )
+    .join("");
+  return `<table class="mar" border="1" cellspacing="0" cellpadding="4">
+<thead><tr>${head}</tr></thead>
+<tbody>${body}</tbody>
+</table>`;
+}
+
+/** Angular `selectedData()` — leading ` / ` before each selected filter. */
 function buildDataDetails(parts: {
-  collegeCode: string;
   courseCode: string;
   examYear: string;
   examName: string;
   regulationCode: string;
+  subjectCode: string;
 }): string {
-  return [
-    parts.collegeCode,
-    parts.courseCode,
-    parts.examYear,
-    parts.regulationCode,
-    parts.examName,
-  ]
-    .filter(Boolean)
-    .join(" / ");
+  let details = "";
+  if (parts.courseCode) details += ` / ${parts.courseCode}`;
+  if (parts.examYear) details += ` / ${parts.examYear}`;
+  if (parts.examName) details += ` / ${parts.examName}`;
+  if (parts.regulationCode) details += ` / ${parts.regulationCode}`;
+  if (parts.subjectCode) details += ` / ${parts.subjectCode}`;
+  return details;
 }
 
-function printReport(args: {
-  collegeName: string;
-  collegeLogo: string;
-  fallbackLogo: string;
-  examName: string;
-  courseGroupCode: string;
-  courseYearCode: string;
-  rows: Row[];
-}) {
-  if (!args.rows.length) return;
-  const bodyRows = args.rows
-    .map((r, i) => {
-      const college = txt(r.college_code ?? r.collegeCode);
-      const year = txt(r.course_year ?? r.courseYear);
-      const courseDetails =
-        college && year ? `${college} / ${year}` : college || year;
-      return `<tr>
-        <td class="table-td" style="text-align:center">${i + 1}</td>
-        <td class="table-td">${escapeHtml(txt(r.hallticket_no ?? r.hallticketNo ?? r.hallticket_number))}</td>
-        <td class="table-td">${escapeHtml(txt(r.student_name ?? r.studentName))}</td>
-        <td class="table-td">${escapeHtml(courseDetails)}</td>
-        <td class="table-td">${escapeHtml(txt(r.exam_name ?? r.examName))}</td>
-        <td class="table-td">${escapeHtml(txt(r.exam_type ?? r.examType))}</td>
-        <td class="table-td">${escapeHtml(formatRegDate(r.registration_date ?? r.registrationDate))}</td>
-        <td class="table-td">${formatSubjectsHtml(r.subject_name ?? r.subjects)}</td>
-        <td class="table-td">${escapeHtml(yesNo(r.is_fee_paid ?? r.isFeePaid))}</td>
-        <td class="table-td">${escapeHtml(yesNo(r.is_hallticket_issued ?? r.isHallticketIssued))}</td>
-      </tr>`;
-    })
-    .join("");
-
-  const courseMeta = args.courseGroupCode
-    ? `<p style="text-align:left;width:50%;margin:0;">Course : ${escapeHtml(args.courseGroupCode)}</p>`
-    : "";
-  const semesterMeta = args.courseYearCode
-    ? `<p style="text-align:right;width:50%;margin:0;">Semester : ${escapeHtml(args.courseYearCode)}</p>`
-    : "";
-
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Exam Student Registration</title>
+function printReport(rows: AnyRow[], dataDetails: string) {
+  if (!rows.length) return;
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${escapeHtml(REPORT_TITLE)}</title>
 <style>
-@page { size: A4 portrait; margin: 10mm; }
-* { box-sizing: border-box; }
-body { font-family: Arial, Helvetica, sans-serif; color: #000; margin: 0; padding: 8px 12px; }
-.header-row { display: flex; align-items: flex-start; width: 100%; margin-bottom: 4px; }
-.logo-col { width: 15%; flex: 0 0 15%; padding-right: 8px; }
-.logo-col img { max-width: 100%; width: 90px; height: auto; display: block; object-fit: contain; }
-.title-col { width: 85%; flex: 1 1 85%; text-align: center; }
-.collegeName { text-align: center; font-size: 22px; font-weight: 550; margin: 16px 0 0; color: #000; }
-.title { text-align: center; font-size: 20px; font-weight: 550; margin: 2px 0 4px; color: #000; }
-.details { text-align: left; font-size: 16px; margin: 0 0 4px; color: #000; }
-.meta { display: flex; justify-content: space-between; width: 100%; margin: 4px 0 8px; font-size: 14px; color: #000; }
-table.mar { width: 100%; border-collapse: collapse; }
-th.table-th, td.table-td { border: 1px solid #333; padding: 6px 5px; text-align: left; vertical-align: top; word-break: break-word; }
+@page { size: A4 landscape; margin: 10mm; }
+body { font-family: Arial, sans-serif; margin: 0; padding: 0; color: #000; }
+.collegeName {
+  text-align: center;
+  font-size: 23px;
+  font-weight: 550;
+  color: #000;
+  margin: 20px 0 -10px;
+}
+.title {
+  text-align: center;
+  font-size: 19px;
+  font-weight: 550;
+  color: #000;
+  margin: 5px 0 8px;
+}
+table.mar { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 8px; }
+th.table-th, td.table-td { border: 1px solid #000; padding: 8px 5px; text-align: left; vertical-align: top; }
 th.table-th { background: #c3d9ff; font-weight: 550; }
-tr { break-inside: avoid; page-break-inside: avoid; }
-thead { display: table-header-group; }
-</style></head><body>
-  <div class="header-row">
-    <div class="logo-col">
-      <img src="${escapeHtml(args.collegeLogo)}" alt="College Logo"
-        onerror="this.onerror=null;this.src='${escapeHtml(args.fallbackLogo)}'" />
-    </div>
-    <div class="title-col">
-      ${args.collegeName ? `<p class="collegeName">${escapeHtml(args.collegeName)}</p>` : ""}
-      <p class="title">Exam Student Registration</p>
-      ${args.examName ? `<p class="details">${escapeHtml(args.examName)}</p>` : ""}
-    </div>
-  </div>
-  ${courseMeta || semesterMeta ? `<div class="meta">${courseMeta}${semesterMeta}</div>` : ""}
-  <table class="mar">
-    <thead>
-      <tr>
-        <th class="table-th">S.No</th>
-        <th class="table-th">HallTicket No.</th>
-        <th class="table-th">Student Name</th>
-        <th class="table-th">Course Details</th>
-        <th class="table-th">Exam</th>
-        <th class="table-th">Exam Type</th>
-        <th class="table-th">Registration Date</th>
-        <th class="table-th">Subjects</th>
-        <th class="table-th">Fee Paid</th>
-        <th class="table-th">HallTicket Issued</th>
-      </tr>
-    </thead>
-    <tbody>${bodyRows}</tbody>
-  </table>
+tr { break-inside: avoid; }
+</style></head>
+<body>
+  <p class="collegeName">${escapeHtml(REPORT_TITLE)}</p>
+  ${dataDetails.trim() ? `<p class="title">${escapeHtml(dataDetails)}</p>` : ""}
+  ${buildTableHtml(rows)}
 </body></html>`;
   printHtmlInIframe(html);
 }
@@ -327,286 +235,329 @@ thead { display: table-header-group; }
 export default function ExamRegistrationStudentReportPage() {
   const [loadingFilters, setLoadingFilters] = useState(false);
   const [loadingList, setLoadingList] = useState(false);
-  const [searchingStudent, setSearchingStudent] = useState(false);
-  const [hasFetched, setHasFetched] = useState(false);
 
-  const [baseRows, setBaseRows] = useState<Row[]>([]);
-  const [restRows, setRestRows] = useState<Row[]>([]);
-  const [regulationRows, setRegulationRows] = useState<Row[]>([]);
-  const [roomRows, setRoomRows] = useState<Row[]>([]);
-  const [rows, setRows] = useState<Row[]>([]);
-  const [studentOptions, setStudentOptions] = useState<SelectOption[]>([]);
+  const [baseRows, setBaseRows] = useState<AnyRow[]>([]);
+  const [restRows, setRestRows] = useState<AnyRow[]>([]);
+  const [allFeeTypes, setAllFeeTypes] = useState<AnyRow[]>([]);
+  const [examFeeTypes, setExamFeeTypes] = useState<AnyRow[]>([]);
+  const [examTimetables, setExamTimetables] = useState<AnyRow[]>([]);
+  const [subjects, setSubjects] = useState<AnyRow[]>([]);
+  const [rows, setRows] = useState<AnyRow[]>([]);
   const [dataDetails, setDataDetails] = useState("");
 
   const [courseId, setCourseId] = useState("");
   const [academicYearId, setAcademicYearId] = useState("");
   const [examId, setExamId] = useState("");
-  const [collegeId, setCollegeId] = useState("");
-  const [courseGroupId, setCourseGroupId] = useState("");
-  const [courseYearId, setCourseYearId] = useState("");
+  const [examtypeCatdetId, setExamtypeCatdetId] = useState("0");
+  const [examTimetableId, setExamTimetableId] = useState("0");
+  const [courseGroupId, setCourseGroupId] = useState("0");
+  const [courseYearId, setCourseYearId] = useState("0");
   const [regulationId, setRegulationId] = useState("0");
-  const [roomId, setRoomId] = useState("0");
-  const [studentId, setStudentId] = useState("");
-
-  const collegeLogo = useCollegeLogo(collegeId ? Number(collegeId) : null);
+  const [subjectId, setSubjectId] = useState("0");
+  const [isReevaluation, setIsReevaluation] = useState(false);
 
   const employeeId = Number(
     globalThis?.localStorage?.getItem("employeeId") ?? 0,
   );
 
-  // ── Base filters + rooms on mount ─────────────────────────────────────────
-  useEffect(() => {
-    async function init() {
-      setLoadingFilters(true);
-      try {
-        const [filters, rooms] = await Promise.all([
-          getUnivExamFiltersRegSup(employeeId),
-          listActiveRooms().catch(() => []),
-        ]);
-        const list = Array.isArray(filters) ? filters : [];
-        setBaseRows(list);
-        setRoomRows(Array.isArray(rooms) ? rooms : []);
-      } catch (e) {
-        toastError(e, "Failed to load filters");
-      } finally {
-        setLoadingFilters(false);
-      }
-    }
-    void init();
-  }, [employeeId]);
-
-  // ── Derived filter options ─────────────────────────────────────────────────
   const courses = useMemo(
     () => dedupeBy(baseRows, (r) => num(r.fk_course_id)),
     [baseRows],
   );
-  const academicYears = useMemo(
-    () =>
-      dedupeBy(
-        baseRows.filter((r) => num(r.fk_course_id) === Number(courseId)),
-        (r) => num(r.fk_academic_year_id),
+  const academicYears = useMemo(() => {
+    if (!courseId) return [];
+    const list = dedupeBy(
+      baseRows.filter((r) => num(r.fk_course_id) === Number(courseId)),
+      (r) => num(r.fk_academic_year_id),
+    );
+    return [...list].sort(
+      (a, b) =>
+        parseInt(txt(b.academic_year), 10) - parseInt(txt(a.academic_year), 10),
+    );
+  }, [baseRows, courseId]);
+  const exams = useMemo(() => {
+    if (!courseId || !academicYearId) return [];
+    return dedupeBy(
+      baseRows.filter(
+        (r) =>
+          num(r.fk_course_id) === Number(courseId) &&
+          num(r.fk_academic_year_id) === Number(academicYearId),
       ),
-    [baseRows, courseId],
+      (r) => num(r.fk_exam_id),
+    );
+  }, [baseRows, courseId, academicYearId]);
+  const selectedExam = useMemo(
+    () => exams.find((e) => num(e.fk_exam_id) === Number(examId)),
+    [exams, examId],
   );
-  const exams = useMemo(
-    () =>
-      dedupeBy(
-        baseRows.filter(
-          (r) =>
-            num(r.fk_course_id) === Number(courseId) &&
-            num(r.fk_academic_year_id) === Number(academicYearId),
-        ),
-        (r) => num(r.fk_exam_id),
-      ),
-    [baseRows, courseId, academicYearId],
-  );
-  const colleges = useMemo(
-    () => dedupeBy(restRows, (r) => num(r.fk_college_id)),
+  const courseGroups = useMemo(
+    () => dedupeBy(restRows, (r) => num(r.fk_course_group_id)),
     [restRows],
   );
-  const courseGroups = useMemo(() => {
-    const source = restRows.filter(
-      (r) => !collegeId || num(r.fk_college_id) === Number(collegeId),
-    );
-    return dedupeBy(source, (r) => num(r.fk_course_group_id));
-  }, [restRows, collegeId]);
   const courseYears = useMemo(() => {
-    const source = restRows.filter(
-      (r) =>
-        (!collegeId || num(r.fk_college_id) === Number(collegeId)) &&
-        (!courseGroupId || num(r.fk_course_group_id) === Number(courseGroupId)),
+    const groupNum = Number(courseGroupId);
+    const filtered =
+      groupNum !== 0
+        ? restRows.filter((r) => num(r.fk_course_group_id) === groupNum)
+        : restRows;
+    const list = dedupeBy(filtered, (r) => num(r.fk_course_year_id));
+    return [...list].sort(
+      (a, b) => num(a.cy_sort_order) - num(b.cy_sort_order),
     );
-    return dedupeBy(source, (r) => num(r.fk_course_year_id));
-  }, [restRows, collegeId, courseGroupId]);
+  }, [restRows, courseGroupId]);
   const regulations = useMemo(
-    () =>
-      dedupeBy([...regulationRows, ...restRows], (r) =>
-        num(r.fk_regulation_id ?? r.regulationId),
-      ),
-    [regulationRows, restRows],
+    () => dedupeBy(restRows, (r) => num(r.fk_regulation_id)),
+    [restRows],
   );
 
-  // ── Load rest filters when Course+Year+Exam are selected ──────────────────
+  function clearResults() {
+    setRows([]);
+    setDataDetails("");
+  }
+
   useEffect(() => {
-    async function loadRest() {
-      if (!courseId || !academicYearId || !examId || !employeeId) {
-        setRestRows([]);
-        setRegulationRows([]);
+    async function loadBase() {
+      setLoadingFilters(true);
+      try {
+        const [list, feeTypes] = await Promise.all([
+          getExamRegistrationReportBaseFilters(employeeId),
+          getExamRegistrationReportFeeTypes(),
+        ]);
+        setBaseRows(list);
+        setAllFeeTypes(feeTypes);
+      } catch (e) {
+        toastError(e, "Failed to load filters");
+        setBaseRows([]);
+      } finally {
+        setLoadingFilters(false);
+      }
+    }
+    void loadBase();
+  }, [employeeId]);
+
+  useEffect(() => {
+    setAcademicYearId("");
+    setExamId("");
+    setExamtypeCatdetId("0");
+    setExamTimetableId("0");
+    setCourseGroupId("0");
+    setCourseYearId("0");
+    setRegulationId("0");
+    setSubjectId("0");
+    setExamFeeTypes([]);
+    setExamTimetables([]);
+    setRestRows([]);
+    setSubjects([]);
+    clearResults();
+  }, [courseId]);
+
+  useEffect(() => {
+    setExamId("");
+    setExamtypeCatdetId("0");
+    setExamTimetableId("0");
+    setCourseGroupId("0");
+    setCourseYearId("0");
+    setRegulationId("0");
+    setSubjectId("0");
+    setExamFeeTypes([]);
+    setExamTimetables([]);
+    setRestRows([]);
+    setSubjects([]);
+    clearResults();
+  }, [academicYearId]);
+
+  useEffect(() => {
+    setExamtypeCatdetId("0");
+    setExamTimetableId("0");
+    setCourseGroupId("0");
+    setCourseYearId("0");
+    setRegulationId("0");
+    setSubjectId("0");
+    setExamTimetables([]);
+    setRestRows([]);
+    setSubjects([]);
+    clearResults();
+    if (!examId || !selectedExam) {
+      setExamFeeTypes([]);
+      return;
+    }
+    setExamFeeTypes(
+      allFeeTypes.filter((t) => {
+        const code = feeTypeCode(t);
+        if (code === "Regular") return Boolean(selectedExam.is_regular_exam);
+        if (code === "Supple") return Boolean(selectedExam.is_supply_exam);
+        if (code === "Internal") return Boolean(selectedExam.is_internal_exam);
+        return false;
+      }),
+    );
+  }, [examId, selectedExam, allFeeTypes]);
+
+  useEffect(() => {
+    async function loadTimetables() {
+      setExamTimetableId("0");
+      setCourseGroupId("0");
+      setCourseYearId("0");
+      setRegulationId("0");
+      setSubjectId("0");
+      setRestRows([]);
+      setSubjects([]);
+      clearResults();
+      if (!examId) {
+        setExamTimetables([]);
         return;
       }
       setLoadingFilters(true);
       try {
-        const bundle = await getUnivExamRestInRegExamStd({
-          courseId: Number(courseId),
-          examId: Number(examId),
-          academicYearId: Number(academicYearId),
-          employeeId,
-        });
-        setRestRows(
-          Array.isArray(bundle.restFilters) ? bundle.restFilters : [],
+        setExamTimetables(
+          await getExamRegistrationReportTimetables(Number(examId)),
         );
-        setRegulationRows(
-          Array.isArray(bundle.regulations) ? bundle.regulations : [],
-        );
-        setCollegeId("");
-        setCourseGroupId("");
-        setCourseYearId("");
-        setRegulationId("0");
-        setRoomId("0");
-        setStudentId("");
-        setStudentOptions([]);
-        setRows([]);
-        setHasFetched(false);
-        setDataDetails("");
       } catch (e) {
-        toastError(e, "Failed to load college / group filters");
+        toastError(e, "Failed to load timetables");
+        setExamTimetables([]);
+      } finally {
+        setLoadingFilters(false);
+      }
+    }
+    void loadTimetables();
+  }, [examtypeCatdetId, examId]);
+
+  useEffect(() => {
+    async function loadRest() {
+      setCourseGroupId("0");
+      setCourseYearId("0");
+      setRegulationId("0");
+      setSubjectId("0");
+      setSubjects([]);
+      clearResults();
+      if (!courseId || !academicYearId || !examId) {
         setRestRows([]);
-        setRegulationRows([]);
+        return;
+      }
+      setLoadingFilters(true);
+      try {
+        setRestRows(
+          await getExamRegistrationReportRestFilters({
+            courseId: Number(courseId),
+            academicYearId: Number(academicYearId),
+            examId: Number(examId),
+            employeeId,
+          }),
+        );
+      } catch (e) {
+        toastError(e, "Failed to load filter details");
+        setRestRows([]);
       } finally {
         setLoadingFilters(false);
       }
     }
     void loadRest();
-  }, [courseId, academicYearId, examId, employeeId]);
+  }, [examTimetableId, courseId, academicYearId, examId, employeeId]);
 
-  // Auto-select first college when colleges load
   useEffect(() => {
-    if (!colleges.length) return;
-    const ok = colleges.some((r) => num(r.fk_college_id) === Number(collegeId));
-    if (!ok) setCollegeId(String(num(colleges[0].fk_college_id)));
-  }, [colleges, collegeId]);
-
-  // Auto-select first course group when groups load
-  useEffect(() => {
-    if (!courseGroups.length) return;
-    const ok = courseGroups.some(
-      (r) => num(r.fk_course_group_id) === Number(courseGroupId),
-    );
-    if (!ok) {
-      setCourseGroupId(String(num(courseGroups[0].fk_course_group_id)));
-      setCourseYearId("");
-    }
-  }, [courseGroups, courseGroupId]);
-
-  // Auto-select first course year when years load
-  useEffect(() => {
-    if (!courseYears.length) return;
-    const ok = courseYears.some(
-      (r) => num(r.fk_course_year_id) === Number(courseYearId),
-    );
-    if (!ok) setCourseYearId(String(num(courseYears[0].fk_course_year_id)));
-  }, [courseYears, courseYearId]);
-
-  function resetFilters() {
-    setAcademicYearId("");
-    setExamId("");
-    setCollegeId("");
-    setCourseGroupId("");
-    setCourseYearId("");
+    setCourseYearId("0");
     setRegulationId("0");
-    setRoomId("0");
-    setStudentId("");
-    setStudentOptions([]);
-    setRestRows([]);
-    setRegulationRows([]);
-    setRows([]);
-    setHasFetched(false);
-    setDataDetails("");
-    const firstCourse = courses[0];
-    if (firstCourse) setCourseId(String(num(firstCourse.fk_course_id)));
-  }
+    setSubjectId("0");
+    setSubjects([]);
+    clearResults();
+  }, [courseGroupId]);
 
-  async function onSearchStudent(term: string) {
-    const q = term.trim();
-    if (q.length < 4) {
-      setStudentOptions([]);
-      return;
+  useEffect(() => {
+    setRegulationId("0");
+    setSubjectId("0");
+    setSubjects([]);
+    clearResults();
+  }, [courseYearId]);
+
+  useEffect(() => {
+    async function loadSubjects() {
+      setSubjectId("0");
+      clearResults();
+      if (!courseId || !academicYearId || !examId) {
+        setSubjects([]);
+        return;
+      }
+      setLoadingFilters(true);
+      try {
+        const list = await getExamRegistrationReportSubjects({
+          courseId: Number(courseId),
+          academicYearId: Number(academicYearId),
+          examId: Number(examId),
+          courseGroupId: Number(courseGroupId) || 0,
+          courseYearId: Number(courseYearId) || 0,
+          regulationId: Number(regulationId) || 0,
+          employeeId,
+        });
+        setSubjects(dedupeBy(list, (r) => num(r.fk_subject_id)));
+      } catch (e) {
+        toastError(e, "Failed to load subjects");
+        setSubjects([]);
+      } finally {
+        setLoadingFilters(false);
+      }
     }
-    setSearchingStudent(true);
-    try {
-      const list = await listStudents(q);
-      setStudentOptions(
-        (Array.isArray(list) ? list : [])
-          .map((r) => {
-            const id = num(r.studentId ?? r.student_id);
-            const roll = txt(r.rollNumber ?? r.roll_number);
-            const name = txt(r.firstName ?? r.first_name ?? r.studentName);
-            return {
-              value: String(id),
-              label: name ? `${roll} (${name})` : roll || String(id),
-            };
-          })
-          .filter((o) => o.value !== "0"),
-      );
-    } catch {
-      setStudentOptions([]);
-    } finally {
-      setSearchingStudent(false);
-    }
-  }
+    void loadSubjects();
+  }, [
+    regulationId,
+    courseId,
+    academicYearId,
+    examId,
+    courseGroupId,
+    courseYearId,
+    employeeId,
+  ]);
 
   async function onGetList() {
-    if (
-      !courseId ||
-      !academicYearId ||
-      !examId ||
-      !collegeId ||
-      !courseGroupId ||
-      !courseYearId
-    ) {
-      toastInfo("Please Select Valid Filters");
+    if (!courseId || !academicYearId || !examId) {
+      toastInfo("Please Select Required Filters");
       return;
     }
-
     setLoadingList(true);
-    setHasFetched(true);
-
     try {
-      const college = colleges.find(
-        (r) => num(r.fk_college_id) === Number(collegeId),
-      );
-      const course = courses.find(
-        (r) => num(r.fk_course_id) === Number(courseId),
-      );
-      const year = academicYears.find(
-        (r) => num(r.fk_academic_year_id) === Number(academicYearId),
-      );
-      const exam = exams.find((r) => num(r.fk_exam_id) === Number(examId));
-      const reg = regulations.find(
-        (r) =>
-          num(r.fk_regulation_id ?? r.regulationId) === Number(regulationId),
-      );
-
+      const courseCode =
+        courses.find((c) => num(c.fk_course_id) === Number(courseId))
+          ?.course_code ?? "";
+      const examYear =
+        academicYears.find(
+          (y) => num(y.fk_academic_year_id) === Number(academicYearId),
+        )?.academic_year ?? "";
+      const examName =
+        exams.find((e) => num(e.fk_exam_id) === Number(examId))?.exam_name ??
+        "";
+      const regulationCode =
+        Number(regulationId) === 0
+          ? ""
+          : (regulations.find(
+              (r) => num(r.fk_regulation_id) === Number(regulationId),
+            )?.regulation_code ?? "");
+      const subjectCode =
+        Number(subjectId) === 0
+          ? ""
+          : (subjects.find((s) => num(s.fk_subject_id) === Number(subjectId))
+              ?.subject_code ?? "");
       const details = buildDataDetails({
-        collegeCode: txt(college?.college_code ?? college?.collegeCode),
-        courseCode: txt(course?.course_code ?? course?.courseCode),
-        examYear: txt(year?.academic_year ?? year?.academicYear),
-        examName: txt(exam?.exam_name ?? exam?.examName),
-        regulationCode:
-          regulationId !== "0"
-            ? txt(reg?.regulation_code ?? reg?.regulationCode)
-            : "",
+        courseCode: txt(courseCode),
+        examYear: txt(examYear),
+        examName: txt(examName),
+        regulationCode: txt(regulationCode),
+        subjectCode: txt(subjectCode),
       });
 
-      const list = await getExamStudentRegistrationReportRows({
+      const list = await getExamStudentRegistrationReportList({
         examId: Number(examId),
         courseId: Number(courseId),
-        collegeId: Number(collegeId),
         courseGroupId: Number(courseGroupId) || 0,
         courseYearId: Number(courseYearId) || 0,
-        studentId: Number(studentId) || 0,
         regulationId: Number(regulationId) || 0,
-        roomId: Number(roomId) || 0,
+        subjectId: Number(subjectId) || 0,
+        examtypeCatdetId: Number(examtypeCatdetId) || 0,
+        examTimetableId: Number(examTimetableId) || 0,
+        isReevaluation,
       });
-
-      setRows(Array.isArray(list) ? list : []);
-      setDataDetails(list?.length ? details : "");
-
-      if (!list?.length) {
-        toastSuccess("No Records Found.");
-      }
+      setRows(list.map((row, i) => ({ ...row, __rid: i })));
+      setDataDetails(list.length > 0 ? details : "");
+      if (!list.length) toastSuccess("No Records Found.");
     } catch (e) {
-      toastError(e, "Failed to load student registration report");
+      toastError(e, "Failed to load report");
       setRows([]);
       setDataDetails("");
     } finally {
@@ -621,58 +572,12 @@ export default function ExamRegistrationStudentReportPage() {
     }
     exportHtmlTableAsExcel(
       REPORT_TITLE,
-      buildHtmlTable([...EXPORT_COLS], toExportRows(rows)),
+      buildTableHtml(rows),
       `<strong>${escapeHtml(REPORT_TITLE)}${dataDetails ? ` - ${escapeHtml(dataDetails)}` : ""}</strong>`,
     );
   }
 
-  async function handlePrintReport() {
-    if (!rows.length) {
-      toastInfo("No data to print");
-      return;
-    }
-    const college = colleges.find(
-      (r) => num(r.fk_college_id) === Number(collegeId),
-    );
-    const exam = exams.find((r) => num(r.fk_exam_id) === Number(examId));
-    const group = courseGroups.find(
-      (r) => num(r.fk_course_group_id) === Number(courseGroupId),
-    );
-    const year = courseYears.find(
-      (r) => num(r.fk_course_year_id) === Number(courseYearId),
-    );
-    const logoSrc = await resolveReportPrintLogo(
-      null,
-      Number(collegeId || 0),
-      collegeLogo || DEFAULT_COLLEGE_LOGO,
-    );
-    const fromFilter = txt(
-      college?.college_name ?? college?.collegeName ?? college?.college_code,
-    );
-    let collegeName = fromFilter;
-    try {
-      const clg = await getCollegeById(Number(collegeId || 0));
-      const name = String(clg?.collegeName ?? "").trim();
-      if (name) collegeName = name;
-    } catch {
-      /* keep filter name */
-    }
-    printReport({
-      collegeName,
-      collegeLogo: logoSrc,
-      fallbackLogo: toPrintLogoUrl(DEFAULT_COLLEGE_LOGO),
-      examName: examMasterLabel(exam ?? {}),
-      courseGroupCode: Number(courseGroupId)
-        ? txt(group?.group_code ?? group?.groupCode)
-        : "",
-      courseYearCode: Number(courseYearId)
-        ? txt(year?.course_year_code ?? year?.courseYearCode)
-        : "",
-      rows,
-    });
-  }
-
-  const columnDefs = useMemo<ColDef<Row>[]>(
+  const columnDefs = useMemo<ColDef<AnyRow>[]>(
     () => [
       {
         headerName: "S.No",
@@ -681,301 +586,259 @@ export default function ExamRegistrationStudentReportPage() {
         flex: 0,
       },
       {
-        headerName: "Hall Ticket No.",
-        minWidth: 150,
-        valueGetter: (p) =>
-          txt(
-            p.data?.hallticket_no ??
-              p.data?.hallticketNo ??
-              p.data?.hallticket_number,
-          ),
+        headerName: "Exam Date",
+        minWidth: 120,
+        valueGetter: (p) => txt(p.data?.exam_date),
       },
       {
-        headerName: "Student Name",
+        headerName: "Subject Type",
+        minWidth: 120,
+        valueGetter: (p) => txt(p.data?.subject_type),
+      },
+      {
+        headerName: "Subject",
         minWidth: 180,
-        valueGetter: (p) => txt(p.data?.student_name ?? p.data?.studentName),
+        valueGetter: (p) => txt(p.data?.subject),
       },
       {
-        headerName: "Course Details",
-        minWidth: 180,
-        valueGetter: (p) => {
-          const c = txt(p.data?.college_code ?? p.data?.collegeCode);
-          const y = txt(p.data?.course_year ?? p.data?.courseYear);
-          if (c && y) return `${c} / ${y}`;
-          return c || y || "";
-        },
+        headerName: "College",
+        minWidth: 110,
+        valueGetter: (p) => txt(p.data?.college_code),
       },
       {
-        headerName: "Exam",
-        minWidth: 250,
-        valueGetter: (p) => txt(p.data?.exam_name ?? p.data?.examName),
-        autoHeight: true,
+        headerName: "Course",
+        minWidth: 140,
+        valueGetter: (p) => txt(p.data?.course_name),
+      },
+      {
+        headerName: "Course Group",
+        minWidth: 120,
+        valueGetter: (p) => txt(p.data?.course_group),
+      },
+      {
+        headerName: "Course Year",
+        minWidth: 120,
+        valueGetter: (p) => txt(p.data?.course_year),
       },
       {
         headerName: "Exam Type",
-        minWidth: 120,
-        valueGetter: (p) => txt(p.data?.exam_type ?? p.data?.examType),
-      },
-      {
-        headerName: "Registration Date",
-        minWidth: 150,
-        valueGetter: (p) =>
-          formatRegDate(p.data?.registration_date ?? p.data?.registrationDate),
-      },
-      {
-        headerName: "Subjects",
-        minWidth: 280,
-        flex: 1,
-        wrapText: true,
-        autoHeight: true,
-        cellStyle: { lineHeight: "1.35", paddingTop: 6, paddingBottom: 6 },
-        cellRenderer: subjectsRenderer,
-      },
-      {
-        headerName: "Exam Form",
         minWidth: 110,
-        cellRenderer: examFormRenderer,
+        valueGetter: (p) => txt(p.data?.exam_type),
       },
       {
-        headerName: "Fee Paid",
-        minWidth: 100,
-        valueGetter: (p) =>
-          yesNo(p.data?.is_fee_paid ?? p.data?.feePaid ?? p.data?.fee_paid),
-      },
-      {
-        headerName: "HallTicket Issued",
-        minWidth: 150,
-        valueGetter: (p) =>
-          yesNo(
-            p.data?.is_hallticket_issued ??
-              p.data?.hallTicketIssued ??
-              p.data?.hallticket_issued,
-          ),
+        headerName: "Hall Ticket",
+        minWidth: 140,
+        valueGetter: (p) => txt(p.data?.hallticket_number),
       },
     ],
     [],
   );
 
-  const getRowId = useCallback(
-    (p: { data?: Row; node?: { rowIndex?: number | null } }) => {
-      const d = p.data;
-      if (!d) return "";
-      const id = num(
-        d.exam_student_reg_id ??
-          d.fk_exam_student_registration_id ??
-          d.studentId,
-      );
-      if (id > 0)
-        return `${id}-${txt(d.hallticket_no)}-${p.node?.rowIndex ?? 0}`;
-      return `row-${p.node?.rowIndex ?? 0}-${txt(d.hallticket_no)}-${txt(d.student_name)}`;
-    },
-    [],
-  );
-
   const filters = (
     <div className="inv-allot-report-filters space-y-2">
-      {/* Angular row1: Course 20 / Exam Year 20 / Exam Master 60 */}
       <div className="inv-allot-report-filters__row">
         <div className="inv-allot-report-filters__fx20">
-          <GlobalFilterField label="Course *">
+          <GlobalFilterField label="Course">
             <Select
               value={courseId || null}
-              onChange={(v) => {
-                setCourseId(v ?? "");
-                setAcademicYearId("");
-                setExamId("");
-                setCollegeId("");
-              }}
+              onChange={(v) => setCourseId(v ?? "")}
               isLoading={loadingFilters}
               options={courses.map((c) => ({
                 value: String(num(c.fk_course_id)),
-                label: txt(c.course_code ?? c.courseCode),
+                label: txt(c.course_code),
               }))}
               placeholder="Course"
               searchable
             />
           </GlobalFilterField>
         </div>
-
         <div className="inv-allot-report-filters__fx20">
-          <GlobalFilterField label="Exam Year *">
+          <GlobalFilterField label="Academic Year *">
             <Select
               value={academicYearId || null}
-              onChange={(v) => {
-                setAcademicYearId(v ?? "");
-                setExamId("");
-                setCollegeId("");
-              }}
+              onChange={(v) => setAcademicYearId(v ?? "")}
               isLoading={loadingFilters}
               options={academicYears.map((y) => ({
                 value: String(num(y.fk_academic_year_id)),
-                label: txt(y.academic_year ?? y.academicYear),
+                label: txt(y.academic_year),
               }))}
-              placeholder="Exam Year"
+              placeholder="Academic Year"
               searchable
-              disabled={!courseId}
             />
           </GlobalFilterField>
         </div>
-
         <div className="inv-allot-report-filters__fx60">
-          <GlobalFilterField label="Exam Master *">
+          <GlobalFilterField label="Exam">
             <Select
               value={examId || null}
               onChange={(v) => setExamId(v ?? "")}
               isLoading={loadingFilters}
               options={exams.map((e) => ({
                 value: String(num(e.fk_exam_id)),
-                label: examMasterLabel(e),
+                label: formatExamLabel(e),
+                title: examMasterTooltip(e),
+                labelNode: examMasterLabelNode(e),
               }))}
-              placeholder="Exam Master"
+              placeholder="Exam"
               searchable
+              searchPlaceholder="Search..."
               wrapOptionLabels
-              disabled={!academicYearId}
             />
           </GlobalFilterField>
         </div>
       </div>
-
-      {/* Row 2: College | Course Group | Course Years | Regulation | Room | Student | actions */}
       <div className="inv-allot-report-filters__row">
-        <div className="inv-allot-report-filters__fx15">
-          <GlobalFilterField label="College *">
+        <div className="inv-allot-report-filters__fx25">
+          <GlobalFilterField label="Exam Type *">
             <Select
-              value={collegeId || null}
-              onChange={(v) => {
-                setCollegeId(v ?? "");
-                setCourseGroupId("");
-                setCourseYearId("");
-              }}
+              value={examtypeCatdetId || null}
+              onChange={(v) => setExamtypeCatdetId(v ?? "0")}
               isLoading={loadingFilters}
-              options={colleges.map((c) => ({
-                value: String(num(c.fk_college_id)),
-                label: txt(c.college_code ?? c.collegeCode),
-              }))}
-              placeholder="College"
-              disabled={!examId}
+              options={[
+                { value: "0", label: "All" },
+                ...examFeeTypes.map((t) => ({
+                  value: String(feeTypeId(t)),
+                  label: feeTypeCode(t),
+                })),
+              ]}
+              placeholder="Exam Type"
+              searchable
             />
           </GlobalFilterField>
         </div>
-
-        <div className="inv-allot-report-filters__fx15">
+        <div className="inv-allot-report-filters__fx25">
+          <GlobalFilterField label="Exam Timetable *">
+            <Select
+              value={examTimetableId || null}
+              onChange={(v) => setExamTimetableId(v ?? "0")}
+              isLoading={loadingFilters}
+              options={[
+                { value: "0", label: "All" },
+                ...examTimetables.map((t) => ({
+                  value: String(timetableId(t)),
+                  label: timetableLabel(t),
+                })),
+              ]}
+              placeholder="Exam Timetable"
+              searchable
+            />
+          </GlobalFilterField>
+        </div>
+        <div className="inv-allot-report-filters__fx25">
           <GlobalFilterField label="Course Group *">
             <Select
               value={courseGroupId || null}
-              onChange={(v) => {
-                setCourseGroupId(v ?? "");
-                setCourseYearId("");
-              }}
+              onChange={(v) => setCourseGroupId(v ?? "0")}
               isLoading={loadingFilters}
-              options={courseGroups.map((g) => ({
-                value: String(num(g.fk_course_group_id)),
-                label: txt(g.group_code ?? g.groupCode),
-              }))}
+              options={[
+                { value: "0", label: "All" },
+                ...courseGroups.map((g) => ({
+                  value: String(num(g.fk_course_group_id)),
+                  label: txt(g.group_code),
+                })),
+              ]}
               placeholder="Course Group"
-              disabled={!collegeId}
+              searchable
             />
           </GlobalFilterField>
         </div>
-
-        <div className="inv-allot-report-filters__fx15">
+        <div className="inv-allot-report-filters__fx25">
           <GlobalFilterField label="Course Years *">
             <Select
               value={courseYearId || null}
-              onChange={(v) => setCourseYearId(v ?? "")}
+              onChange={(v) => setCourseYearId(v ?? "0")}
               isLoading={loadingFilters}
-              options={courseYears.map((y) => ({
-                value: String(num(y.fk_course_year_id)),
-                label: txt(
-                  y.course_year_code ?? y.courseYearCode ?? y.course_year_name,
-                ),
-              }))}
+              options={[
+                { value: "0", label: "All" },
+                ...courseYears.map((y) => ({
+                  value: String(num(y.fk_course_year_id)),
+                  label: txt(y.course_year_code ?? y.course_year_name),
+                })),
+              ]}
               placeholder="Course Years"
-              disabled={!courseGroupId}
+              searchable
             />
           </GlobalFilterField>
         </div>
-
+      </div>
+      <div className="inv-allot-report-filters__row">
         <div className="inv-allot-report-filters__fx15">
           <GlobalFilterField label="Regulation">
             <Select
-              value={regulationId}
+              value={regulationId || null}
               onChange={(v) => setRegulationId(v ?? "0")}
               isLoading={loadingFilters}
               options={[
                 { value: "0", label: "All" },
                 ...regulations.map((r) => ({
-                  value: String(num(r.fk_regulation_id ?? r.regulationId)),
-                  label: txt(r.regulation_code ?? r.regulationCode),
+                  value: String(num(r.fk_regulation_id)),
+                  label: txt(r.regulation_code),
                 })),
               ]}
-              placeholder="All"
-              disabled={!collegeId}
+              placeholder="Regulation"
+              searchable
             />
           </GlobalFilterField>
         </div>
-
-        <div className="inv-allot-report-filters__fx15">
-          <GlobalFilterField label="Room">
+        <div className="inv-allot-report-filters__fx33">
+          <GlobalFilterField
+            label="Subjects"
+            className="min-w-[200px] flex-[2]"
+          >
             <Select
-              value={roomId}
-              onChange={(v) => setRoomId(v ?? "0")}
+              value={subjectId || null}
+              onChange={(v) => {
+                setSubjectId(v ?? "0");
+                clearResults();
+              }}
+              isLoading={loadingFilters}
               options={[
                 { value: "0", label: "All" },
-                ...roomRows.map((r) => ({
-                  value: String(num(r.roomId ?? r.room_id)),
-                  label: txt(
-                    r.roomCode ?? r.room_code ?? r.roomName ?? r.room_name,
-                  ),
+                ...subjects.map((s) => ({
+                  value: String(num(s.fk_subject_id)),
+                  label: `${txt(s.subject_name)} (${txt(s.subject_code)})`,
                 })),
               ]}
-              placeholder="All"
-              searchable={roomRows.length > 8}
-            />
-          </GlobalFilterField>
-        </div>
-
-        <div className="inv-allot-report-filters__fx15">
-          <GlobalFilterField label="Student">
-            <Select
-              value={studentId || null}
-              onChange={(v) => {
-                setStudentId(v ?? "");
-                setRows([]);
-                setHasFetched(false);
-              }}
-              options={studentOptions}
-              placeholder="Student"
+              placeholder="Subjects"
               searchable
-              clearable
-              onSearch={onSearchStudent}
-              isLoading={searchingStudent}
+              searchPlaceholder="Search..."
             />
           </GlobalFilterField>
         </div>
-
-        <div className="inv-allot-report-filters__fx10 flex items-end pb-0.5">
-          <div className="flex w-full items-center gap-1">
+        <div className="inv-allot-report-filters__fx13">
+          <GlobalFilterField label="">
+            <div className="flex h-[30px] items-center gap-2">
+              <Checkbox
+                id="reg-std-is-reevaluation"
+                checked={isReevaluation}
+                onCheckedChange={(v) => {
+                  setIsReevaluation(v === true);
+                  clearResults();
+                }}
+              />
+              <Label
+                htmlFor="reg-std-is-reevaluation"
+                className="text-[12px] font-normal"
+              >
+                Is Re-Evaluation
+              </Label>
+            </div>
+          </GlobalFilterField>
+        </div>
+        <div className="inv-allot-report-filters__fx13">
+          <GlobalFilterField
+            label=""
+            className="global-filter-field--shrink global-filter-field--action"
+          >
             <Button
               type="button"
               onClick={() => void onGetList()}
-              disabled={loadingList || loadingFilters}
-              className="h-[30px] flex-1 px-3 text-[12px]"
+              disabled={loadingList}
+              className="h-[30px] px-3 text-[12px] w-full"
             >
               Get List
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-[30px] w-[30px] shrink-0"
-              title="Reset"
-              onClick={resetFilters}
-              disabled={loadingList || loadingFilters}
-            >
-              <RefreshCw className="h-3.5 w-3.5" />
-            </Button>
-          </div>
+          </GlobalFilterField>
         </div>
       </div>
     </div>
@@ -989,13 +852,12 @@ export default function ExamRegistrationStudentReportPage() {
       filters={filters}
       rowData={rows}
       columnDefs={columnDefs}
-      fitColumnsToWidth={false}
       loading={loadingList}
-      resultsVisible={hasFetched}
+      showTable={rows.length > 0}
       pagination
       toolbar={TOOLBAR}
       toolbarTrailing={
-        hasFetched && rows.length > 0 ? (
+        rows.length > 0 ? (
           <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
@@ -1007,14 +869,14 @@ export default function ExamRegistrationStudentReportPage() {
             <Button
               type="button"
               className="h-[30px] px-3 text-[12px]"
-              onClick={() => void handlePrintReport()}
+              onClick={() => printReport(rows, dataDetails)}
             >
               Print Report
             </Button>
           </div>
         ) : null
       }
-      getRowId={getRowId}
+      getRowId={(p) => String(p.data?.__rid ?? "")}
     />
   );
 }

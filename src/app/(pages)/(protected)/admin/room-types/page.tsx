@@ -139,6 +139,8 @@ export default function RoomTypesPage() {
         search: true,
         searchPlaceholder: "Search room types…",
         pdfDocumentTitle: "Room Types",
+        exportExcel: false,
+        exportPdf: false,
       }}
       toolbarTrailing={
         <Button

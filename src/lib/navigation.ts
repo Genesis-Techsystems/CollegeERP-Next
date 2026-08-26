@@ -372,6 +372,15 @@ export function normalizeHref(path: string): string {
       /\/(?:apps\/)?examination\/admin-exam-reports\/exam-registration-student-report(?=\/|$)/gi,
       "/admin-examination-management/exam-reports/exam-registration-student-report",
     )
+    // Angular exam-reports/exam-student-registration-report → React admin-exam-reports
+    .replace(
+      /\/(?:apps\/)?(?:reports\/)?(?:admin-)?exam-reports\/exam-student-registration-report(?=\/|$)/gi,
+      "/admin-examination-management/admin-exam-reports/exam-student-registration-report",
+    )
+    .replace(
+      /\/(?:apps\/)?examination\/admin-exam-reports\/exam-student-registration-report(?=\/|$)/gi,
+      "/admin-examination-management/admin-exam-reports/exam-student-registration-report",
+    )
     .replace(
       /\/(?:apps\/)?(?:reports\/)?(?:admin-)?exam-reports\/exam-student-not-registered-count(?=\/|$)/gi,
       "/admin-examination-management/exam-reports/exam-student-not-registered-count",

@@ -413,84 +413,100 @@ export default function StudentBacklogDataPage() {
   }
 
   const filters = (
-    <GlobalFilterBarRow>
-      <GlobalFilterField label="College" icon={Building2}>
-        <Select
-          value={collegeId ? String(collegeId) : null}
-          onChange={(v) => {
-            setSkipAutoSelect(false);
-            setMainList([]);
-            setCourseYearCodes([]);
-            setShowTable(false);
-            setCollegeId(v ? Number(v) : null);
-          }}
-          options={colleges.map((r) => ({
-            value: String(pickNum(r, ["fk_college_id", "collegeId"])),
-            label: pickText(r, ["college_code", "collegeCode", "college_name"]),
-          }))}
-          placeholder="College"
-          searchable
-          isLoading={loading && filtersData.length === 0}
-        />
-      </GlobalFilterField>
-      <GlobalFilterField label="Course" icon={GraduationCap}>
-        <Select
-          value={courseId ? String(courseId) : null}
-          onChange={(v) => {
-            setSkipAutoSelect(false);
-            setMainList([]);
-            setCourseYearCodes([]);
-            setShowTable(false);
-            setCourseId(v ? Number(v) : null);
-          }}
-          options={courses.map((r) => ({
-            value: String(pickNum(r, ["fk_course_id", "courseId"])),
-            label: pickText(r, ["course_code", "courseCode", "course_name"]),
-          }))}
-          placeholder="Course"
-          searchable
-        />
-      </GlobalFilterField>
-      <GlobalFilterField label="Batch" icon={Layers}>
-        <Select
-          value={batchId ? String(batchId) : null}
-          onChange={(v) => {
-            setMainList([]);
-            setCourseYearCodes([]);
-            setShowTable(false);
-            setBatchId(v ? Number(v) : null);
-          }}
-          options={batches.map((r) => ({
-            value: String(pickNum(r, ["fk_batch_id", "batchId"])),
-            label: pickText(r, ["batch_name", "batchName"]),
-          }))}
-          placeholder="Batch"
-          searchable
-          isLoading={Boolean(courseId) && loading}
-        />
-      </GlobalFilterField>
-      <div className="ml-auto flex shrink-0 flex-wrap items-center gap-3 self-end pb-0.5">
-        <Button
-          type="button"
-          className="h-8 text-[12px]"
-          onClick={() => void handleGetReport()}
-          disabled={loading}
-        >
-          {loading ? "Loading..." : "Get Report"}
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onClick={handleReset}
-          title="Reset"
-          aria-label="Reset"
-        >
-          <RotateCcw className="h-4 w-4" />
-        </Button>
+    <div className="inv-allot-report-filters space-y-2">
+      <div className="inv-allot-report-filters__row">
+        <div className="inv-allot-report-filters__fx25">
+          <GlobalFilterField label="College">
+            <Select
+              value={collegeId ? String(collegeId) : null}
+              onChange={(v) => {
+                setSkipAutoSelect(false);
+                setMainList([]);
+                setCourseYearCodes([]);
+                setShowTable(false);
+                setCollegeId(v ? Number(v) : null);
+              }}
+              options={colleges.map((r) => ({
+                value: String(pickNum(r, ["fk_college_id", "collegeId"])),
+                label: pickText(r, [
+                  "college_code",
+                  "collegeCode",
+                  "college_name",
+                ]),
+              }))}
+              placeholder="College"
+              searchable
+              isLoading={loading && filtersData.length === 0}
+            />
+          </GlobalFilterField>
+        </div>
+        <div className="inv-allot-report-filters__fx25">
+          <GlobalFilterField label="Course">
+            <Select
+              value={courseId ? String(courseId) : null}
+              onChange={(v) => {
+                setSkipAutoSelect(false);
+                setMainList([]);
+                setCourseYearCodes([]);
+                setShowTable(false);
+                setCourseId(v ? Number(v) : null);
+              }}
+              options={courses.map((r) => ({
+                value: String(pickNum(r, ["fk_course_id", "courseId"])),
+                label: pickText(r, [
+                  "course_code",
+                  "courseCode",
+                  "course_name",
+                ]),
+              }))}
+              placeholder="Course"
+              searchable
+            />
+          </GlobalFilterField>
+        </div>
+        <div className="inv-allot-report-filters__fx25">
+          <GlobalFilterField label="Batch">
+            <Select
+              value={batchId ? String(batchId) : null}
+              onChange={(v) => {
+                setMainList([]);
+                setCourseYearCodes([]);
+                setShowTable(false);
+                setBatchId(v ? Number(v) : null);
+              }}
+              options={batches.map((r) => ({
+                value: String(pickNum(r, ["fk_batch_id", "batchId"])),
+                label: pickText(r, ["batch_name", "batchName"]),
+              }))}
+              placeholder="Batch"
+              searchable
+              isLoading={Boolean(courseId) && loading}
+            />
+          </GlobalFilterField>
+        </div>
+        <div className="inv-allot-report-filters__fx15 flex shrink-0 items-center gap-3 self-end pb-0.5">
+          <Button
+            type="button"
+            className="h-8 text-[12px] w-full"
+            onClick={() => void handleGetReport()}
+            disabled={loading}
+          >
+            {loading ? "Loading..." : "Get Report"}
+          </Button>
+          {/* <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={handleReset}
+            title="Reset"
+            aria-label="Reset"
+          >
+            <RotateCcw className="h-4 w-4" />
+          </Button> */}
+        </div>
       </div>
-    </GlobalFilterBarRow>
+    </div>
   );
 
   return (
@@ -502,6 +518,7 @@ export default function StudentBacklogDataPage() {
       columnDefs={columnDefs as ColDef<AnyRow>[]}
       loading={loading}
       pagination
+      fitColumnsToWidth={false}
       paginationPageSize={10}
       toolbar={TOOLBAR}
       toolbarTrailing={

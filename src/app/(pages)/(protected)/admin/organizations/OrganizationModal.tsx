@@ -9,6 +9,7 @@ import {
 } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -39,6 +40,8 @@ import {
   listCitiesByDistrict,
 } from "@/services/admin/organization";
 import { requiredNumber } from "@/lib/zod-fields";
+import { MINIO_URL } from "@/config/constants/api";
+import noImgLogo from "@/assets/images/no-img-logo.png";
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
@@ -122,6 +125,13 @@ function isAllowedLogoFile(file: File): boolean {
   return false;
 }
 
+function resolveOrgLogoUrl(logoPath?: string | null): string | null {
+  if (!logoPath) return null;
+  if (/^(https?:\/\/|data:)/i.test(logoPath)) return logoPath;
+  const base = String(MINIO_URL ?? "").replace(/\/?$/, "/");
+  return `${base}${logoPath.replace(/^\/+/, "")}`;
+}
+
 function toDigitsOnly(value: string, maxLength?: number): string {
   const digits = value.replace(/\D/g, "");
   return maxLength != null ? digits.slice(0, maxLength) : digits;
@@ -174,6 +184,7 @@ export default function OrganizationModal({
   const [cities, setCities] = useState<City[]>([]);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [logoError, setLogoError] = useState<string | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
 
   const {
     register,
@@ -304,6 +315,13 @@ export default function OrganizationModal({
     setCities([]);
     setSubmitError(null);
     setLogoError(null);
+    if (organization) {
+      setLogoPreview(
+        resolveOrgLogoUrl(organization.logoPath ?? organization.logoFilename),
+      );
+    } else {
+      setLogoPreview(null);
+    }
     if (fileRef.current) fileRef.current.value = "";
   }, [organization, open, reset]);
 
@@ -366,6 +384,29 @@ export default function OrganizationModal({
     }
   }, [licenseFdate]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const selected = e.target.files?.[0];
+    if (!selected) {
+      setLogoError(null);
+      return;
+    }
+    if (!isAllowedLogoFile(selected)) {
+      setLogoError(LOGO_INVALID_MESSAGE);
+      e.target.value = "";
+      return;
+    }
+    setLogoError(null);
+    const reader = new FileReader();
+    reader.onload = () => setLogoPreview(reader.result as string);
+    reader.readAsDataURL(selected);
+  }
+
+  function clearSelectedLogo() {
+    setLogoPreview(null);
+    setLogoError(null);
+    if (fileRef.current) fileRef.current.value = "";
+  }
+
   const onSubmit = async (data: FormValues) => {
     setSubmitError(null);
 
@@ -416,7 +457,7 @@ export default function OrganizationModal({
     >
       <DialogContent
         closeOnOutsideClick={false}
-        className="w-[calc(100vw-2rem)] overflow-x-hidden sm:max-w-6xl"
+        className="w-[calc(70vw-2rem)] overflow-x-hidden sm:max-w-3xl"
       >
         <DialogHeader className="pr-8">
           <DialogTitle className="text-base font-semibold leading-none text-[hsl(var(--primary))]">
@@ -424,7 +465,7 @@ export default function OrganizationModal({
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           {/* Row 1: Org Name, Org Code, Logo */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-12">
             <FormField
@@ -458,25 +499,36 @@ export default function OrganizationModal({
               error={logoError ?? undefined}
               className="min-w-0 sm:col-span-4"
             >
-              <Input
-                type="file"
-                accept={LOGO_ACCEPT}
-                ref={fileRef}
-                onChange={(e) => {
-                  const selected = e.target.files?.[0];
-                  if (!selected) {
-                    setLogoError(null);
-                    return;
-                  }
-                  if (!isAllowedLogoFile(selected)) {
-                    setLogoError(LOGO_INVALID_MESSAGE);
-                    e.target.value = "";
-                    return;
-                  }
-                  setLogoError(null);
-                }}
-                className="cursor-pointer py-1.5 file:mr-2 file:rounded-md file:border-0 file:bg-[#eef2f7] file:px-2.5 file:py-1 file:text-[11px] file:font-semibold file:text-slate-600"
-              />
+              <div className="flex min-w-0 items-center gap-2">
+                <div className="relative shrink-0">
+                  <img
+                    src={logoPreview ?? noImgLogo.src}
+                    alt="Organization logo preview"
+                    className="h-10 w-10 rounded-full border border-[#d7dce5] bg-white object-cover"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = noImgLogo.src;
+                    }}
+                  />
+                  {logoPreview ? (
+                    <button
+                      type="button"
+                      title="Remove logo"
+                      aria-label="Remove logo"
+                      onClick={clearSelectedLogo}
+                      className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50 hover:text-red-600"
+                    >
+                      <X className="h-2.5 w-2.5" strokeWidth={2.5} />
+                    </button>
+                  ) : null}
+                </div>
+                <Input
+                  type="file"
+                  accept={LOGO_ACCEPT}
+                  ref={fileRef}
+                  onChange={handleLogoChange}
+                  className="min-w-0 flex-1 cursor-pointer py-1.5 file:mr-2 file:rounded-md file:border-0 file:bg-[#eef2f7] file:px-2.5 file:py-1 file:text-[11px] file:font-semibold file:text-slate-600"
+                />
+              </div>
             </FormField>
           </div>
 
@@ -487,7 +539,7 @@ export default function OrganizationModal({
               required
               error={errors.address?.message}
               htmlFor="address"
-              className="min-w-0 sm:col-span-6"
+              className="min-w-0 sm:col-span-12"
             >
               <Input
                 id="address"
@@ -495,8 +547,9 @@ export default function OrganizationModal({
                 placeholder="Street, area, city"
               />
             </FormField>
-
-            <div className="min-w-0 sm:col-span-3">
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-12">
+            <div className="min-w-0 sm:col-span-4">
               <Controller
                 name="countryId"
                 control={control}
@@ -518,7 +571,7 @@ export default function OrganizationModal({
               />
             </div>
 
-            <div className="min-w-0 sm:col-span-3">
+            <div className="min-w-0 sm:col-span-4">
               <Controller
                 name="stateId"
                 control={control}
@@ -539,72 +592,77 @@ export default function OrganizationModal({
                 )}
               />
             </div>
+            <div className="min-w-0 sm:col-span-4">
+              <Controller
+                name="districtId"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    label="District"
+                    required
+                    value={field.value ? String(field.value) : null}
+                    onChange={(v) => {
+                      field.onChange(v ? Number(v) : undefined);
+                      setValue("cityId", undefined);
+                    }}
+                    options={districtOptions}
+                    placeholder="Select district"
+                    searchable
+                    disabled={!stateId}
+                    error={errors.districtId?.message}
+                  />
+                )}
+              />
+            </div>
           </div>
 
           {/* Row 3: District to Pincode in one line */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
-            <Controller
-              name="districtId"
-              control={control}
-              render={({ field }) => (
-                <Select
-                  label="District"
-                  required
-                  value={field.value ? String(field.value) : null}
-                  onChange={(v) => {
-                    field.onChange(v ? Number(v) : undefined);
-                    setValue("cityId", undefined);
-                  }}
-                  options={districtOptions}
-                  placeholder="Select district"
-                  searchable
-                  disabled={!stateId}
-                  error={errors.districtId?.message}
-                />
-              )}
-            />
-
-            <Controller
-              name="cityId"
-              control={control}
-              render={({ field }) => (
-                <Select
-                  label="City"
-                  value={field.value ? String(field.value) : null}
-                  onChange={(v) => field.onChange(v ? Number(v) : undefined)}
-                  options={cityOptions}
-                  placeholder="Select city"
-                  searchable
-                  disabled={!districtId}
-                />
-              )}
-            />
-
-            <FormField
-              label="Mandal"
-              required
-              error={errors.mandal?.message}
-              htmlFor="mandal"
-            >
-              <Input
-                id="mandal"
-                {...register("mandal")}
-                placeholder="e.g. Kukatpally"
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-12">
+            <div className="min-w-0 sm:col-span-4">
+              <Controller
+                name="cityId"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    label="City"
+                    value={field.value ? String(field.value) : null}
+                    onChange={(v) => field.onChange(v ? Number(v) : undefined)}
+                    options={cityOptions}
+                    placeholder="Select city"
+                    searchable
+                    disabled={!districtId}
+                  />
+                )}
               />
-            </FormField>
-
-            <FormField
-              label="Pincode"
-              required
-              error={errors.pincode?.message}
-              htmlFor="pincode"
-            >
-              <Input
-                id="pincode"
-                {...bindDigitsField(register, "pincode", 6)}
-                placeholder="6-digit pincode"
-              />
-            </FormField>
+            </div>
+            <div className="min-w-0 sm:col-span-4">
+              <FormField
+                label="Mandal"
+                required
+                error={errors.mandal?.message}
+                htmlFor="mandal"
+              >
+                <Input
+                  id="mandal"
+                  {...register("mandal")}
+                  placeholder="e.g. Kukatpally"
+                />
+              </FormField>
+            </div>
+            <div className="min-w-0 sm:col-span-4">
+              <FormField
+                label="Pincode"
+                required
+                error={errors.pincode?.message}
+                htmlFor="pincode"
+              >
+                <Input
+                  id="pincode"
+                  {...bindDigitsField(register, "pincode", 6)}
+                  placeholder="6-digit pincode"
+                />
+              </FormField>
+            </div>
           </div>
 
           {/* Row 4: Mobile No, Landline No, Email, Fax */}
@@ -722,22 +780,20 @@ export default function OrganizationModal({
             </FormField>
           </div>
 
-          {isEditing && (
-            <Controller
-              name="isActive"
-              control={control}
-              render={({ field }) => (
-                <ActiveStatusField
-                  // label="Active"
-                  isActive={field.value}
-                  reason={watch("reason") ?? ""}
-                  onActiveChange={field.onChange}
-                  onReasonChange={(v) => setValue("reason", v)}
-                  reasonError={errors.reason?.message}
-                />
-              )}
-            />
-          )}
+          <Controller
+            name="isActive"
+            control={control}
+            render={({ field }) => (
+              <ActiveStatusField
+                // label="Active"
+                isActive={field.value}
+                reason={watch("reason") ?? ""}
+                onActiveChange={field.onChange}
+                onReasonChange={(v) => setValue("reason", v)}
+                reasonError={errors.reason?.message}
+              />
+            )}
+          />
 
           {submitError && (
             <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-medium text-red-600">

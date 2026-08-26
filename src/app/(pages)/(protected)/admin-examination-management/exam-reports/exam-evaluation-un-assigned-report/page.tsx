@@ -376,80 +376,92 @@ export default function ExamEvaluationUnAssignedReportPage() {
 
   const filters = (
     <>
-      <GlobalFilterBarRow>
-        <GlobalFilterField label="Course">
-          <Select
-            value={courseId || null}
-            onChange={(v) => setCourseId(v ?? "")}
-            isLoading={loadingFilters}
-            options={courses.map((c) => ({
-              value: String(num(c.fk_course_id)),
-              label: txt(c.course_code),
-            }))}
-            placeholder="Course"
-            searchable
-          />
-        </GlobalFilterField>
-        <GlobalFilterField label="Exam Year">
-          <Select
-            value={academicYearId || null}
-            onChange={(v) => setAcademicYearId(v ?? "")}
-            isLoading={loadingFilters}
-            options={academicYears.map((y) => ({
-              value: String(num(y.fk_academic_year_id)),
-              label: txt(y.academic_year),
-            }))}
-            placeholder="Exam Year"
-            searchable
-          />
-        </GlobalFilterField>
-        <GlobalFilterField label="Exam" className="min-w-[280px] flex-[2]">
-          <Select
-            value={examId || null}
-            onChange={(v) => setExamId(v ?? "")}
-            isLoading={loadingFilters}
-            options={exams.map((e) => ({
-              value: String(num(e.fk_exam_id)),
-              label: formatExamLabel(e),
-            }))}
-            placeholder="Exam"
-            searchable
-          />
-        </GlobalFilterField>
-      </GlobalFilterBarRow>
-      <GlobalFilterBarRow>
-        <GlobalFilterField label="Is Re-Evaluation">
-          <div className="flex h-[30px] items-center gap-2">
-            <Checkbox
-              id="unassigned-is-reevaluation"
-              checked={isReevaluation}
-              onCheckedChange={(v) => {
-                setIsReevaluation(v === true);
-                clearResults();
-              }}
-            />
-            <Label
-              htmlFor="unassigned-is-reevaluation"
-              className="text-[12px] font-normal"
-            >
-              Is Re-Evaluation
-            </Label>
+      <div className="inv-allot-report-filters space-y-2">
+        <div className="inv-allot-report-filters__row">
+          <div className="inv-allot-report-filters__fx20">
+            <GlobalFilterField label="Course">
+              <Select
+                value={courseId || null}
+                onChange={(v) => setCourseId(v ?? "")}
+                isLoading={loadingFilters}
+                options={courses.map((c) => ({
+                  value: String(num(c.fk_course_id)),
+                  label: txt(c.course_code),
+                }))}
+                placeholder="Course"
+                searchable
+              />
+            </GlobalFilterField>
           </div>
-        </GlobalFilterField>
-        <GlobalFilterField
-          label=""
-          className="global-filter-field--shrink global-filter-field--action"
-        >
-          <Button
-            type="button"
-            onClick={() => void onGetList()}
-            disabled={loadingList}
-            className="h-[30px] px-3 text-[12px]"
-          >
-            Get List
-          </Button>
-        </GlobalFilterField>
-      </GlobalFilterBarRow>
+          <div className="inv-allot-report-filters__fx20">
+            <GlobalFilterField label="Exam Year">
+              <Select
+                value={academicYearId || null}
+                onChange={(v) => setAcademicYearId(v ?? "")}
+                isLoading={loadingFilters}
+                options={academicYears.map((y) => ({
+                  value: String(num(y.fk_academic_year_id)),
+                  label: txt(y.academic_year),
+                }))}
+                placeholder="Exam Year"
+                searchable
+              />
+            </GlobalFilterField>
+          </div>
+          <div className="inv-allot-report-filters__fx60">
+            <GlobalFilterField label="Exam" className="min-w-[280px] flex-[2]">
+              <Select
+                value={examId || null}
+                onChange={(v) => setExamId(v ?? "")}
+                isLoading={loadingFilters}
+                options={exams.map((e) => ({
+                  value: String(num(e.fk_exam_id)),
+                  label: formatExamLabel(e),
+                }))}
+                placeholder="Exam"
+                searchable
+              />
+            </GlobalFilterField>
+          </div>
+        </div>
+        <div className="inv-allot-report-filters__row">
+          <div className="inv-allot-report-filters__fx13">
+            <GlobalFilterField label="">
+              <div className="flex h-[30px] items-center gap-2">
+                <Checkbox
+                  id="unassigned-is-reevaluation"
+                  checked={isReevaluation}
+                  onCheckedChange={(v) => {
+                    setIsReevaluation(v === true);
+                    clearResults();
+                  }}
+                />
+                <Label
+                  htmlFor="unassigned-is-reevaluation"
+                  className="text-[15px] font-normal"
+                >
+                  Is Re-Evaluation
+                </Label>
+              </div>
+            </GlobalFilterField>
+          </div>
+          <div className="inv-allot-report-filters__fx13">
+            <GlobalFilterField
+              label=""
+              className="global-filter-field--shrink global-filter-field--action"
+            >
+              <Button
+                type="button"
+                onClick={() => void onGetList()}
+                disabled={loadingList}
+                className="h-[30px] px-3 text-[12px] w-full"
+              >
+                Get List
+              </Button>
+            </GlobalFilterField>
+          </div>
+        </div>
+      </div>
     </>
   );
 

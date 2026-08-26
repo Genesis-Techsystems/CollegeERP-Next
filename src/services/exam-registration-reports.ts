@@ -1,7 +1,14 @@
 /**
- * Exam Student Registration Report + Exam Registered Students Count
- * (Angular: exam-reports/exam-registration-student-report,
- *           exam-reports/exam-registered-students-count).
+ * Exam Student Registration Report (subject/timetable) +
+ * Exam Registered Students Count + Exam Students Not Registered Count.
+ *
+ * Angular:
+ * - exam-reports/exam-registration-student-report → getExamStudentRegistrationReportList
+ * - exam-reports/exam-student-registration-tt-report → getExamRegisteredStudentsCountList
+ * - exam-reports/exam-student-not-registered-count → not-registered list helpers
+ *
+ * Note: admin-exam-reports/exam-student-registration-report (College/Room/Student)
+ * uses getExamStudentRegistrationReportRows in pre-examination.ts — different page.
  */
 
 import { crud } from "@/services/crud";

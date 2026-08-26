@@ -1180,12 +1180,18 @@ function hasActiveDescendant(
       return "/admin-examination-management/admin-exam-reports/exam-invigilator-allotment-report";
     }
     if (
-      lower.includes("student") &&
-      lower.includes("registration") &&
-      lower.includes("report") &&
-      !lower.includes("timetable")
+      (lower.includes("exam student registration report") ||
+        (lower.includes("student") &&
+          lower.includes("registration") &&
+          lower.includes("report") &&
+          !lower.includes("exam registration students"))) &&
+      !lower.includes("timetable") &&
+      !lower.includes("count")
     ) {
       return "/admin-examination-management/admin-exam-reports/exam-student-registration-report";
+    }
+    if (lower.includes("exam registration students") && !lower.includes("count")) {
+      return "/admin-examination-management/exam-reports/exam-registration-student-report";
     }
     if (
       lower.includes("summary") &&
@@ -1818,6 +1824,11 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         )
       ) {
         return `${examReportsAltBase}/${slug}`;
+      }
+      // Angular exam-reports/exam-student-registration-report → React admin-exam-reports
+      // (distinct from exam-registration-student-report under /exam-reports/).
+      if (slug === "exam-student-registration-report") {
+        return `${examReportsBase}/exam-student-registration-report`;
       }
       // Angular folder aliases → App Router folder names (admin-exam-reports).
       if (
@@ -2628,14 +2639,19 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     ) {
       return "/admin-examination-management/admin-exam-reports/exam-invigilator-allotment-report";
     }
-    // Exam Student Registration Report (Exam Reports)
+    // Exam Student Registration (College/Room/Student) — Angular
+    // exam-student-registration-report. Do NOT match "Exam Registration Students".
     if (
-      hrefLower.includes("exam-student-registration-report") ||
-      (labelLower.includes("student") &&
-        labelLower.includes("registration") &&
-        labelLower.includes("report") &&
-        !labelLower.includes("timetable") &&
-        !labelLower.includes(" tt"))
+      (hrefLower.includes("exam-student-registration-report") ||
+        labelLower.includes("exam student registration report") ||
+        (labelLower.includes("student") &&
+          labelLower.includes("registration") &&
+          labelLower.includes("report") &&
+          !labelLower.includes("exam registration students"))) &&
+      !hrefLower.includes("exam-registration-student-report") &&
+      !labelLower.includes("count") &&
+      !labelLower.includes("timetable") &&
+      !labelLower.includes(" tt")
     ) {
       return "/admin-examination-management/admin-exam-reports/exam-student-registration-report";
     }
@@ -4947,12 +4963,12 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     ) {
       return "/admin-examination-management/exam-reports/exam-registered-students-count";
     }
-    // Exam Student Registration Report (sidebar: Exam Registration Students)
+    // Exam Registration Students — Angular exam-registration-student-report
+    // (subject/timetable). Distinct from exam-student-registration-report.
     if (
       (hrefLower.includes("exam-registration-student-report") ||
-        hrefLower.includes("exam-student-registration-report") ||
-        labelLower.includes("exam student registration report") ||
         labelLower.includes("exam registration students")) &&
+      !hrefLower.includes("exam-student-registration-report") &&
       !labelLower.includes("count") &&
       !hrefLower.includes("count")
     ) {

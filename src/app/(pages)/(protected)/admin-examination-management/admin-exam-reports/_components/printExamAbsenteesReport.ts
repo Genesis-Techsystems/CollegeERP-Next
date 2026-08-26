@@ -1,6 +1,6 @@
 /**
  * Exam Absentees Report — iframe print (avoids AppShell blank pages).
- * Header matches sibling exam reports: logo + college name + title.
+ * Header matches Angular (non-SUK): logo + title + exam label.
  */
 
 type AnyRow = Record<string, unknown>;
@@ -20,6 +20,15 @@ function escapeHtml(value: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+/** Relative `/assets/...` paths fail inside about:blank iframes — make absolute. */
+function toAbsoluteLogoUrl(url: string): string {
+  if (/^(https?:\/\/|data:|blob:)/i.test(url)) return url;
+  if (typeof globalThis.location?.origin === "string") {
+    return `${globalThis.location.origin}${url.startsWith("/") ? "" : "/"}${url}`;
+  }
+  return url;
 }
 
 function cell(row: AnyRow, keys: string[]): string {
@@ -112,7 +121,7 @@ export function printExamAbsenteesReport(
   if (rows.length === 0) return;
 
   const title = meta.title ?? "Exam Absentees Report";
-  const logoUrl = escapeHtml(meta.logoUrl || DEFAULT_LOGO);
+  const logoUrl = escapeHtml(toAbsoluteLogoUrl(meta.logoUrl || DEFAULT_LOGO));
   const collegeName = meta.collegeName
     ? `<p class="college-name">${escapeHtml(meta.collegeName)}</p>`
     : "";
@@ -207,9 +216,41 @@ export function printExamAbsenteesReport(
     }
   };
 
+  const waitForImagesThenPrint = () => {
+    const imgs = Array.from(doc.images ?? []);
+    if (imgs.length === 0) {
+      setTimeout(printFrame, 250);
+      return;
+    }
+    let remaining = imgs.length;
+    let printed = false;
+    const finish = () => {
+      if (printed) return;
+      remaining -= 1;
+      if (remaining <= 0) {
+        printed = true;
+        setTimeout(printFrame, 100);
+      }
+    };
+    for (const img of imgs) {
+      if (img.complete) finish();
+      else {
+        img.addEventListener("load", finish, { once: true });
+        img.addEventListener("error", finish, { once: true });
+      }
+    }
+    // Safety: never hang if load events never fire
+    setTimeout(() => {
+      if (!printed) {
+        printed = true;
+        printFrame();
+      }
+    }, 3000);
+  };
+
   if (iframe.contentWindow?.document.readyState === "complete") {
-    setTimeout(printFrame, 250);
+    waitForImagesThenPrint();
   } else {
-    iframe.onload = () => setTimeout(printFrame, 250);
+    iframe.onload = () => waitForImagesThenPrint();
   }
 }

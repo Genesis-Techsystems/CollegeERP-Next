@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ColDef } from "ag-grid-community";
-import { FilteredListPage, TableContextHeader } from "@/components/layout";
+import { useEffect, useMemo, useState } from "react";
+import { format, parseISO } from "date-fns";
+import { FilteredPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -14,14 +14,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Select } from "@/common/components/select";
 import { SearchInput } from "@/common/components/search";
-import { DataTable } from "@/common/components/table";
 import {
   GlobalFilterBarRow,
   GlobalFilterField,
 } from "@/common/components/forms";
-import { rowIndexGetter } from "@/lib/utils";
-import { useCollegeLogo } from "@/hooks/useCollegeLogo";
+import { DEFAULT_COLLEGE_LOGO, useCollegeLogo } from "@/hooks/useCollegeLogo";
 import {
+  getCollegeById,
   getGeneralDetails,
   getGradeMemoIssueFilters,
   getGradeMemoIssueRestFilters,
@@ -37,6 +36,7 @@ import {
   Columns3,
   GraduationCap,
   Layers,
+  RefreshCw,
   RotateCcw,
   School,
 } from "lucide-react";
@@ -55,61 +55,14 @@ type GroupBucket = {
   subjects: SubjectBucket[];
 };
 
-const COL_DEFS = {
-  sno: {
-    headerName: "S.No",
-    valueGetter: rowIndexGetter,
-    width: 80,
-    flex: 0,
-  } as ColDef<AnyRow>,
-  hallTicket: {
-    headerName: "Hall Ticket No.",
-    field: "hall_ticketno",
-    minWidth: 160,
-    flex: 1.2,
-    valueGetter: (p) =>
-      strFrom(p.data ?? {}, ["hall_ticketno", "hallticket_number"]),
-  } as ColDef<AnyRow>,
-  originalMarks: {
-    headerName: "Original Marks",
-    field: "ext_marks",
-    minWidth: 130,
-    flex: 0.9,
-    cellClass: "text-center",
-    valueGetter: (p) => strFrom(p.data ?? {}, ["ext_marks"]),
-  } as ColDef<AnyRow>,
-  moderationMarks: {
-    headerName: "Moderation Marks",
-    field: "moderation_marks_added",
-    minWidth: 140,
-    flex: 0.9,
-    cellClass: "text-center",
-    valueGetter: (p) => strFrom(p.data ?? {}, ["moderation_marks_added"]),
-  } as ColDef<AnyRow>,
-  finalMarks: {
-    headerName: "Final Marks",
-    field: "moderated_ext_marks",
-    minWidth: 120,
-    flex: 0.9,
-    cellClass: "text-center",
-    valueGetter: (p) => strFrom(p.data ?? {}, ["moderated_ext_marks"]),
-  } as ColDef<AnyRow>,
-};
+const REPORT_TITLE = "Moderation Benefited Students Data";
 
 const REPORT_COLUMNS = [
-  { id: "sno", label: "S.No", def: COL_DEFS.sno },
-  { id: "hallTicket", label: "Hall Ticket No.", def: COL_DEFS.hallTicket },
-  {
-    id: "originalMarks",
-    label: "Original Marks",
-    def: COL_DEFS.originalMarks,
-  },
-  {
-    id: "moderationMarks",
-    label: "Moderation Marks",
-    def: COL_DEFS.moderationMarks,
-  },
-  { id: "finalMarks", label: "Final Marks", def: COL_DEFS.finalMarks },
+  { id: "sno", label: "S.No" },
+  { id: "hallTicket", label: "Hall Ticket No." },
+  { id: "originalMarks", label: "Original Marks" },
+  { id: "moderationMarks", label: "Moderation Marks" },
+  { id: "finalMarks", label: "Final Marks" },
 ] as const;
 
 function numFrom(row: AnyRow, keys: string[]): number {
@@ -138,6 +91,71 @@ function dedupeBy(rows: AnyRow[], keys: string[]): AnyRow[] {
     out.push(row);
   }
   return out;
+}
+
+/** Angular date pipe for Exam Master — `MMM d, yyyy`. */
+function parseExamDate(v: unknown): string {
+  const s = String(v ?? "").trim();
+  if (!s) return "";
+  try {
+    if (/^\d{4}-\d{2}-\d{2}/.test(s))
+      return format(parseISO(s.slice(0, 10)), "MMM d, yyyy");
+    return format(new Date(s), "MMM d, yyyy");
+  } catch {
+    return s;
+  }
+}
+
+function examTypeTags(r: AnyRow): string[] {
+  const tags: string[] = [];
+  if (r.is_internal_exam || r.isInternalExam) tags.push("(Internal)");
+  if (r.is_regular_exam || r.isRegularExam) tags.push("(Regular)");
+  if (r.is_supply_exam || r.isSupplyExam) tags.push("(Supple)");
+  return tags;
+}
+
+function examMasterLabel(r: AnyRow): string {
+  const name = strFrom(r, ["exam_name", "examName"]) || "Exam";
+  const from = parseExamDate(r.from_date ?? r.fromDate);
+  const to = parseExamDate(r.to_date ?? r.toDate);
+  const range = from && to ? ` (${from} - ${to})` : "";
+  const tags = examTypeTags(r);
+  return `${name}${range}${tags.length ? ` ${tags.join("")}` : ""}`;
+}
+
+function examMasterLabelNode(r: AnyRow) {
+  const name = strFrom(r, ["exam_name", "examName"]) || "Exam";
+  const from = parseExamDate(r.from_date ?? r.fromDate);
+  const to = parseExamDate(r.to_date ?? r.toDate);
+  const range = from && to ? ` (${from} - ${to})` : "";
+  const tags = examTypeTags(r);
+  return (
+    <>
+      {name}
+      {range}
+      {tags.length ? " " : null}
+      {tags.map((t) => (
+        <span key={t} style={{ color: "#0014ff", fontWeight: 500 }}>
+          {t}
+        </span>
+      ))}
+    </>
+  );
+}
+
+function examMasterTooltip(r: AnyRow): string {
+  const name = strFrom(r, ["exam_name", "examName"]) || "Exam";
+  const from = parseExamDate(r.from_date ?? r.fromDate);
+  const to = parseExamDate(r.to_date ?? r.toDate);
+  return from && to ? `${name} (${from} - ${to})` : name;
+}
+
+function toAbsoluteLogoUrl(url: string): string {
+  if (/^(https?:\/\/|data:|blob:)/i.test(url)) return url;
+  if (typeof globalThis.location?.origin === "string") {
+    return `${globalThis.location.origin}${url.startsWith("/") ? "" : "/"}${url}`;
+  }
+  return url;
 }
 
 /** Angular getDetails grouping: by group_id → subjectId → students. */
@@ -209,6 +227,7 @@ export default function ModerationBenefitedStudentsReportPage() {
   const [groupResults, setGroupResults] = useState<GroupBucket[]>([]);
   const [dataDetails, setDataDetails] = useState("");
   const [examLabel, setExamLabel] = useState("");
+  const [printCollegeName, setPrintCollegeName] = useState("");
   const [searchText, setSearchText] = useState("");
   const [visibleColumnIds, setVisibleColumnIds] = useState(
     () => new Set(REPORT_COLUMNS.map((column) => column.id)),
@@ -284,14 +303,6 @@ export default function ModerationBenefitedStudentsReportPage() {
     [restRows, collegeId, courseGroupId],
   );
 
-  const columnDefs = useMemo<ColDef<AnyRow>[]>(
-    () =>
-      REPORT_COLUMNS.filter((column) => visibleColumnIds.has(column.id)).map(
-        (column) => column.def,
-      ),
-    [visibleColumnIds],
-  );
-
   const filteredGroupResults = useMemo(() => {
     const query = searchText.trim().toLowerCase();
     if (!query) return groupResults;
@@ -329,17 +340,11 @@ export default function ModerationBenefitedStudentsReportPage() {
     [filteredGroupResults],
   );
 
-  const getRowId = useCallback(
-    (p: { data?: AnyRow }) =>
-      strFrom(p.data ?? {}, ["hall_ticketno", "hallticket_number"]) ||
-      `row-${Math.random()}`,
-    [],
-  );
-
   function clearResults() {
     setGroupResults([]);
     setDataDetails("");
     setExamLabel("");
+    setPrintCollegeName("");
     setSearchText("");
   }
 
@@ -582,14 +587,14 @@ export default function ModerationBenefitedStudentsReportPage() {
           numFrom(r, ["fk_course_year_id", "courseYearId"]) ===
           Number(courseYearId),
       );
+      const examRow =
+        exams.find(
+          (r) => numFrom(r, ["fk_exam_id", "examId"]) === Number(examId),
+        ) ?? {};
+      // Angular: exam = result[0][0].exam_label_name; courseYear = course_year_name
       const examName =
         strFrom(rows[0] ?? {}, ["exam_label_name", "exam_name"]) ||
-        strFrom(
-          exams.find(
-            (r) => numFrom(r, ["fk_exam_id", "examId"]) === Number(examId),
-          ) ?? {},
-          ["exam_name", "examName"],
-        );
+        strFrom(examRow, ["exam_name", "examName"]);
       setExamLabel(examName);
       setDataDetails(
         [
@@ -607,6 +612,7 @@ export default function ModerationBenefitedStudentsReportPage() {
                 "course_year_code",
                 "courseYearCode",
                 "course_year_name",
+                "courseYearName",
               ])
             : "",
           examName,
@@ -614,6 +620,15 @@ export default function ModerationBenefitedStudentsReportPage() {
           .filter(Boolean)
           .join(" / "),
       );
+
+      const collegeRecord = await getCollegeById(Number(collegeId)).catch(
+        () => null,
+      );
+      setPrintCollegeName(
+        strFrom(collegeRecord ?? {}, ["collegeName", "college_name"]) ||
+          strFrom(college ?? {}, ["college_name", "collegeName"]),
+      );
+
       setGroupResults(groupModerationRows(rows));
     } catch (e) {
       toastError(e instanceof Error ? e.message : "Failed to load report");
@@ -657,8 +672,8 @@ export default function ModerationBenefitedStudentsReportPage() {
         return `${groupHeader}${subjects}`;
       })
       .join("");
-    const title = `<tr><th colspan="5" style="text-align:center;font-size:18px;font-weight:bold;background:#f2f2f2;">Moderation Benefited Students Data${dataDetails ? ` (${dataDetails})` : ""}</th></tr>`;
-    exportHtmlTable("Moderation Benefited Students Data.xls", title, rowsHtml);
+    const title = `<tr><th colspan="5" style="text-align:center;font-size:18px;font-weight:bold;background:#f2f2f2;">${REPORT_TITLE}${dataDetails ? ` (${dataDetails})` : ""}</th></tr>`;
+    exportHtmlTable(`${REPORT_TITLE}.xls`, title, rowsHtml);
   }
 
   function handlePrint() {
@@ -666,225 +681,243 @@ export default function ModerationBenefitedStudentsReportPage() {
     const college = colleges.find(
       (r) => numFrom(r, ["fk_college_id", "collegeId"]) === Number(collegeId),
     );
+    const collegeName =
+      printCollegeName ||
+      strFrom(college ?? {}, ["college_name", "collegeName"]);
     printModerationBenefitedStudents(groupResults, {
-      title: "Moderation Benefited Students Data",
+      title: REPORT_TITLE,
       examLabel,
-      collegeName: strFrom(college ?? {}, ["college_name", "collegeName"]),
-      logoUrl: collegeLogo,
+      collegeName,
+      logoUrl: toAbsoluteLogoUrl(collegeLogo || DEFAULT_COLLEGE_LOGO),
     });
   }
 
   return (
-    <FilteredListPage
-      title="Moderation Benefited Students Data"
-      showTable={groupResults.length > 0}
+    <FilteredPage
+      title={REPORT_TITLE}
       tableHeader={
         groupResults.length > 0 ? (
-          <TableContextHeader
-            title="Moderation Benefited Students Data"
-            info={dataDetails || undefined}
-          />
+          <div className="table-context-header flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+            <div className="flex items-center gap-2">
+              <span
+                className="material-icons table-context-header__icon"
+                aria-hidden
+              >
+                ballot
+              </span>
+              <strong className="table-context-header__title">
+                {REPORT_TITLE}
+              </strong>
+            </div>
+            {dataDetails ? (
+              <span
+                className="text-[15px] font-medium"
+                style={{ color: "#042956" }}
+              >
+                {dataDetails}
+              </span>
+            ) : null}
+          </div>
         ) : null
       }
-      bodyClassName="app-data-table app-data-table-card flex flex-col !border !border-border !bg-white !shadow-md"
+      bodyClassName="overflow-hidden !border !border-border !bg-white !shadow-md"
       filters={
-        <div className="space-y-3">
-          {/* Angular fxFlex: Course 20 / Exam Year 20 / Exam Master 60 / Exam Type 15 */}
-          <GlobalFilterBarRow className="global-filter-bar__row--mbs-r1">
-            <GlobalFilterField
-              label="Course"
-              icon={GraduationCap}
-              className="global-filter-field--fx20"
-            >
-              <Select
-                value={courseId ? String(courseId) : null}
-                onChange={(v) => {
-                  setSkipAutoSelect(false);
-                  clearResults();
-                  setCourseId(v ? Number(v) : null);
-                }}
-                options={courses.map((r) => ({
-                  value: String(numFrom(r, ["fk_course_id", "courseId"])),
-                  label: strFrom(r, [
-                    "course_code",
-                    "courseCode",
-                    "course_name",
-                  ]),
-                }))}
-                placeholder="Course"
-                searchable
-                isLoading={loading && baseRows.length === 0}
-              />
-            </GlobalFilterField>
-            <GlobalFilterField
-              label="Exam Year"
-              icon={CalendarDays}
-              className="global-filter-field--fx20"
-            >
-              <Select
-                value={academicYearId ? String(academicYearId) : null}
-                onChange={(v) => {
-                  setSkipAutoSelect(false);
-                  clearResults();
-                  setAcademicYearId(v ? Number(v) : null);
-                }}
-                options={academicYears.map((r) => ({
-                  value: String(
-                    numFrom(r, ["fk_academic_year_id", "academicYearId"]),
-                  ),
-                  label: strFrom(r, ["academic_year", "academicYear"]),
-                }))}
-                placeholder="Exam Year"
-                searchable
-              />
-            </GlobalFilterField>
-            <GlobalFilterField
-              label="Exam Master"
-              icon={ClipboardList}
-              className="global-filter-field--fx60"
-            >
-              <Select
-                value={examId ? String(examId) : null}
-                onChange={(v) => {
-                  setSkipAutoSelect(false);
-                  clearResults();
-                  setExamId(v ? Number(v) : null);
-                }}
-                options={exams.map((r) => {
-                  const tags = [
-                    r.is_internal_exam ? "Internal" : "",
-                    r.is_regular_exam ? "Regular" : "",
-                    r.is_supply_exam ? "Supple" : "",
-                  ]
-                    .filter(Boolean)
-                    .join(", ");
-                  const name = strFrom(r, ["exam_name", "examName"]);
-                  return {
+        <div className="inv-allot-report-filters space-y-2">
+          <div className="inv-allot-report-filters__row">
+            <div className="inv-allot-report-filters__fx15">
+              <GlobalFilterField
+                label="Course"
+                className="global-filter-field--fx20"
+              >
+                <Select
+                  value={courseId ? String(courseId) : null}
+                  onChange={(v) => {
+                    setSkipAutoSelect(false);
+                    clearResults();
+                    setCourseId(v ? Number(v) : null);
+                  }}
+                  options={courses.map((r) => ({
+                    value: String(numFrom(r, ["fk_course_id", "courseId"])),
+                    label: strFrom(r, [
+                      "course_code",
+                      "courseCode",
+                      "course_name",
+                    ]),
+                  }))}
+                  placeholder="Course"
+                  searchable
+                  isLoading={loading && baseRows.length === 0}
+                />
+              </GlobalFilterField>
+            </div>
+            <div className="inv-allot-report-filters__fx13">
+              <GlobalFilterField
+                label="Exam Year"
+                className="global-filter-field--fx20"
+              >
+                <Select
+                  value={academicYearId ? String(academicYearId) : null}
+                  onChange={(v) => {
+                    setSkipAutoSelect(false);
+                    clearResults();
+                    setAcademicYearId(v ? Number(v) : null);
+                  }}
+                  options={academicYears.map((r) => ({
+                    value: String(
+                      numFrom(r, ["fk_academic_year_id", "academicYearId"]),
+                    ),
+                    label: strFrom(r, ["academic_year", "academicYear"]),
+                  }))}
+                  placeholder="Exam Year"
+                  searchable
+                />
+              </GlobalFilterField>
+            </div>
+            <div className="inv-allot-report-filters__fx52">
+              <GlobalFilterField
+                label="Exam Master"
+                className="global-filter-field--fx60"
+              >
+                <Select
+                  value={examId ? String(examId) : null}
+                  onChange={(v) => {
+                    setSkipAutoSelect(false);
+                    clearResults();
+                    setExamId(v ? Number(v) : null);
+                  }}
+                  options={exams.map((r) => ({
                     value: String(numFrom(r, ["fk_exam_id", "examId"])),
-                    label: tags ? `${name} (${tags})` : name,
-                  };
-                })}
-                placeholder="Exam Master"
-                searchable
-              />
-            </GlobalFilterField>
-            <GlobalFilterField
-              label="Exam Type"
-              icon={BookOpen}
-              className="global-filter-field--fx15"
-            >
-              <Select
-                value={String(examTypeCatdetId)}
-                onChange={(v) => {
-                  clearResults();
-                  setExamTypeCatdetId(v ? Number(v) : 0);
-                }}
-                options={[
-                  { value: "0", label: "All" },
-                  ...examFeeTypes.map((r) => ({
-                    value: String(
-                      numFrom(r, ["generalDetailId", "general_detail_id"]),
-                    ),
-                    label: strFrom(r, [
-                      "generalDetailCode",
-                      "general_detail_code",
-                    ]),
-                  })),
-                ]}
-                placeholder="Exam Type"
-              />
-            </GlobalFilterField>
-          </GlobalFilterBarRow>
+                    label: examMasterLabel(r),
+                    title: examMasterTooltip(r),
+                    labelNode: examMasterLabelNode(r),
+                  }))}
+                  placeholder="Exam Master"
+                  searchable
+                  searchPlaceholder="Search..."
+                  wrapOptionLabels
+                />
+              </GlobalFilterField>
+            </div>
+            <div className="inv-allot-report-filters__fx15">
+              <GlobalFilterField
+                label="Exam Type"
+                className="global-filter-field--fx15"
+              >
+                <Select
+                  value={String(examTypeCatdetId)}
+                  onChange={(v) => {
+                    clearResults();
+                    setExamTypeCatdetId(v ? Number(v) : 0);
+                  }}
+                  options={[
+                    { value: "0", label: "All" },
+                    ...examFeeTypes.map((r) => ({
+                      value: String(
+                        numFrom(r, ["generalDetailId", "general_detail_id"]),
+                      ),
+                      label: strFrom(r, [
+                        "generalDetailCode",
+                        "general_detail_code",
+                      ]),
+                    })),
+                  ]}
+                  placeholder="Exam Type"
+                />
+              </GlobalFilterField>
+            </div>
+          </div>
 
-          {/* Angular fxFlex: College 20 / Course Group 20 / Course Years 20 / Get Report 15 / Reset 5 */}
-          <GlobalFilterBarRow className="global-filter-bar__row--mbs-r2">
-            <GlobalFilterField
-              label="College"
-              icon={Building2}
-              className="global-filter-field--fx20"
-            >
-              <Select
-                value={collegeId ? String(collegeId) : null}
-                onChange={(v) => {
-                  setSkipAutoSelect(false);
-                  clearResults();
-                  setCollegeId(v ? Number(v) : null);
-                }}
-                options={colleges.map((r) => ({
-                  value: String(numFrom(r, ["fk_college_id", "collegeId"])),
-                  label: strFrom(r, [
-                    "college_code",
-                    "collegeCode",
-                    "college_name",
-                  ]),
-                }))}
-                placeholder="College"
-                searchable
-              />
-            </GlobalFilterField>
-            <GlobalFilterField
-              label="Course Group"
-              icon={Layers}
-              className="global-filter-field--fx20"
-            >
-              <Select
-                value={String(courseGroupId)}
-                onChange={(v) => {
-                  clearResults();
-                  setCourseGroupId(v ? Number(v) : 0);
-                }}
-                options={[
-                  { value: "0", label: "All" },
-                  ...courseGroups.map((r) => ({
-                    value: String(
-                      numFrom(r, ["fk_course_group_id", "courseGroupId"]),
-                    ),
+          <div className="inv-allot-report-filters__row">
+            <div className="inv-allot-report-filters__fx20">
+              <GlobalFilterField
+                label="College"
+                className="global-filter-field--fx20"
+              >
+                <Select
+                  value={collegeId ? String(collegeId) : null}
+                  onChange={(v) => {
+                    setSkipAutoSelect(false);
+                    clearResults();
+                    setCollegeId(v ? Number(v) : null);
+                  }}
+                  options={colleges.map((r) => ({
+                    value: String(numFrom(r, ["fk_college_id", "collegeId"])),
                     label: strFrom(r, [
-                      "group_code",
-                      "groupCode",
-                      "course_group_code",
+                      "college_code",
+                      "collegeCode",
+                      "college_name",
                     ]),
-                  })),
-                ]}
-                placeholder="Course Group"
-                searchable
-              />
-            </GlobalFilterField>
-            <GlobalFilterField
-              label="Course Years"
-              icon={School}
-              className="global-filter-field--fx20"
-            >
-              <Select
-                value={String(courseYearId)}
-                onChange={(v) => {
-                  clearResults();
-                  setCourseYearId(v ? Number(v) : 0);
-                }}
-                options={[
-                  { value: "0", label: "All" },
-                  ...courseYears.map((r) => ({
-                    value: String(
-                      numFrom(r, ["fk_course_year_id", "courseYearId"]),
-                    ),
-                    label: strFrom(r, ["course_year_code", "courseYearCode"]),
-                  })),
-                ]}
-                placeholder="Course Years"
-                searchable
-              />
-            </GlobalFilterField>
-            <div className="global-filter-field global-filter-field--action global-filter-field--fx15 flex items-center self-end pb-0.5">
+                  }))}
+                  placeholder="College"
+                  searchable
+                />
+              </GlobalFilterField>
+            </div>
+            <div className="inv-allot-report-filters__fx20">
+              <GlobalFilterField
+                label="Course Group"
+                className="global-filter-field--fx20"
+              >
+                <Select
+                  value={String(courseGroupId)}
+                  onChange={(v) => {
+                    clearResults();
+                    setCourseGroupId(v ? Number(v) : 0);
+                  }}
+                  options={[
+                    { value: "0", label: "All" },
+                    ...courseGroups.map((r) => ({
+                      value: String(
+                        numFrom(r, ["fk_course_group_id", "courseGroupId"]),
+                      ),
+                      label: strFrom(r, [
+                        "group_code",
+                        "groupCode",
+                        "course_group_code",
+                      ]),
+                    })),
+                  ]}
+                  placeholder="Course Group"
+                  searchable
+                />
+              </GlobalFilterField>
+            </div>
+            <div className="inv-allot-report-filters__fx20">
+              <GlobalFilterField
+                label="Course Years"
+                className="global-filter-field--fx20"
+              >
+                <Select
+                  value={String(courseYearId)}
+                  onChange={(v) => {
+                    clearResults();
+                    setCourseYearId(v ? Number(v) : 0);
+                  }}
+                  options={[
+                    { value: "0", label: "All" },
+                    ...courseYears.map((r) => ({
+                      value: String(
+                        numFrom(r, ["fk_course_year_id", "courseYearId"]),
+                      ),
+                      label: strFrom(r, ["course_year_code", "courseYearCode"]),
+                    })),
+                  ]}
+                  placeholder="Course Years"
+                  searchable
+                />
+              </GlobalFilterField>
+            </div>
+            <div className="inv-allot-report-filters__fx13 flex items-center self-end pb-0.5">
               <Button
                 type="button"
-                className="h-8 text-[12px]"
+                className="h-8 text-[12px] w-full"
                 onClick={() => void handleGetReport()}
                 disabled={loading}
               >
                 {loading ? "Loading..." : "Get Report"}
               </Button>
             </div>
-            <div className="global-filter-field global-filter-field--action global-filter-field--fx10 flex items-center self-end pb-0.5">
+            <div className="inv-allot-report-filters__fx20 flex items-center self-end pb-0.5">
               <Button
                 type="button"
                 variant="ghost"
@@ -893,15 +926,15 @@ export default function ModerationBenefitedStudentsReportPage() {
                 onClick={handleReset}
                 title="Reset"
               >
-                <RotateCcw className="h-4 w-4" />
+                <RefreshCw className="h-4 w-4" />
               </Button>
             </div>
-          </GlobalFilterBarRow>
+          </div>
         </div>
       }
       body={
         groupResults.length > 0 ? (
-          <div className="-mx-4 -mb-4 space-y-4 bg-white px-4 pb-4">
+          <div className="space-y-4">
             <div className="app-data-table-toolbar flex flex-row flex-wrap items-center justify-between gap-x-3 gap-y-2">
               <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-x-3">
                 <SearchInput
@@ -986,18 +1019,68 @@ export default function ModerationBenefitedStudentsReportPage() {
                       <p className="text-sm font-medium text-[#042956]">
                         Subject : {subj.subjectName}
                       </p>
-                      <DataTable
-                        title=""
-                        subtitle=""
-                        bordered={false}
-                        rowData={subj.students}
-                        columnDefs={columnDefs}
-                        loading={loading}
-                        pagination={false}
-                        getRowId={getRowId}
-                        height="auto"
-                        toolbar={false}
-                      />
+                      {/* Angular MatTable parity — plain HTML table (AG Grid autoHeight collapses when pagination is off) */}
+                      <div className="w-full overflow-x-auto">
+                        <table className="mbs-subject-table w-full border-collapse text-[13px]">
+                          <thead>
+                            <tr>
+                              {visibleColumnIds.has("sno") ? (
+                                <th>S.No</th>
+                              ) : null}
+                              {visibleColumnIds.has("hallTicket") ? (
+                                <th>Hall Ticket No.</th>
+                              ) : null}
+                              {visibleColumnIds.has("originalMarks") ? (
+                                <th>Original Marks</th>
+                              ) : null}
+                              {visibleColumnIds.has("moderationMarks") ? (
+                                <th>Moderation Marks</th>
+                              ) : null}
+                              {visibleColumnIds.has("finalMarks") ? (
+                                <th>Final Marks</th>
+                              ) : null}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {subj.students.map((student, i) => (
+                              <tr
+                                key={`${group.groupCode}-${subj.subjectId}-${strFrom(student, ["hall_ticketno", "hallticket_number"]) || i}`}
+                              >
+                                {visibleColumnIds.has("sno") ? (
+                                  <td className="text-center">{i + 1}</td>
+                                ) : null}
+                                {visibleColumnIds.has("hallTicket") ? (
+                                  <td>
+                                    {strFrom(student, [
+                                      "hall_ticketno",
+                                      "hallticket_number",
+                                    ]) || "—"}
+                                  </td>
+                                ) : null}
+                                {visibleColumnIds.has("originalMarks") ? (
+                                  <td>
+                                    {strFrom(student, ["ext_marks"]) || "—"}
+                                  </td>
+                                ) : null}
+                                {visibleColumnIds.has("moderationMarks") ? (
+                                  <td>
+                                    {strFrom(student, [
+                                      "moderation_marks_added",
+                                    ]) || "—"}
+                                  </td>
+                                ) : null}
+                                {visibleColumnIds.has("finalMarks") ? (
+                                  <td>
+                                    {strFrom(student, [
+                                      "moderated_ext_marks",
+                                    ]) || "—"}
+                                  </td>
+                                ) : null}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   ))}
                 </div>

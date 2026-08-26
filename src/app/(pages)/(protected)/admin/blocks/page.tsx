@@ -134,6 +134,8 @@ export default function BlocksPage() {
         search: true,
         searchPlaceholder: "Search blocks…",
         pdfDocumentTitle: "Blocks",
+        exportExcel: false,
+        exportPdf: false,
       }}
       toolbarTrailing={
         <Button

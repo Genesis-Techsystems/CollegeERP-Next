@@ -26,7 +26,7 @@ import type { Caste } from "@/types/caste";
 import type { SubCaste } from "@/types/sub-caste";
 
 const schema = z.object({
-  casteId: z.number().min(1, "Reservation category is required"),
+  casteId: z.number().min(1, "Caste is required"),
   subCaste: z.string().min(1, "Sub reservation category is required"),
   isEligibleForReservation: z.boolean(),
   sortOrder: z.number().min(0, "Sort order is required"),
@@ -149,14 +149,14 @@ export default function ReservationSubCategoryModal({
             control={control}
             render={({ field }) => (
               <Select
-                label="Reservation Category"
+                label="Caste"
                 required
                 value={field.value ? String(field.value) : null}
                 onChange={(value) =>
                   field.onChange(value ? Number(value) : undefined)
                 }
                 options={casteOptions}
-                placeholder="Select reservation category"
+                placeholder="Caste"
                 searchable
                 error={errors.casteId?.message}
               />

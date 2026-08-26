@@ -277,12 +277,27 @@
  * change `--filter-col-span-2-max` here; pages keep `md:col-span-2`.
  */
 
-/* Invigilator Allotment Report — Angular fxFlex row widths (20/20/60 + wrap) */
-.inv-allot-report-filters__row {
+/*
+ * Invigilator / exam-report filter rows — Angular fxFlex widths.
+ *
+ * IMPORTANT: `__row { display:flex }` alone is not enough. Children default to
+ * `flex: 1 1 100%` + `flex-wrap`, so every field wraps to its own full-width
+ * line (looks like the row CSS "isn't applying"). Desktop % widths must win
+ * over `.global-filter-field { flex: 1 1 0; min-width: 10rem }` — use
+ * !important like `global-filter-bar__row--gwfrs-*`.
+ */
+.inv-allot-report-filters {
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
+  flex-direction: column;
   width: 100%;
+}
+
+.inv-allot-report-filters__row {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap;
+  align-items: flex-end !important;
+  width: 100% !important;
   gap: 0;
 }
 
@@ -295,6 +310,7 @@
 .inv-allot-report-filters__fx25,
 .inv-allot-report-filters__fx30,
 .inv-allot-report-filters__fx33,
+.inv-allot-report-filters__fx40,
 .inv-allot-report-filters__fx52,
 .inv-allot-report-filters__fx60 {
   flex: 1 1 100%;
@@ -314,64 +330,75 @@
 .inv-allot-report-filters__fx25 > .global-filter-field,
 .inv-allot-report-filters__fx30 > .global-filter-field,
 .inv-allot-report-filters__fx33 > .global-filter-field,
-.inv-allot-report-filters__fx52 > .global-filter-field,
 .inv-allot-report-filters__fx40 > .global-filter-field,
+.inv-allot-report-filters__fx52 > .global-filter-field,
 .inv-allot-report-filters__fx60 > .global-filter-field {
-  flex: none;
-  width: 100%;
-  min-width: 0;
-  max-width: 100%;
+  flex: none !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
 }
 
 @media (min-width: 768px) {
   .inv-allot-report-filters__fx5 {
-    flex: 0 0 5%;
-
-    max-width: 5%;
+    flex: 0 0 5% !important;
+    width: 5% !important;
+    max-width: 5% !important;
   }
   .inv-allot-report-filters__fx7 {
-    flex: 0 0 7%;
-    max-width: 7%;
+    flex: 0 0 7% !important;
+    width: 7% !important;
+    max-width: 7% !important;
   }
   .inv-allot-report-filters__fx10 {
-    flex: 0 0 10%;
-    max-width: 10%;
+    flex: 0 0 10% !important;
+    width: 10% !important;
+    max-width: 10% !important;
   }
   .inv-allot-report-filters__fx13 {
-    flex: 0 0 13%;
-    max-width: 13%;
+    flex: 0 0 13% !important;
+    width: 13% !important;
+    max-width: 13% !important;
   }
   .inv-allot-report-filters__fx15 {
-    flex: 0 0 15%;
-    max-width: 15%;
+    flex: 0 0 15% !important;
+    width: 15% !important;
+    max-width: 15% !important;
   }
   .inv-allot-report-filters__fx20 {
-    flex: 0 0 20%;
-    max-width: 20%;
+    flex: 0 0 20% !important;
+    width: 20% !important;
+    max-width: 20% !important;
   }
   .inv-allot-report-filters__fx25 {
-    flex: 0 0 25%;
-    max-width: 25%;
+    flex: 0 0 25% !important;
+    width: 25% !important;
+    max-width: 25% !important;
   }
   .inv-allot-report-filters__fx30 {
-    flex: 0 0 30%;
-    max-width: 30%;
+    flex: 0 0 30% !important;
+    width: 30% !important;
+    max-width: 30% !important;
   }
   .inv-allot-report-filters__fx33 {
-    flex: 0 0 33%;
-    max-width: 33%;
+    flex: 0 0 33% !important;
+    width: 33% !important;
+    max-width: 33% !important;
   }
   .inv-allot-report-filters__fx40 {
-    flex: 0 0 40%;
-    max-width: 40%;
+    flex: 0 0 40% !important;
+    width: 40% !important;
+    max-width: 40% !important;
   }
   .inv-allot-report-filters__fx52 {
-    flex: 0 0 52%;
-    max-width: 52%;
+    flex: 0 0 52% !important;
+    width: 52% !important;
+    max-width: 52% !important;
   }
   .inv-allot-report-filters__fx60 {
-    flex: 0 0 60%;
-    max-width: 60%;
+    flex: 0 0 60% !important;
+    width: 60% !important;
+    max-width: 60% !important;
   }
 }
 
@@ -1500,8 +1527,9 @@
     0 1px 5px 0 rgba(0, 0, 0, 0.08);
 }
 
-/* Hide in-card heading row — page title lives in PageHeader above the card */
-.app-card:has(> div:first-child .app-card-title):has(
+/* Hide in-card heading row — page title lives in PageHeader above the card.
+   Skip `.angular-filter-card` — it owns its visible header. */
+.app-card:not(.angular-filter-card):has(> div:first-child .app-card-title):has(
     > div:first-child
       button:has(
         svg[class*="lucide-funnel"],
@@ -1546,11 +1574,12 @@
   display: none !important;
 }
 
-/* Restyle legacy filter body — outer wrapper stacks rows vertically */
+/* Restyle legacy filter body — outer wrapper stacks rows vertically.
+   Skip `.angular-filter-card` — it uses CSS grid collapse + inv-allot fx rows. */
 .app-card:has(> button .app-card-title):not(:has(.app-data-table))
   > button
   + div,
-.app-card:has(> div:first-child .app-card-title):has(
+.app-card:not(.angular-filter-card):has(> div:first-child .app-card-title):has(
     > div:first-child
       button:has(
         svg[class*="lucide-funnel"],
@@ -1752,6 +1781,49 @@
   .ag-header-group-text {
   white-space: pre-line;
   text-align: center;
+}
+
+/* Internal Marks Report — Angular subject-header (code / (name) + line / Max Marks) */
+.app-data-table .ag-theme-quartz .ag-header-cell.imr-subject-header-cell {
+  text-align: center;
+}
+.app-data-table
+  .ag-theme-quartz
+  .ag-header-cell.imr-subject-header-cell
+  .ag-header-cell-comp-wrapper,
+.app-data-table
+  .ag-theme-quartz
+  .ag-header-cell.imr-subject-header-cell
+  .ag-header-cell-label {
+  width: 100%;
+  justify-content: center;
+}
+.imr-subject-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  text-align: center;
+  line-height: 1.25;
+  padding: 4px 2px;
+  white-space: normal;
+}
+.imr-subject-header__code {
+  font-size: 12px;
+  font-weight: 600;
+}
+.imr-subject-header__name {
+  font-size: 12px;
+  font-weight: 600;
+  width: 100%;
+  padding-bottom: 4px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid #555;
+}
+.imr-subject-header__max {
+  font-size: 11px;
+  font-weight: 500;
 }
 
 /* Column-group headers — same mat-table header treatment */
@@ -3184,7 +3256,7 @@ h4,
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem 0.75rem;
-  margin: -0.5rem -1.25rem 0.5rem;
+  margin: -0.5rem -1.25rem 0.5rem -1.25rem;
   padding: 14px 24px;
   border-bottom: 2px solid #ffcf46;
   background: #fff;
@@ -3224,6 +3296,26 @@ h4,
   height: 14px;
   background: rgba(0, 0, 0, 0.18);
   margin-right: 0.15rem;
+}
+
+/* Moderation Benefited Students — Angular .table-th / .table-td parity */
+.mbs-subject-table th,
+.mbs-subject-table td {
+  border: 1px solid #c5c5c5;
+  padding: 8px 5px;
+  text-align: left;
+  vertical-align: middle;
+}
+.mbs-subject-table th {
+  background: #c3d9ff;
+  font-weight: 550;
+  color: #042956;
+}
+.mbs-subject-table td.text-center {
+  text-align: center;
+}
+.mbs-subject-table tbody tr:nth-child(even) {
+  background: #f8fbff;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────

@@ -16,6 +16,9 @@ import { formatClockAmPm } from "../_lib/timetable-filters";
 
 type CellColorMode = "view" | "assign-resource";
 
+/** Max batch rows shown in a cell on screen; click opens full list. */
+const MAX_VISIBLE_SUB_BATCHES = 3;
+
 type TimetableWeeklyGridProps = {
   timetable: AngularStudentTimetable;
   /** Screen uses 140px/hour; print layout uses 90px/hour (Angular parity). */
@@ -184,6 +187,16 @@ function TimingCell({
   const textColor = cellTextColor(cellColorMode);
   const borderColor = cellBorderColor();
 
+  // Screen: show at most 3 batches to avoid overflow; click opens full list.
+  // Print: keep all entries for a complete printout.
+  const allBatches = timing.subBatches ?? [];
+  const visibleBatches =
+    variant === "screen" ? allBatches.slice(0, MAX_VISIBLE_SUB_BATCHES) : allBatches;
+  const hiddenCount =
+    variant === "screen"
+      ? Math.max(0, allBatches.length - MAX_VISIBLE_SUB_BATCHES)
+      : 0;
+
   return (
     <div
       role={!isBreak && onTimingClick ? "button" : undefined}
@@ -198,6 +211,7 @@ function TimingCell({
         alignItems: "center",
         justifyContent: "center",
         gridColumn: timing.colspan > 1 ? `span ${timing.colspan}` : undefined,
+        overflow: "hidden",
       }}
       onClick={() => {
         if (!isBreak) onTimingClick?.(timing, weekday);
@@ -208,10 +222,15 @@ function TimingCell({
           onTimingClick(timing, weekday);
         }
       }}
+      title={
+        hiddenCount > 0
+          ? `Click to view all ${allBatches.length} allocations`
+          : undefined
+      }
     >
       <div className="flex w-full flex-col items-center justify-center px-1 py-1">
         {!isBreak
-          ? timing.subBatches.map((batch, i) => (
+          ? visibleBatches.map((batch, i) => (
               <SubBatchBlock
                 key={`${batch.subjectCode}-${batch.studentBatchId}-${i}`}
                 batch={batch}
@@ -219,12 +238,21 @@ function TimingCell({
               />
             ))
           : null}
+        {hiddenCount > 0 ? (
+          <p
+            className="m-0 text-center text-[10px] font-semibold leading-tight"
+            style={{ color: textColor }}
+          >
+            +{hiddenCount} more
+          </p>
+        ) : null}
         {/* Angular .subject-timing { font-size: smaller; padding-top: 13px } */}
         <p
           className="subject-timing m-0 text-center text-[smaller] leading-snug"
           style={{
             color: textColor,
-            paddingTop: isBreak || timing.subBatches.length === 0 ? 0 : 13,
+            paddingTop:
+              isBreak || visibleBatches.length === 0 ? 0 : 13,
           }}
         >
           {isBreak && timing.classTimingName ? (

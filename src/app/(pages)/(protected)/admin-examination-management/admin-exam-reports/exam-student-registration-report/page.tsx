@@ -812,143 +812,146 @@ export default function ExamStudentRegistrationReportPage() {
       resultsVisible={hasFetched}
       filters={
         <>
-          <div className="grid grid-cols-1 items-end gap-2 md:grid-cols-12">
-            <div className="space-y-1 md:col-span-2">
-              <Label>Course *</Label>
-              <Select
-                value={courseId || null}
-                onChange={(v) => {
-                  setCourseId(v ?? "");
-                  setAcademicYearId("");
-                  setExamId("");
-                  setCollegeId("");
-                }}
-                options={courseOptions}
-                placeholder="Course"
-                isLoading={loadingFilters}
-              />
+          <div className="inv-allot-report-filters space-y-2">
+            <div className="inv-allot-report-filters__row">
+              <div className="inv-allot-report-filters__fx20">
+                <Label>Course *</Label>
+                <Select
+                  value={courseId || null}
+                  onChange={(v) => {
+                    setCourseId(v ?? "");
+                    setAcademicYearId("");
+                    setExamId("");
+                    setCollegeId("");
+                  }}
+                  options={courseOptions}
+                  placeholder="Course"
+                  isLoading={loadingFilters}
+                />
+              </div>
+              <div className="inv-allot-report-filters__fx20">
+                <Label>Exam Year *</Label>
+                <Select
+                  value={academicYearId || null}
+                  onChange={(v) => {
+                    setAcademicYearId(v ?? "");
+                    setExamId("");
+                    setCollegeId("");
+                  }}
+                  options={academicYearOptions}
+                  placeholder="Exam Year"
+                  disabled={!courseId}
+                />
+              </div>
+              <div className="inv-allot-report-filters__fx60">
+                <Label>Exam Master *</Label>
+                <Select
+                  value={examId || null}
+                  onChange={(v) => setExamId(v ?? "")}
+                  options={examOptions}
+                  placeholder="Exam Master"
+                  searchable={examOptions.length > 6}
+                  wrapOptionLabels
+                  disabled={!academicYearId}
+                />
+              </div>
             </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>Exam Year *</Label>
-              <Select
-                value={academicYearId || null}
-                onChange={(v) => {
-                  setAcademicYearId(v ?? "");
-                  setExamId("");
-                  setCollegeId("");
-                }}
-                options={academicYearOptions}
-                placeholder="Exam Year"
-                disabled={!courseId}
-              />
-            </div>
-            <div className="space-y-1 md:col-span-8">
-              <Label>Exam Master *</Label>
-              <Select
-                value={examId || null}
-                onChange={(v) => setExamId(v ?? "")}
-                options={examOptions}
-                placeholder="Exam Master"
-                searchable={examOptions.length > 6}
-                wrapOptionLabels
-                disabled={!academicYearId}
-              />
-            </div>
-
-            <div className="space-y-1 md:col-span-2">
-              <Label>College *</Label>
-              <Select
-                value={collegeId || null}
-                onChange={(v) => {
-                  setCollegeId(v ?? "");
-                  setCourseGroupId("");
-                  setCourseYearId("");
-                }}
-                options={collegeOptions}
-                placeholder="College"
-                disabled={!examId}
-              />
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>Course Group *</Label>
-              <Select
-                value={courseGroupId || null}
-                onChange={(v) => {
-                  setCourseGroupId(v ?? "");
-                  setCourseYearId("");
-                }}
-                options={courseGroupOptions}
-                placeholder="Course Group"
-                disabled={!collegeId}
-              />
-            </div>
-            <div className="space-y-1 md:col-span-1">
-              <Label>Course Years *</Label>
-              <Select
-                value={courseYearId || null}
-                onChange={(v) => setCourseYearId(v ?? "")}
-                options={courseYearOptions}
-                placeholder="Course Years"
-                disabled={!courseGroupId}
-              />
-            </div>
-            <div className="space-y-1 md:col-span-1">
-              <Label>Regulation</Label>
-              <Select
-                value={regulationId}
-                onChange={(v) => setRegulationId(v ?? "0")}
-                options={regulationOptions}
-                placeholder="All"
-                disabled={!collegeId}
-              />
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>Room</Label>
-              <Select
-                value={roomId}
-                onChange={(v) => setRoomId(v ?? "0")}
-                options={roomOptions}
-                placeholder="All"
-                searchable={roomOptions.length > 8}
-              />
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>Student</Label>
-              <Select
-                value={studentId || null}
-                onChange={(v) => {
-                  setStudentId(v ?? "");
-                  setRows([]);
-                  setHasFetched(false);
-                }}
-                options={studentOptions}
-                placeholder="Student"
-                searchable
-                clearable
-                onSearch={onSearchStudent}
-                isLoading={searchingStudent}
-              />
-            </div>
-            <div className="flex items-end gap-2 md:col-span-2">
-              <Button
-                type="button"
-                onClick={() => void onGetList()}
-                disabled={loading || loadingFilters}
-                className="h-8 shrink-0 px-2.5 text-[12px]"
-              >
-                Get List
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 shrink-0"
-                title="Reset"
-                onClick={resetFilters}
-                disabled={loading || loadingFilters}
-              >
-                <RefreshCw className="h-4 w-4" />
-              </Button>
+            <div className="inv-allot-report-filters__row">
+              <div className="inv-allot-report-filters__fx13">
+                <Label>College *</Label>
+                <Select
+                  value={collegeId || null}
+                  onChange={(v) => {
+                    setCollegeId(v ?? "");
+                    setCourseGroupId("");
+                    setCourseYearId("");
+                  }}
+                  options={collegeOptions}
+                  placeholder="College"
+                  disabled={!examId}
+                />
+              </div>
+              <div className="inv-allot-report-filters__fx13">
+                <Label>Course Group *</Label>
+                <Select
+                  value={courseGroupId || null}
+                  onChange={(v) => {
+                    setCourseGroupId(v ?? "");
+                    setCourseYearId("");
+                  }}
+                  options={courseGroupOptions}
+                  placeholder="Course Group"
+                  disabled={!collegeId}
+                />
+              </div>
+              <div className="inv-allot-report-filters__fx13">
+                <Label>Course Years *</Label>
+                <Select
+                  value={courseYearId || null}
+                  onChange={(v) => setCourseYearId(v ?? "")}
+                  options={courseYearOptions}
+                  placeholder="Course Years"
+                  disabled={!courseGroupId}
+                />
+              </div>
+              <div className="inv-allot-report-filters__fx10">
+                <Label>Regulation</Label>
+                <Select
+                  value={regulationId}
+                  onChange={(v) => setRegulationId(v ?? "0")}
+                  options={regulationOptions}
+                  placeholder="All"
+                  disabled={!collegeId}
+                />
+              </div>
+              <div className="inv-allot-report-filters__fx13">
+                <Label>Room</Label>
+                <Select
+                  value={roomId}
+                  onChange={(v) => setRoomId(v ?? "0")}
+                  options={roomOptions}
+                  placeholder="All"
+                  searchable={roomOptions.length > 8}
+                />
+              </div>
+              <div className="inv-allot-report-filters__fx20">
+                <Label>Student</Label>
+                <Select
+                  value={studentId || null}
+                  onChange={(v) => {
+                    setStudentId(v ?? "");
+                    setRows([]);
+                    setHasFetched(false);
+                  }}
+                  options={studentOptions}
+                  placeholder="Student"
+                  searchable
+                  clearable
+                  onSearch={onSearchStudent}
+                  isLoading={searchingStudent}
+                />
+              </div>
+              <div className="inv-allot-report-filters__fx13 flex items-end gap-2 md:col-span-2">
+                <Button
+                  type="button"
+                  onClick={() => void onGetList()}
+                  disabled={loading || loadingFilters}
+                  className="h-8 shrink-0 px-2.5 text-[12px] w-full"
+                >
+                  Get List
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0"
+                  title="Reset"
+                  onClick={resetFilters}
+                  disabled={loading || loadingFilters}
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </div>
           {hasFetched && filterSummary ? (

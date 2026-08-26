@@ -67,6 +67,8 @@ function SubBatchBlock({ batch }: { batch: TimetableSubBatch }) {
   );
 }
 
+const MAX_VISIBLE_SUB_BATCHES = 3;
+
 export function AssignResourceTimetableMatrix({
   timetable,
   onTimingClick,
@@ -139,14 +141,32 @@ export function AssignResourceTimetableMatrix({
                       }
                     }}
                   >
-                    {timing.subBatches.length > 0
-                      ? timing.subBatches.map((batch, i) => (
-                          <SubBatchBlock
-                            key={`${batch.subjectCode}-${batch.studentBatchId}-${i}`}
-                            batch={batch}
-                          />
-                        ))
-                      : null}
+                    {(() => {
+                      const allBatches = timing.subBatches ?? [];
+                      const visible = allBatches.slice(
+                        0,
+                        MAX_VISIBLE_SUB_BATCHES,
+                      );
+                      const hidden = Math.max(
+                        0,
+                        allBatches.length - MAX_VISIBLE_SUB_BATCHES,
+                      );
+                      return (
+                        <>
+                          {visible.map((batch, i) => (
+                            <SubBatchBlock
+                              key={`${batch.subjectCode}-${batch.studentBatchId}-${i}`}
+                              batch={batch}
+                            />
+                          ))}
+                          {hidden > 0 ? (
+                            <p className="m-0 text-center text-[10px] font-semibold text-black">
+                              +{hidden} more
+                            </p>
+                          ) : null}
+                        </>
+                      );
+                    })()}
                     {resources.length === 0 ? (
                       <p className="m-0 text-sm text-black">
                         {timing.classTimingName}

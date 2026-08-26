@@ -218,14 +218,53 @@ function printHtmlInIframe(html: string): void {
   fdoc.write(html);
   fdoc.close();
 
-  const cleanup = () => frame.remove();
-  win.addEventListener("afterprint", cleanup);
+  const printFrame = () => {
+    try {
+      win.focus();
+      win.print();
+    } finally {
+      setTimeout(() => {
+        if (frame.parentNode) frame.remove();
+      }, 1500);
+    }
+  };
 
-  setTimeout(() => {
-    win.focus();
-    win.print();
-    setTimeout(cleanup, 1500);
-  }, 300);
+  const waitForImagesThenPrint = () => {
+    const imgs = Array.from(fdoc.images ?? []);
+    if (imgs.length === 0) {
+      setTimeout(printFrame, 250);
+      return;
+    }
+    let remaining = imgs.length;
+    let printed = false;
+    const finish = () => {
+      if (printed) return;
+      remaining -= 1;
+      if (remaining <= 0) {
+        printed = true;
+        setTimeout(printFrame, 100);
+      }
+    };
+    for (const img of imgs) {
+      if (img.complete) finish();
+      else {
+        img.addEventListener("load", finish, { once: true });
+        img.addEventListener("error", finish, { once: true });
+      }
+    }
+    setTimeout(() => {
+      if (!printed) {
+        printed = true;
+        printFrame();
+      }
+    }, 3000);
+  };
+
+  if (win.document.readyState === "complete") {
+    waitForImagesThenPrint();
+  } else {
+    frame.onload = () => waitForImagesThenPrint();
+  }
 }
 
 export function printGraceMarksBenefitedStudents(

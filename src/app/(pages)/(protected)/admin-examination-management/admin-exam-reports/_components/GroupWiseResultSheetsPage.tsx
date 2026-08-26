@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { format, parseISO } from "date-fns";
 
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,7 @@ import {
   GraduationCap,
   Layers,
   Printer,
+  RefreshCw,
   RotateCcw,
   School,
 } from "lucide-react";
@@ -76,6 +78,67 @@ function dedupeBy(rows: AnyRow[], keys: string[]): AnyRow[] {
     out.push(row);
   }
   return out;
+}
+
+/** Angular date pipe: `'MMM d, y'` → Dec 22, 2025 */
+function parseExamDate(v: unknown): string {
+  const s = String(v ?? "").trim();
+  if (!s) return "";
+  try {
+    if (/^\d{4}-\d{2}-\d{2}/.test(s))
+      return format(parseISO(s.slice(0, 10)), "MMM d, yyyy");
+    return format(new Date(s), "MMM d, yyyy");
+  } catch {
+    return s;
+  }
+}
+
+function examTypeTags(r: AnyRow): string[] {
+  const tags: string[] = [];
+  if (r.is_internal_exam || r.isInternalExam) tags.push("(Internal)");
+  if (r.is_regular_exam || r.isRegularExam) tags.push("(Regular)");
+  if (r.is_supply_exam || r.isSupplyExam) tags.push("(Supple)");
+  return tags;
+}
+
+/**
+ * Angular Exam option:
+ * `{{exam_name}} ({{from | date:'MMM d, y'}} - {{to | date:'MMM d, y'}}) (Regular)(Supple)`
+ */
+function examMasterLabel(r: AnyRow): string {
+  const name = strFrom(r, ["exam_name", "examName"]) || "Exam";
+  const from = parseExamDate(r.from_date ?? r.fromDate);
+  const to = parseExamDate(r.to_date ?? r.toDate);
+  const range = from && to ? ` (${from} - ${to})` : "";
+  const tags = examTypeTags(r);
+  return `${name}${range}${tags.length ? ` ${tags.join("")}` : ""}`;
+}
+
+function examMasterLabelNode(r: AnyRow) {
+  const name = strFrom(r, ["exam_name", "examName"]) || "Exam";
+  const from = parseExamDate(r.from_date ?? r.fromDate);
+  const to = parseExamDate(r.to_date ?? r.toDate);
+  const range = from && to ? ` (${from} - ${to})` : "";
+  const tags = examTypeTags(r);
+  return (
+    <>
+      {name}
+      {range}
+      {tags.length ? " " : null}
+      {tags.map((t) => (
+        <span key={t} style={{ color: "#0014ff", fontWeight: 500 }}>
+          {t}
+        </span>
+      ))}
+    </>
+  );
+}
+
+function examMasterTooltip(r: AnyRow): string {
+  const name = strFrom(r, ["exam_name", "examName"]) || "Exam";
+  const from = parseExamDate(r.from_date ?? r.fromDate);
+  const to = parseExamDate(r.to_date ?? r.toDate);
+  return from && to ? `${name} (${from} - ${to})` : name;
 }
 
 export function GroupWiseResultSheetsPage({
@@ -643,201 +706,202 @@ export function GroupWiseResultSheetsPage({
             <strong className="table-context-header__title">{pageTitle}</strong>
           </div>
           {dataDetails ? (
-            <span className="text-[12px] font-medium text-blue-700">
+            <span className="text-[15px] font-medium text-[#042956]">
               {dataDetails}
             </span>
           ) : null}
         </div>
       }
       filters={
-        <div className="space-y-3">
+        <div className="inv-allot-report-filters space-y-2">
           {/* Angular fxFlex: Course 15 / Exam Year 15 / Exam 52 / Exam Type 15 */}
-          <GlobalFilterBarRow className="global-filter-bar__row--gwfrs-r1">
-            <GlobalFilterField
-              label="Course"
-              icon={GraduationCap}
-              className="global-filter-field--fx15"
-            >
-              <Select
-                value={courseId ? String(courseId) : null}
-                onChange={(v) => {
-                  setSkipAutoSelect(false);
-                  clearResults();
-                  setCourseId(v ? Number(v) : null);
-                }}
-                options={courses.map((r) => ({
-                  value: String(numFrom(r, ["fk_course_id", "courseId"])),
-                  label: strFrom(r, [
-                    "course_code",
-                    "courseCode",
-                    "course_name",
-                  ]),
-                }))}
-                placeholder="Course"
-                searchable
-                isLoading={loading && baseRows.length === 0}
-              />
-            </GlobalFilterField>
-            <GlobalFilterField
-              label="Exam Year"
-              icon={CalendarDays}
-              className="global-filter-field--fx15"
-            >
-              <Select
-                value={academicYearId ? String(academicYearId) : null}
-                onChange={(v) => {
-                  setSkipAutoSelect(false);
-                  clearResults();
-                  setAcademicYearId(v ? Number(v) : null);
-                }}
-                options={academicYears.map((r) => ({
-                  value: String(
-                    numFrom(r, ["fk_academic_year_id", "academicYearId"]),
-                  ),
-                  label: strFrom(r, ["academic_year", "academicYear"]),
-                }))}
-                placeholder="Exam Year"
-                searchable
-              />
-            </GlobalFilterField>
-            <GlobalFilterField
-              label="Exam"
-              icon={ClipboardList}
-              className="global-filter-field--fx52"
-            >
-              <Select
-                value={examId ? String(examId) : null}
-                onChange={(v) => {
-                  setSkipAutoSelect(false);
-                  clearResults();
-                  setExamId(v ? Number(v) : null);
-                }}
-                options={exams.map((r) => {
-                  const tags = [
-                    r.is_internal_exam ? "Internal" : "",
-                    r.is_regular_exam ? "Regular" : "",
-                    r.is_supply_exam ? "Supple" : "",
-                  ]
-                    .filter(Boolean)
-                    .join(", ");
-                  const name = strFrom(r, ["exam_name", "examName"]);
-                  return {
-                    value: String(numFrom(r, ["fk_exam_id", "examId"])),
-                    label: tags ? `${name} (${tags})` : name,
-                  };
-                })}
-                placeholder="Exam"
-                searchable
-              />
-            </GlobalFilterField>
-            <GlobalFilterField
-              label="Exam Type"
-              icon={BookOpen}
-              className="global-filter-field--fx15"
-            >
-              <Select
-                value={String(examTypeCatdetId)}
-                onChange={(v) => {
-                  clearResults();
-                  setExamTypeCatdetId(v ? Number(v) : 0);
-                }}
-                options={[
-                  { value: "0", label: "All" },
-                  ...examFeeTypes.map((r) => ({
-                    value: String(
-                      numFrom(r, ["generalDetailId", "general_detail_id"]),
-                    ),
+          <div className="inv-allot-report-filters__row">
+            <div className="inv-allot-report-filters__fx15">
+              <GlobalFilterField
+                label="Course"
+                className="global-filter-field--fx15"
+              >
+                <Select
+                  value={courseId ? String(courseId) : null}
+                  onChange={(v) => {
+                    setSkipAutoSelect(false);
+                    clearResults();
+                    setCourseId(v ? Number(v) : null);
+                  }}
+                  options={courses.map((r) => ({
+                    value: String(numFrom(r, ["fk_course_id", "courseId"])),
                     label: strFrom(r, [
-                      "generalDetailCode",
-                      "general_detail_code",
+                      "course_code",
+                      "courseCode",
+                      "course_name",
                     ]),
-                  })),
-                ]}
-                placeholder="Exam Type"
-              />
-            </GlobalFilterField>
-          </GlobalFilterBarRow>
+                  }))}
+                  placeholder="Course"
+                  searchable
+                  isLoading={loading && baseRows.length === 0}
+                />
+              </GlobalFilterField>
+            </div>
+            <div className="inv-allot-report-filters__fx13">
+              <GlobalFilterField
+                label="Exam Year"
+                className="global-filter-field--fx15"
+              >
+                <Select
+                  value={academicYearId ? String(academicYearId) : null}
+                  onChange={(v) => {
+                    setSkipAutoSelect(false);
+                    clearResults();
+                    setAcademicYearId(v ? Number(v) : null);
+                  }}
+                  options={academicYears.map((r) => ({
+                    value: String(
+                      numFrom(r, ["fk_academic_year_id", "academicYearId"]),
+                    ),
+                    label: strFrom(r, ["academic_year", "academicYear"]),
+                  }))}
+                  placeholder="Exam Year"
+                  searchable
+                />
+              </GlobalFilterField>
+            </div>
+            <div className="inv-allot-report-filters__fx52">
+              <GlobalFilterField
+                label="Exam"
+                className="global-filter-field--fx52"
+              >
+                <Select
+                  value={examId ? String(examId) : null}
+                  onChange={(v) => {
+                    setSkipAutoSelect(false);
+                    clearResults();
+                    setExamId(v ? Number(v) : null);
+                  }}
+                  options={exams.map((r) => ({
+                    value: String(numFrom(r, ["fk_exam_id", "examId"])),
+                    label: examMasterLabel(r),
+                    title: examMasterTooltip(r),
+                    labelNode: examMasterLabelNode(r),
+                  }))}
+                  placeholder="Exam"
+                  searchable
+                  searchPlaceholder="Search Exam..."
+                  wrapOptionLabels
+                />
+              </GlobalFilterField>
+            </div>
+            <div className="inv-allot-report-filters__fx20">
+              <GlobalFilterField
+                label="Exam Type"
+                className="global-filter-field--fx15"
+              >
+                <Select
+                  value={String(examTypeCatdetId)}
+                  onChange={(v) => {
+                    clearResults();
+                    setExamTypeCatdetId(v ? Number(v) : 0);
+                  }}
+                  options={[
+                    { value: "0", label: "All" },
+                    ...examFeeTypes.map((r) => ({
+                      value: String(
+                        numFrom(r, ["generalDetailId", "general_detail_id"]),
+                      ),
+                      label: strFrom(r, [
+                        "generalDetailCode",
+                        "general_detail_code",
+                      ]),
+                    })),
+                  ]}
+                  placeholder="Exam Type"
+                />
+              </GlobalFilterField>
+            </div>
+          </div>
 
           {/* Angular fxFlex: College 15 / Course Group 15 / Course Year 15 / Get Report 15 / Reset 5 */}
-          <GlobalFilterBarRow className="global-filter-bar__row--gwfrs-r2">
-            <GlobalFilterField
-              label="College"
-              icon={Building2}
-              className="global-filter-field--fx15"
-            >
-              <Select
-                value={collegeId ? String(collegeId) : null}
-                onChange={(v) => {
-                  setSkipAutoSelect(false);
-                  clearResults();
-                  setCollegeId(v ? Number(v) : null);
-                }}
-                options={colleges.map((r) => ({
-                  value: String(numFrom(r, ["fk_college_id", "collegeId"])),
-                  label: strFrom(r, [
-                    "college_code",
-                    "collegeCode",
-                    "college_name",
-                  ]),
-                }))}
-                placeholder="College"
-                searchable
-              />
-            </GlobalFilterField>
-            <GlobalFilterField
-              label="Course Group"
-              icon={Layers}
-              className="global-filter-field--fx15"
-            >
-              <Select
-                value={String(courseGroupId)}
-                onChange={(v) => {
-                  clearResults();
-                  setCourseGroupId(v ? Number(v) : 0);
-                }}
-                options={[
-                  ...(isAdmin ? [{ value: "0", label: "All" }] : []),
-                  ...courseGroups.map((r) => ({
-                    value: String(
-                      numFrom(r, ["fk_course_group_id", "courseGroupId"]),
-                    ),
+          <div className="inv-allot-report-filters__row">
+            <div className="inv-allot-report-filters__fx15">
+              <GlobalFilterField
+                label="College"
+                className="global-filter-field--fx15"
+              >
+                <Select
+                  value={collegeId ? String(collegeId) : null}
+                  onChange={(v) => {
+                    setSkipAutoSelect(false);
+                    clearResults();
+                    setCollegeId(v ? Number(v) : null);
+                  }}
+                  options={colleges.map((r) => ({
+                    value: String(numFrom(r, ["fk_college_id", "collegeId"])),
                     label: strFrom(r, [
-                      "group_code",
-                      "groupCode",
-                      "course_group_code",
+                      "college_code",
+                      "collegeCode",
+                      "college_name",
                     ]),
-                  })),
-                ]}
-                placeholder="Course Group"
-                searchable
-              />
-            </GlobalFilterField>
-            <GlobalFilterField
-              label="Course Year"
-              icon={School}
-              className="global-filter-field--fx15"
-            >
-              <Select
-                value={String(courseYearId)}
-                onChange={(v) => {
-                  clearResults();
-                  setCourseYearId(v ? Number(v) : 0);
-                }}
-                options={[
-                  ...(isAdmin ? [{ value: "0", label: "All" }] : []),
-                  ...courseYears.map((r) => ({
-                    value: String(
-                      numFrom(r, ["fk_course_year_id", "courseYearId"]),
-                    ),
-                    label: strFrom(r, ["course_year_code", "courseYearCode"]),
-                  })),
-                ]}
-                placeholder="Course Year"
-                searchable
-              />
-            </GlobalFilterField>
-            <div className="global-filter-field global-filter-field--action global-filter-field--fx15 flex flex-wrap items-center gap-3 self-end pb-0.5">
-              <label className="flex h-8 items-center gap-2 text-[12px] whitespace-nowrap">
+                  }))}
+                  placeholder="College"
+                  searchable
+                />
+              </GlobalFilterField>
+            </div>
+            <div className="inv-allot-report-filters__fx15">
+              <GlobalFilterField
+                label="Course Group"
+                className="global-filter-field--fx15"
+              >
+                <Select
+                  value={String(courseGroupId)}
+                  onChange={(v) => {
+                    clearResults();
+                    setCourseGroupId(v ? Number(v) : 0);
+                  }}
+                  options={[
+                    ...(isAdmin ? [{ value: "0", label: "All" }] : []),
+                    ...courseGroups.map((r) => ({
+                      value: String(
+                        numFrom(r, ["fk_course_group_id", "courseGroupId"]),
+                      ),
+                      label: strFrom(r, [
+                        "group_code",
+                        "groupCode",
+                        "course_group_code",
+                      ]),
+                    })),
+                  ]}
+                  placeholder="Course Group"
+                  searchable
+                />
+              </GlobalFilterField>
+            </div>
+            <div className="inv-allot-report-filters__fx15">
+              <GlobalFilterField
+                label="Course Year"
+                className="global-filter-field--fx15"
+              >
+                <Select
+                  value={String(courseYearId)}
+                  onChange={(v) => {
+                    clearResults();
+                    setCourseYearId(v ? Number(v) : 0);
+                  }}
+                  options={[
+                    ...(isAdmin ? [{ value: "0", label: "All" }] : []),
+                    ...courseYears.map((r) => ({
+                      value: String(
+                        numFrom(r, ["fk_course_year_id", "courseYearId"]),
+                      ),
+                      label: strFrom(r, ["course_year_code", "courseYearCode"]),
+                    })),
+                  ]}
+                  placeholder="Course Year"
+                  searchable
+                />
+              </GlobalFilterField>
+            </div>
+            <div className="inv-allot-report-filters__fx15 flex flex-wrap items-center gap-3 self-end pb-0.5">
+              {/* <label className="flex h-8 items-center gap-2 text-[12px] whitespace-nowrap">
                 <Checkbox
                   checked={isReevaluation}
                   onCheckedChange={(v) => {
@@ -846,10 +910,10 @@ export function GroupWiseResultSheetsPage({
                   }}
                 />
                 <span>Is Re-Evaluation</span>
-              </label>
+              </label> */}
               <Button
                 type="button"
-                className="h-8 text-[12px]"
+                className="h-8 text-[12px] w-full"
                 onClick={() => void handleGetReport()}
                 disabled={loading}
               >
@@ -865,10 +929,10 @@ export function GroupWiseResultSheetsPage({
                 onClick={handleReset}
                 title="Reset"
               >
-                <RotateCcw className="h-4 w-4" />
+                <RefreshCw className="h-4 w-4" />
               </Button>
             </div>
-          </GlobalFilterBarRow>
+          </div>
         </div>
       }
       body={

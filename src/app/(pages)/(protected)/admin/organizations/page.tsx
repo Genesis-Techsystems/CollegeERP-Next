@@ -154,6 +154,8 @@ export default function OrganizationsPage() {
       toolbar={{
         searchPlaceholder: "Search organizations…",
         pdfDocumentTitle: "Organizations",
+        exportExcel: false,
+        exportPdf: false,
       }}
       toolbarTrailing={
         <Button

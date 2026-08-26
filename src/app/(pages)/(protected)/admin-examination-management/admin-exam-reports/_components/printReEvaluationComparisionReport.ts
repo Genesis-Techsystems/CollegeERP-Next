@@ -112,12 +112,12 @@ const PRINT_CSS = `
   }
   .exam {
     text-align: center;
-    font-size: 14px;
+    font-size: 15px;
     margin: 4px 0 0;
   }
   .meta-line {
     text-align: left;
-    font-size: 13px;
+    font-size: 15px;
     margin: 2px 0;
     color: #000;
   }

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColDef } from "ag-grid-community";
+import { format, parseISO } from "date-fns";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/common/components/select";
@@ -20,10 +21,7 @@ import {
 import { GM_CODES } from "@/config/constants/ui";
 import { MINIO_URL } from "@/config/constants/api";
 import { toastError, toastInfo } from "@/lib/toast";
-import {
-  DEFAULT_COLLEGE_LOGO,
-  useCollegeLogo,
-} from "@/hooks/useCollegeLogo";
+import { DEFAULT_COLLEGE_LOGO, useCollegeLogo } from "@/hooks/useCollegeLogo";
 import { FileSpreadsheet, Printer } from "lucide-react";
 import { printReEvaluationExamReport } from "./printReEvaluationExamReport";
 
@@ -94,6 +92,67 @@ function dedupeBy(rows: AnyRow[], keys: string[]): AnyRow[] {
     out.push(row);
   }
   return out;
+}
+
+/** Angular date pipe: `'MMM d, y'` → Dec 22, 2025 */
+function parseExamDate(v: unknown): string {
+  const s = String(v ?? "").trim();
+  if (!s) return "";
+  try {
+    if (/^\d{4}-\d{2}-\d{2}/.test(s))
+      return format(parseISO(s.slice(0, 10)), "MMM d, yyyy");
+    return format(new Date(s), "MMM d, yyyy");
+  } catch {
+    return s;
+  }
+}
+
+function examTypeTags(r: AnyRow): string[] {
+  const tags: string[] = [];
+  if (r.is_internal_exam || r.isInternalExam) tags.push("(Internal)");
+  if (r.is_regular_exam || r.isRegularExam) tags.push("(Regular)");
+  if (r.is_supply_exam || r.isSupplyExam) tags.push("(Supple)");
+  return tags;
+}
+
+/**
+ * Angular Exam option:
+ * `{{exam_name}} ({{from | date:'MMM d, y'}} - {{to | date:'MMM d, y'}}) (Regular)(Supple)`
+ */
+function examMasterLabel(r: AnyRow): string {
+  const name = strFrom(r, ["exam_name", "examName"]) || "Exam";
+  const from = parseExamDate(r.from_date ?? r.fromDate);
+  const to = parseExamDate(r.to_date ?? r.toDate);
+  const range = from && to ? ` (${from} - ${to})` : "";
+  const tags = examTypeTags(r);
+  return `${name}${range}${tags.length ? ` ${tags.join("")}` : ""}`;
+}
+
+function examMasterLabelNode(r: AnyRow) {
+  const name = strFrom(r, ["exam_name", "examName"]) || "Exam";
+  const from = parseExamDate(r.from_date ?? r.fromDate);
+  const to = parseExamDate(r.to_date ?? r.toDate);
+  const range = from && to ? ` (${from} - ${to})` : "";
+  const tags = examTypeTags(r);
+  return (
+    <>
+      {name}
+      {range}
+      {tags.length ? " " : null}
+      {tags.map((t) => (
+        <span key={t} style={{ color: "#0014ff", fontWeight: 500 }}>
+          {t}
+        </span>
+      ))}
+    </>
+  );
+}
+
+function examMasterTooltip(r: AnyRow): string {
+  const name = strFrom(r, ["exam_name", "examName"]) || "Exam";
+  const from = parseExamDate(r.from_date ?? r.fromDate);
+  const to = parseExamDate(r.to_date ?? r.toDate);
+  return from && to ? `${name} (${from} - ${to})` : name;
 }
 
 function exportHtmlTable(filename: string, title: string, bodyHtml: string) {
@@ -538,12 +597,11 @@ export function ReEvaluationExamReportPage() {
           numFrom(r, ["fk_course_year_id", "courseYearId"]) ===
           Number(courseYearId),
       );
-      const examName = strFrom(
+      const examRow =
         exams.find(
           (r) => numFrom(r, ["fk_exam_id", "examId"]) === Number(examId),
-        ) ?? {},
-        ["exam_name", "examName"],
-      );
+        ) ?? {};
+      const examName = examMasterLabel(examRow);
       const courseCode = strFrom(course ?? {}, [
         "course_code",
         "courseCode",
@@ -671,128 +729,146 @@ export function ReEvaluationExamReportPage() {
     <FilteredListPage
       title="Re-Evaluation Exam Report"
       filters={
-        <div className="space-y-3">
-          {/* Angular fxFlex: Course 15 / Exam Year 15 / Exam 69 */}
-          <GlobalFilterBarRow className="global-filter-bar__row--eval-mod-r1">
-            <GlobalFilterField label="Course" className="global-filter-field--fx15">
-              <Select
-                value={courseId ? String(courseId) : null}
-                onChange={(v) => {
-                  setSkipAutoSelect(false);
-                  clearResults();
-                  setCourseId(v ? Number(v) : null);
-                }}
-                options={courses.map((r) => ({
-                  value: String(numFrom(r, ["fk_course_id", "courseId"])),
-                  label: strFrom(r, [
-                    "course_code",
-                    "courseCode",
-                    "course_name",
-                  ]),
-                }))}
-                placeholder="Course"
-                searchable
-                isLoading={loading && baseRows.length === 0}
-              />
-            </GlobalFilterField>
-            <GlobalFilterField
-              label="Exam Year"
-              className="global-filter-field--fx15"
-            >
-              <Select
-                value={academicYearId ? String(academicYearId) : null}
-                onChange={(v) => {
-                  setSkipAutoSelect(false);
-                  clearResults();
-                  setAcademicYearId(v ? Number(v) : null);
-                }}
-                options={academicYears.map((r) => ({
-                  value: String(
-                    numFrom(r, ["fk_academic_year_id", "academicYearId"]),
-                  ),
-                  label: strFrom(r, ["academic_year", "academicYear"]),
-                }))}
-                placeholder="Exam Year"
-                searchable
-              />
-            </GlobalFilterField>
-            <GlobalFilterField label="Exam" className="global-filter-field--fx69">
-              <Select
-                value={examId ? String(examId) : null}
-                onChange={(v) => {
-                  setSkipAutoSelect(false);
-                  clearResults();
-                  setExamId(v ? Number(v) : null);
-                }}
-                options={exams.map((r) => ({
-                  value: String(numFrom(r, ["fk_exam_id", "examId"])),
-                  label: strFrom(r, ["exam_name", "examName"]),
-                }))}
-                placeholder="Exam"
-                searchable
-              />
-            </GlobalFilterField>
-          </GlobalFilterBarRow>
+        <div className="inv-allot-report-filters space-y-2">
+          <div className="inv-allot-report-filters__row">
+            <div className="inv-allot-report-filters__fx20">
+              <GlobalFilterField
+                label="Course"
+                className="global-filter-field--fx15"
+              >
+                <Select
+                  value={courseId ? String(courseId) : null}
+                  onChange={(v) => {
+                    setSkipAutoSelect(false);
+                    clearResults();
+                    setCourseId(v ? Number(v) : null);
+                  }}
+                  options={courses.map((r) => ({
+                    value: String(numFrom(r, ["fk_course_id", "courseId"])),
+                    label: strFrom(r, [
+                      "course_code",
+                      "courseCode",
+                      "course_name",
+                    ]),
+                  }))}
+                  placeholder="Course"
+                  searchable
+                  isLoading={loading && baseRows.length === 0}
+                />
+              </GlobalFilterField>
+            </div>
+            <div className="inv-allot-report-filters__fx20">
+              <GlobalFilterField
+                label="Exam Year"
+                className="global-filter-field--fx15"
+              >
+                <Select
+                  value={academicYearId ? String(academicYearId) : null}
+                  onChange={(v) => {
+                    setSkipAutoSelect(false);
+                    clearResults();
+                    setAcademicYearId(v ? Number(v) : null);
+                  }}
+                  options={academicYears.map((r) => ({
+                    value: String(
+                      numFrom(r, ["fk_academic_year_id", "academicYearId"]),
+                    ),
+                    label: strFrom(r, ["academic_year", "academicYear"]),
+                  }))}
+                  placeholder="Exam Year"
+                  searchable
+                />
+              </GlobalFilterField>
+            </div>
+            <div className="inv-allot-report-filters__fx60">
+              <GlobalFilterField
+                label="Exam"
+                className="global-filter-field--fx69"
+              >
+                <Select
+                  value={examId ? String(examId) : null}
+                  onChange={(v) => {
+                    setSkipAutoSelect(false);
+                    clearResults();
+                    setExamId(v ? Number(v) : null);
+                  }}
+                  options={exams.map((r) => ({
+                    value: String(numFrom(r, ["fk_exam_id", "examId"])),
+                    label: examMasterLabel(r),
+                    title: examMasterTooltip(r),
+                    labelNode: examMasterLabelNode(r),
+                  }))}
+                  placeholder="Exam"
+                  searchable
+                  searchPlaceholder="Search Exam..."
+                  wrapOptionLabels
+                />
+              </GlobalFilterField>
+            </div>
+          </div>
 
-          {/* Angular fxFlex: Exam Type 15 / Course Year 15 / actions */}
-          <GlobalFilterBarRow className="global-filter-bar__row--eval-mod-r2">
-            <GlobalFilterField
-              label="Exam Type"
-              className="global-filter-field--fx15"
-            >
-              <Select
-                value={String(examTypeCatdetId)}
-                onChange={(v) => {
-                  clearResults();
-                  setExamTypeCatdetId(v ? Number(v) : 0);
-                }}
-                options={[
-                  { value: "0", label: "All" },
-                  ...examFeeTypes.map((r) => ({
-                    value: String(
-                      numFrom(r, ["generalDetailId", "general_detail_id"]),
-                    ),
-                    label: strFrom(r, [
-                      "generalDetailCode",
-                      "general_detail_code",
-                    ]),
-                  })),
-                ]}
-                placeholder="Exam Type"
-              />
-            </GlobalFilterField>
-            <GlobalFilterField
-              label="Course Year"
-              className="global-filter-field--fx15"
-            >
-              <Select
-                value={String(courseYearId)}
-                onChange={(v) => {
-                  clearResults();
-                  setCourseYearId(v ? Number(v) : 0);
-                }}
-                options={[
-                  { value: "0", label: "All" },
-                  ...courseYears.map((r) => ({
-                    value: String(
-                      numFrom(r, ["fk_course_year_id", "courseYearId"]),
-                    ),
-                    label: strFrom(r, [
-                      "course_year_code",
-                      "courseYearCode",
-                      "course_year_name",
-                    ]),
-                  })),
-                ]}
-                placeholder="Course Year"
-                searchable
-                isLoading={Boolean(examId) && loading}
-              />
-            </GlobalFilterField>
-            <div className="global-filter-field global-filter-field--action global-filter-field--fx10 flex items-center gap-2 self-end pb-0.5">
+          <div className="inv-allot-report-filters__row">
+            <div className="inv-allot-report-filters__fx15">
+              <GlobalFilterField
+                label="Exam Type"
+                className="global-filter-field--fx15"
+              >
+                <Select
+                  value={String(examTypeCatdetId)}
+                  onChange={(v) => {
+                    clearResults();
+                    setExamTypeCatdetId(v ? Number(v) : 0);
+                  }}
+                  options={[
+                    { value: "0", label: "All" },
+                    ...examFeeTypes.map((r) => ({
+                      value: String(
+                        numFrom(r, ["generalDetailId", "general_detail_id"]),
+                      ),
+                      label: strFrom(r, [
+                        "generalDetailCode",
+                        "general_detail_code",
+                      ]),
+                    })),
+                  ]}
+                  placeholder="Exam Type"
+                />
+              </GlobalFilterField>
+            </div>
+            <div className="inv-allot-report-filters__fx15">
+              <GlobalFilterField
+                label="Course Year"
+                className="global-filter-field--fx15"
+              >
+                <Select
+                  value={String(courseYearId)}
+                  onChange={(v) => {
+                    clearResults();
+                    setCourseYearId(v ? Number(v) : 0);
+                  }}
+                  options={[
+                    { value: "0", label: "All" },
+                    ...courseYears.map((r) => ({
+                      value: String(
+                        numFrom(r, ["fk_course_year_id", "courseYearId"]),
+                      ),
+                      label: strFrom(r, [
+                        "course_year_code",
+                        "courseYearCode",
+                        "course_year_name",
+                      ]),
+                    })),
+                  ]}
+                  placeholder="Course Year"
+                  searchable
+                  isLoading={Boolean(examId) && loading}
+                />
+              </GlobalFilterField>
+            </div>
+            <div className="inv-allot-report-filters__fx15 flex items-center gap-2 self-end pb-0.5">
               <Button
                 type="button"
-                className="h-8 shrink-0 px-3 text-[12px]"
+                className="h-8 shrink-0 px-3 text-[12px] w-full"
                 onClick={() => void handleGetReport()}
                 disabled={loading}
               >
@@ -815,7 +891,7 @@ export function ReEvaluationExamReportPage() {
                 cached
               </span>
             </div>
-          </GlobalFilterBarRow>
+          </div>
         </div>
       }
       showTable={showTable}
@@ -834,7 +910,7 @@ export function ReEvaluationExamReportPage() {
               </strong>
             </div>
             {dataDetails ? (
-              <span className="text-[13px] font-medium text-blue-700">
+              <span className="text-[15px] font-medium text-[#042956]">
                 {dataDetails}
               </span>
             ) : null}

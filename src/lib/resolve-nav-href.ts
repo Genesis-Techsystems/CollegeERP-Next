@@ -588,6 +588,10 @@ export function resolveForcedNavRoute(
     ) {
       return `${examReportsAltBase}/${slug}`;
     }
+    // Angular exam-reports/exam-student-registration-report → React admin-exam-reports
+    if (slug === "exam-student-registration-report") {
+      return `${examReportsBase}/exam-student-registration-report`;
+    }
     if (slug === "consolidated-marks-report") {
       return "/reports/admin-exam-reports/consolidated-marks-report";
     }
@@ -1365,14 +1369,19 @@ export function resolveForcedNavRoute(
   ) {
     return "/admin-examination-management/admin-exam-reports/exam-invigilator-allotment-report";
   }
-  // Exam Student Registration Report (Exam Reports)
+  // Exam Student Registration (College/Room/Student) — Angular exam-student-registration-report
+  // Must NOT match "Exam Registration Students" (exam-registration-student-report).
   if (
-    hrefLower.includes("exam-student-registration-report") ||
-    (labelLower.includes("student") &&
-      labelLower.includes("registration") &&
-      labelLower.includes("report") &&
-      !labelLower.includes("timetable") &&
-      !labelLower.includes(" tt"))
+    (hrefLower.includes("exam-student-registration-report") ||
+      labelLower.includes("exam student registration report") ||
+      (labelLower.includes("student") &&
+        labelLower.includes("registration") &&
+        labelLower.includes("report") &&
+        !labelLower.includes("exam registration students"))) &&
+    !hrefLower.includes("exam-registration-student-report") &&
+    !labelLower.includes("count") &&
+    !labelLower.includes("timetable") &&
+    !labelLower.includes(" tt")
   ) {
     return "/admin-examination-management/admin-exam-reports/exam-student-registration-report";
   }
@@ -3913,12 +3922,12 @@ export function resolveForcedNavRoute(
   ) {
     return "/admin-examination-management/exam-reports/exam-registered-students-count";
   }
-  // Exam Student Registration Report (sidebar: Exam Registration Students)
+  // Exam Registration Students — Angular exam-registration-student-report
+  // (subject/timetable). Distinct from exam-student-registration-report.
   if (
     (hrefLower.includes("exam-registration-student-report") ||
-      hrefLower.includes("exam-student-registration-report") ||
-      labelLower.includes("exam student registration report") ||
       labelLower.includes("exam registration students")) &&
+    !hrefLower.includes("exam-student-registration-report") &&
     !labelLower.includes("count") &&
     !hrefLower.includes("count")
   ) {

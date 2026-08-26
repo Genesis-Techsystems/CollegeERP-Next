@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ColDef } from "ag-grid-community";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { format, parseISO } from "date-fns";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -45,24 +46,63 @@ const TOOLBAR = {
   exportExcel: false,
 } as const;
 
+/** Angular UI: blue text on Evaluator Name / Phone Number */
+function blueTextRenderer(p: ICellRendererParams<AnyRow>) {
+  const value = p.value ?? "";
+  if (value === "" || value == null) return "";
+  return <span>{String(value)}</span>;
+}
+
+/**
+ * Angular table columns (lab-external-remuneration-report):
+ * SI.No, Evaluator Name, Phone Number, Subject Code, Subject Name, Role Name,
+ * Evaluation Count, Amount, Travel Allowance, No Of Days, Subject Amount,
+ * Final Amount, Account No., IFSC Code
+ */
 const COL_DEFS = {
   sno: {
     headerName: "SI.No",
     valueGetter: rowIndexGetter,
-    width: 80,
+    width: 70,
     flex: 0,
   } as ColDef<AnyRow>,
   evaluatorName: {
     headerName: "Evaluator Name",
     field: "evaluator_name",
-    minWidth: 180,
-    flex: 1.2,
+    minWidth: 160,
+    flex: 1.1,
+    cellRenderer: blueTextRenderer,
+  } as ColDef<AnyRow>,
+  phoneNumber: {
+    headerName: "Phone Number",
+    minWidth: 130,
+    flex: 0.9,
+    valueGetter: (p) =>
+      strFrom(p.data ?? {}, [
+        "phonenumber",
+        "phone_number",
+        "mobile_number",
+        "mobileNumber",
+      ]),
+    cellRenderer: blueTextRenderer,
   } as ColDef<AnyRow>,
   subjectCode: {
     headerName: "Subject Code",
     field: "subject_code",
-    minWidth: 130,
+    minWidth: 120,
     flex: 0.9,
+  } as ColDef<AnyRow>,
+  subjectName: {
+    headerName: "Subject Name",
+    field: "subject_name",
+    minWidth: 160,
+    flex: 1.2,
+  } as ColDef<AnyRow>,
+  roleName: {
+    headerName: "Role Name",
+    field: "role_name",
+    minWidth: 160,
+    flex: 1.1,
   } as ColDef<AnyRow>,
   evaluationCount: {
     headerName: "Evaluation Count",
@@ -74,12 +114,38 @@ const COL_DEFS = {
   amount: {
     headerName: "Amount",
     field: "amount",
+    minWidth: 100,
+    flex: 0.7,
+    cellClass: "text-center",
+  } as ColDef<AnyRow>,
+  travelAllowance: {
+    headerName: "Travel Allowance",
+    minWidth: 130,
+    flex: 0.8,
+    cellClass: "text-center",
+    valueGetter: (p) =>
+      strFrom(p.data ?? {}, [
+        "ta_amount",
+        "travel_allowance",
+        "travelAllowance",
+      ]),
+  } as ColDef<AnyRow>,
+  noOfDays: {
+    headerName: "No Of Days",
+    field: "no_of_days",
     minWidth: 110,
     flex: 0.7,
     cellClass: "text-center",
   } as ColDef<AnyRow>,
-  totalAmount: {
-    headerName: "Total Amount",
+  subjectAmount: {
+    headerName: "Subject Amount",
+    field: "subject_amount",
+    minWidth: 120,
+    flex: 0.8,
+    cellClass: "text-center",
+  } as ColDef<AnyRow>,
+  finalAmount: {
+    headerName: "Final Amount",
     field: "final_amount",
     minWidth: 120,
     flex: 0.8,
@@ -94,7 +160,7 @@ const COL_DEFS = {
   ifscCode: {
     headerName: "IFSC Code",
     field: "ifsc_code",
-    minWidth: 130,
+    minWidth: 120,
     flex: 0.9,
   } as ColDef<AnyRow>,
 };
@@ -125,6 +191,65 @@ function dedupeBy(rows: AnyRow[], keys: string[]): AnyRow[] {
     out.push(row);
   }
   return out;
+}
+
+/** Angular date pipe for Exam Master — screenshot: `MMM d, yyyy` (Dec 22, 2025). */
+function parseExamDate(v: unknown): string {
+  const s = String(v ?? "").trim();
+  if (!s) return "";
+  try {
+    if (/^\d{4}-\d{2}-\d{2}/.test(s))
+      return format(parseISO(s.slice(0, 10)), "MMM d, yyyy");
+    return format(new Date(s), "MMM d, yyyy");
+  } catch {
+    return s;
+  }
+}
+
+function examTypeTags(r: AnyRow): string[] {
+  const tags: string[] = [];
+  if (r.is_internal_exam || r.isInternalExam) tags.push("(Internal)");
+  if (r.is_regular_exam || r.isRegularExam) tags.push("(Regular)");
+  if (r.is_supply_exam || r.isSupplyExam) tags.push("(Supple)");
+  return tags;
+}
+
+/** Angular option text without colored spans (trigger + search). */
+function examMasterLabel(r: AnyRow): string {
+  const name = strFrom(r, ["exam_name", "examName"]) || "Exam";
+  const from = parseExamDate(r.from_date ?? r.fromDate);
+  const to = parseExamDate(r.to_date ?? r.toDate);
+  const range = from && to ? ` (${from} - ${to})` : "";
+  const tags = examTypeTags(r);
+  return `${name}${range}${tags.length ? ` ${tags.join("")}` : ""}`;
+}
+
+/** Angular mat-option: blue (Internal)/(Regular)/(Supple) tags. */
+function examMasterLabelNode(r: AnyRow) {
+  const name = strFrom(r, ["exam_name", "examName"]) || "Exam";
+  const from = parseExamDate(r.from_date ?? r.fromDate);
+  const to = parseExamDate(r.to_date ?? r.toDate);
+  const range = from && to ? ` (${from} - ${to})` : "";
+  const tags = examTypeTags(r);
+  return (
+    <>
+      {name}
+      {range}
+      {tags.map((t) => (
+        <span key={t} style={{ color: "#0014ff", fontWeight: 500 }}>
+          {" "}
+          {t}
+        </span>
+      ))}
+    </>
+  );
+}
+
+function examMasterTooltip(r: AnyRow): string {
+  const name = strFrom(r, ["exam_name", "examName"]) || "Exam";
+  const from = parseExamDate(r.from_date ?? r.fromDate);
+  const to = parseExamDate(r.to_date ?? r.toDate);
+  return from && to ? `${name} (${from} - ${to})` : name;
 }
 
 function exportHtmlTable(filename: string, title: string, bodyHtml: string) {
@@ -258,10 +383,16 @@ export default function LabRemunerationReportPage() {
     () => [
       COL_DEFS.sno,
       COL_DEFS.evaluatorName,
+      COL_DEFS.phoneNumber,
       COL_DEFS.subjectCode,
+      COL_DEFS.subjectName,
+      COL_DEFS.roleName,
       COL_DEFS.evaluationCount,
       COL_DEFS.amount,
-      COL_DEFS.totalAmount,
+      COL_DEFS.travelAllowance,
+      COL_DEFS.noOfDays,
+      COL_DEFS.subjectAmount,
+      COL_DEFS.finalAmount,
       COL_DEFS.accountNo,
       COL_DEFS.ifscCode,
     ],
@@ -606,10 +737,9 @@ export default function LabRemunerationReportPage() {
       setRows(list);
       toastSuccess("Data retrieved successfully");
       setExamName(
-        strFrom(
+        examMasterLabel(
           exams.find((r) => numFrom(r, ["fk_exam_id", "examId"]) === examId) ??
             {},
-          ["exam_name", "examName"],
         ),
       );
     } catch (error) {
@@ -620,38 +750,52 @@ export default function LabRemunerationReportPage() {
   }
 
   function handleExport() {
-    if (profiles.length === 0) return;
+    if (rows.length === 0) return;
+    // Angular exportAsExcel — same columns as the on-screen table
     const headerCells = [
-      "<th>Exam Name</th>",
+      "<th>S.No</th>",
       "<th>Evaluator Name</th>",
-      "<th>Mobile</th>",
-      "<th>Bank Name</th>",
-      "<th>Bank Address</th>",
+      "<th>Phone Number</th>",
+      "<th>Subject Code</th>",
+      "<th>Subject Name</th>",
+      "<th>Role Name</th>",
+      "<th>Evaluation Count</th>",
+      "<th>Amount</th>",
+      "<th>Travel Allowance</th>",
+      "<th>No Of Days</th>",
+      "<th>Subject Amount</th>",
+      "<th>Final Amount</th>",
       "<th>Account Number</th>",
       "<th>IFSC Code</th>",
-      "<th>Evaluation Count</th>",
-      "<th>Total Subjects</th>",
-      "<th>Amount Per Evaluation</th>",
-      "<th>Final Amount</th>",
     ].join("");
-    const body = profiles
-      .map((report) => {
-        const evalCount = report.subjects.reduce(
-          (sum, s) => sum + (Number(s.evaluation_count) || 0),
-          0,
-        );
+    const body = rows
+      .map((row, index) => {
+        const phone = strFrom(row, [
+          "phonenumber",
+          "phone_number",
+          "mobile_number",
+          "mobileNumber",
+        ]);
+        const ta = strFrom(row, [
+          "ta_amount",
+          "travel_allowance",
+          "travelAllowance",
+        ]);
         return `<tr>
-          <td>${examName}</td>
-          <td>${report.evaluator_name ?? ""}</td>
-          <td>${report.phonenumber ?? ""}</td>
-          <td>${report.bank_name ?? ""}</td>
-          <td>${report.bank_address ?? ""}</td>
-          <td>${report.account_number ?? ""}</td>
-          <td>${report.ifsc_code ?? ""}</td>
-          <td>${evalCount}</td>
-          <td>${report.subjects.length}</td>
-          <td>${report.amount ?? ""}</td>
-          <td>${report.total_final_amount}/-</td>
+          <td>${index + 1}</td>
+          <td>${strFrom(row, ["evaluator_name", "evaluatorName"])}</td>
+          <td>${phone}</td>
+          <td>${strFrom(row, ["subject_code", "subjectCode"])}</td>
+          <td>${strFrom(row, ["subject_name", "subjectName"])}</td>
+          <td>${strFrom(row, ["role_name", "roleName"])}</td>
+          <td>${strFrom(row, ["evaluation_count", "evaluationCount"])}</td>
+          <td>${strFrom(row, ["amount"])}</td>
+          <td>${ta}</td>
+          <td>${strFrom(row, ["no_of_days", "noOfDays"])}</td>
+          <td>${strFrom(row, ["subject_amount", "subjectAmount"])}</td>
+          <td>${strFrom(row, ["final_amount", "finalAmount"])}</td>
+          <td>${strFrom(row, ["account_number", "accountNumber"])}</td>
+          <td>${strFrom(row, ["ifsc_code", "ifscCode"])}</td>
         </tr>`;
       })
       .join("");
@@ -693,237 +837,259 @@ export default function LabRemunerationReportPage() {
     <FilteredListPage
       title="Lab Remuneration Report"
       filters={
-        <div className="space-y-3">
-          <GlobalFilterBarRow>
-            <GlobalFilterField
-              label="Course"
-              icon={GraduationCap}
-              className="!flex-[2_1_10rem] !min-w-[9rem]"
-            >
-              <Select
-                value={courseId ? String(courseId) : null}
-                onChange={(v) => {
-                  setSkipAutoSelect(false);
-                  clearResults();
-                  setCourseId(v ? Number(v) : null);
-                }}
-                options={courses.map((r) => ({
-                  value: String(numFrom(r, ["fk_course_id", "courseId"])),
-                  label: strFrom(r, [
-                    "course_code",
-                    "courseCode",
-                    "course_name",
-                  ]),
-                }))}
-                placeholder="Course"
-                searchable
-                isLoading={loading && baseRows.length === 0}
-              />
-            </GlobalFilterField>
-            <GlobalFilterField
-              label="Exam Year"
-              icon={CalendarDays}
-              className="!flex-[2_1_10rem] !min-w-[9rem]"
-            >
-              <Select
-                value={academicYearId ? String(academicYearId) : null}
-                onChange={(v) => {
-                  setSkipAutoSelect(false);
-                  clearResults();
-                  setAcademicYearId(v ? Number(v) : null);
-                }}
-                options={academicYears.map((r) => ({
-                  value: String(
-                    numFrom(r, ["fk_academic_year_id", "academicYearId"]),
-                  ),
-                  label: strFrom(r, ["academic_year", "academicYear"]),
-                }))}
-                placeholder="Exam Year"
-                searchable
-              />
-            </GlobalFilterField>
-            <GlobalFilterField
-              label="Exam Master"
-              icon={ClipboardList}
-              className="!flex-[6_1_30rem] !min-w-[18rem]"
-            >
-              <Select
-                value={examId ? String(examId) : null}
-                onChange={(v) => {
-                  setSkipAutoSelect(false);
-                  clearResults();
-                  setExamId(v ? Number(v) : null);
-                }}
-                options={exams.map((r) => ({
-                  value: String(numFrom(r, ["fk_exam_id", "examId"])),
-                  label: strFrom(r, ["exam_name", "examName"]),
-                }))}
-                placeholder="Exam Master"
-                searchable
-              />
-            </GlobalFilterField>
-          </GlobalFilterBarRow>
-
-          <GlobalFilterBarRow>
-            <GlobalFilterField
-              label="College"
-              icon={Building2}
-              className="!flex-[4_1_10rem] !min-w-[9rem]"
-            >
-              <Select
-                value={collegeId ? String(collegeId) : null}
-                onChange={(v) => {
-                  setSkipAutoSelect(false);
-                  clearResults();
-                  setCollegeId(v ? Number(v) : null);
-                }}
-                options={colleges.map((r) => ({
-                  value: String(numFrom(r, ["fk_college_id", "collegeId"])),
-                  label: strFrom(r, [
-                    "college_code",
-                    "collegeCode",
-                    "college_name",
-                  ]),
-                }))}
-                placeholder="College"
-                searchable
-                isLoading={Boolean(examId) && loading}
-              />
-            </GlobalFilterField>
-            <GlobalFilterField
-              label="Course Group"
-              icon={Layers}
-              className="!flex-[4_1_10rem] !min-w-[9rem]"
-            >
-              <Select
-                value={String(courseGroupId)}
-                onChange={(v) => {
-                  setSkipAutoSelect(false);
-                  clearResults();
-                  setCourseGroupId(v ? Number(v) : 0);
-                }}
-                options={[
-                  { value: "0", label: "All" },
-                  ...courseGroups.map((r) => ({
-                    value: String(
-                      numFrom(r, ["fk_course_group_id", "courseGroupId"]),
-                    ),
+        <div className="inv-allot-report-filters space-y-2">
+          <div className="inv-allot-report-filters__row">
+            <div className="inv-allot-report-filters__fx20">
+              <GlobalFilterField
+                label="Course"
+                icon={GraduationCap}
+                className="!flex-[2_1_10rem] !min-w-[9rem]"
+              >
+                <Select
+                  value={courseId ? String(courseId) : null}
+                  onChange={(v) => {
+                    setSkipAutoSelect(false);
+                    clearResults();
+                    setCourseId(v ? Number(v) : null);
+                  }}
+                  options={courses.map((r) => ({
+                    value: String(numFrom(r, ["fk_course_id", "courseId"])),
                     label: strFrom(r, [
-                      "group_code",
-                      "groupCode",
-                      "group_name",
+                      "course_code",
+                      "courseCode",
+                      "course_name",
                     ]),
-                  })),
-                ]}
-                placeholder="Course Group"
-                searchable
-              />
-            </GlobalFilterField>
-            <GlobalFilterField
-              label="Course Year"
-              icon={School}
-              className="!flex-[3_1_8rem] !min-w-[7rem]"
-            >
-              <Select
-                value={String(courseYearId)}
-                onChange={(v) => {
-                  setSkipAutoSelect(false);
-                  clearResults();
-                  setCourseYearId(v ? Number(v) : 0);
-                }}
-                options={[
-                  { value: "0", label: "All" },
-                  ...courseYears.map((r) => ({
+                  }))}
+                  placeholder="Course"
+                  searchable
+                  isLoading={loading && baseRows.length === 0}
+                />
+              </GlobalFilterField>
+            </div>
+            <div className="inv-allot-report-filters__fx20">
+              <GlobalFilterField
+                label="Exam Year"
+                icon={CalendarDays}
+                className="!flex-[2_1_10rem] !min-w-[9rem]"
+              >
+                <Select
+                  value={academicYearId ? String(academicYearId) : null}
+                  onChange={(v) => {
+                    setSkipAutoSelect(false);
+                    clearResults();
+                    setAcademicYearId(v ? Number(v) : null);
+                  }}
+                  options={academicYears.map((r) => ({
                     value: String(
-                      numFrom(r, ["fk_course_year_id", "courseYearId"]),
+                      numFrom(r, ["fk_academic_year_id", "academicYearId"]),
                     ),
-                    label: strFrom(r, [
-                      "course_year_code",
-                      "courseYearCode",
-                      "course_year",
-                    ]),
-                  })),
-                ]}
-                placeholder="Course Year"
-                searchable
-              />
-            </GlobalFilterField>
-            <GlobalFilterField
-              label="Regulation"
-              icon={Layers}
-              className="!flex-[3_1_8rem] !min-w-[7rem]"
-            >
-              <Select
-                value={regulationId ? String(regulationId) : null}
-                onChange={(v) => {
-                  setSkipAutoSelect(false);
-                  clearResults();
-                  setRegulationId(v ? Number(v) : null);
-                }}
-                options={regulations.map((r) => ({
-                  value: String(
-                    numFrom(r, ["fk_regulation_id", "regulationId"]),
-                  ),
-                  label: strFrom(r, ["regulation_code", "regulationCode"]),
-                }))}
-                placeholder="Regulation"
-                searchable
-              />
-            </GlobalFilterField>
-            <GlobalFilterField
-              label="Subject"
-              icon={ClipboardList}
-              className="!flex-[6_1_18rem] !min-w-[13rem]"
-            >
-              <Select
-                value={String(subjectId)}
-                onChange={(v) => {
-                  setSkipAutoSelect(false);
-                  void selectedSubject(v ? Number(v) : 0);
-                }}
-                options={[
-                  { value: "0", label: "All" },
-                  ...subjects.map((r) => ({
-                    value: String(numFrom(r, ["fk_subject_id", "subjectId"])),
-                    label: `${strFrom(r, ["subject_name", "subjectName"])} (${strFrom(r, ["subject_code", "subjectCode"])})`,
-                  })),
-                ]}
-                placeholder="Subject"
-                searchable
-              />
-            </GlobalFilterField>
-          </GlobalFilterBarRow>
+                    label: strFrom(r, ["academic_year", "academicYear"]),
+                  }))}
+                  placeholder="Exam Year"
+                  searchable
+                />
+              </GlobalFilterField>
+            </div>
+            <div className="inv-allot-report-filters__fx60">
+              <GlobalFilterField
+                label="Exam Master"
+                icon={ClipboardList}
+                className="!flex-[6_1_30rem] !min-w-[18rem]"
+              >
+                <Select
+                  value={examId ? String(examId) : null}
+                  onChange={(v) => {
+                    setSkipAutoSelect(false);
+                    clearResults();
+                    setExamId(v ? Number(v) : null);
+                  }}
+                  options={exams.map((r) => ({
+                    value: String(numFrom(r, ["fk_exam_id", "examId"])),
+                    label: examMasterLabel(r),
+                    title: examMasterTooltip(r),
+                    labelNode: examMasterLabelNode(r),
+                  }))}
+                  placeholder="Exam Master"
+                  searchable
+                  searchPlaceholder="Search..."
+                  wrapOptionLabels
+                />
+              </GlobalFilterField>
+            </div>
+          </div>
 
-          <GlobalFilterBarRow className="!flex-nowrap">
-            <GlobalFilterField
-              label="Evaluators"
-              icon={UserRound}
-              className="global-filter-field--shrink !min-w-[16rem] !max-w-[28rem] !flex-[0_1_28rem]"
-            >
-              <Select
-                value={String(evaluatorProfileId)}
-                onChange={(v) => {
-                  clearResults();
-                  setEvaluatorProfileId(v ? Number(v) : 0);
-                }}
-                options={[
-                  { value: "0", label: "All" },
-                  ...evaluators.map((r) => ({
-                    value: String(
-                      numFrom(r, [
-                        "pk_exam_evaluator_profile_id",
-                        "examEvaluatorProfileId",
+          <div className="inv-allot-report-filters__row">
+            <div className="inv-allot-report-filters__fx15">
+              <GlobalFilterField
+                label="College"
+                icon={Building2}
+                className="!flex-[4_1_10rem] !min-w-[9rem]"
+              >
+                <Select
+                  value={collegeId ? String(collegeId) : null}
+                  onChange={(v) => {
+                    setSkipAutoSelect(false);
+                    clearResults();
+                    setCollegeId(v ? Number(v) : null);
+                  }}
+                  options={colleges.map((r) => ({
+                    value: String(numFrom(r, ["fk_college_id", "collegeId"])),
+                    label: strFrom(r, [
+                      "college_code",
+                      "collegeCode",
+                      "college_name",
+                    ]),
+                  }))}
+                  placeholder="College"
+                  searchable
+                  isLoading={Boolean(examId) && loading}
+                />
+              </GlobalFilterField>
+            </div>
+            <div className="inv-allot-report-filters__fx20">
+              <GlobalFilterField
+                label="Course Group"
+                icon={Layers}
+                className="!flex-[4_1_10rem] !min-w-[9rem]"
+              >
+                <Select
+                  value={String(courseGroupId)}
+                  onChange={(v) => {
+                    setSkipAutoSelect(false);
+                    clearResults();
+                    setCourseGroupId(v ? Number(v) : 0);
+                  }}
+                  options={[
+                    { value: "0", label: "All" },
+                    ...courseGroups.map((r) => ({
+                      value: String(
+                        numFrom(r, ["fk_course_group_id", "courseGroupId"]),
+                      ),
+                      label: strFrom(r, [
+                        "group_code",
+                        "groupCode",
+                        "group_name",
                       ]),
+                    })),
+                  ]}
+                  placeholder="Course Group"
+                  searchable
+                />
+              </GlobalFilterField>
+            </div>
+            <div className="inv-allot-report-filters__fx15">
+              <GlobalFilterField
+                label="Course Year"
+                icon={School}
+                className="!flex-[3_1_8rem] !min-w-[7rem]"
+              >
+                <Select
+                  value={String(courseYearId)}
+                  onChange={(v) => {
+                    setSkipAutoSelect(false);
+                    clearResults();
+                    setCourseYearId(v ? Number(v) : 0);
+                  }}
+                  options={[
+                    { value: "0", label: "All" },
+                    ...courseYears.map((r) => ({
+                      value: String(
+                        numFrom(r, ["fk_course_year_id", "courseYearId"]),
+                      ),
+                      label: strFrom(r, [
+                        "course_year_code",
+                        "courseYearCode",
+                        "course_year",
+                      ]),
+                    })),
+                  ]}
+                  placeholder="Course Year"
+                  searchable
+                />
+              </GlobalFilterField>
+            </div>
+            <div className="inv-allot-report-filters__fx20">
+              <GlobalFilterField
+                label="Regulation"
+                icon={Layers}
+                className="!flex-[3_1_8rem] !min-w-[7rem]"
+              >
+                <Select
+                  value={regulationId ? String(regulationId) : null}
+                  onChange={(v) => {
+                    setSkipAutoSelect(false);
+                    clearResults();
+                    setRegulationId(v ? Number(v) : null);
+                  }}
+                  options={regulations.map((r) => ({
+                    value: String(
+                      numFrom(r, ["fk_regulation_id", "regulationId"]),
                     ),
-                    label: `${strFrom(r, ["evaluator_name", "evaluatorName"])} (${strFrom(r, ["user_name", "userName"])})`,
-                  })),
-                ]}
-                placeholder="Evaluators"
-                searchable
-              />
-            </GlobalFilterField>
-            <div className="flex shrink-0 items-end self-end pb-0.5">
-              <label className="flex h-8 items-center gap-2 whitespace-nowrap text-[12px]">
+                    label: strFrom(r, ["regulation_code", "regulationCode"]),
+                  }))}
+                  placeholder="Regulation"
+                  searchable
+                />
+              </GlobalFilterField>
+            </div>
+            <div className="inv-allot-report-filters__fx30">
+              <GlobalFilterField
+                label="Subject"
+                icon={ClipboardList}
+                className="!flex-[6_1_18rem] !min-w-[13rem]"
+              >
+                <Select
+                  value={String(subjectId)}
+                  onChange={(v) => {
+                    setSkipAutoSelect(false);
+                    void selectedSubject(v ? Number(v) : 0);
+                  }}
+                  options={[
+                    { value: "0", label: "All" },
+                    ...subjects.map((r) => ({
+                      value: String(numFrom(r, ["fk_subject_id", "subjectId"])),
+                      label: `${strFrom(r, ["subject_name", "subjectName"])} (${strFrom(r, ["subject_code", "subjectCode"])})`,
+                    })),
+                  ]}
+                  placeholder="Subject"
+                  searchable
+                />
+              </GlobalFilterField>
+            </div>
+          </div>
+
+          <div className="inv-allot-report-filters__row">
+            <div className="inv-allot-report-filters__fx33">
+              <GlobalFilterField
+                label="Evaluators"
+                icon={UserRound}
+                className="global-filter-field--shrink !min-w-[16rem] !max-w-[28rem] !flex-[0_1_28rem]"
+              >
+                <Select
+                  value={String(evaluatorProfileId)}
+                  onChange={(v) => {
+                    clearResults();
+                    setEvaluatorProfileId(v ? Number(v) : 0);
+                  }}
+                  options={[
+                    { value: "0", label: "All" },
+                    ...evaluators.map((r) => ({
+                      value: String(
+                        numFrom(r, [
+                          "pk_exam_evaluator_profile_id",
+                          "examEvaluatorProfileId",
+                        ]),
+                      ),
+                      label: `${strFrom(r, ["evaluator_name", "evaluatorName"])} (${strFrom(r, ["user_name", "userName"])})`,
+                    })),
+                  ]}
+                  placeholder="Evaluators"
+                  searchable
+                />
+              </GlobalFilterField>
+            </div>
+            <div className="flex shrink-0 items-end self-end pb-0.5 inv-allot-report-filters__fx15">
+              <label className="flex h-8 items-center gap-2 whitespace-nowrap text-[14px]">
                 <Checkbox
                   checked={isReevaluation}
                   onCheckedChange={(v) => {
@@ -934,17 +1100,17 @@ export default function LabRemunerationReportPage() {
                 <span>Is Re-Evaluation</span>
               </label>
             </div>
-            <div className="flex shrink-0 items-end self-end pb-0.5">
+            <div className="flex shrink-0 items-end self-end pb-0.5 inv-allot-report-filters__fx15">
               <Button
                 type="button"
-                className="h-8 px-3 text-[12px]"
+                className="h-8 px-3 text-[12px] w-full"
                 onClick={() => void handleGetReport()}
                 disabled={loading}
               >
                 {loading ? "Loading..." : "Get List"}
               </Button>
             </div>
-          </GlobalFilterBarRow>
+          </div>
         </div>
       }
       rowData={rows}

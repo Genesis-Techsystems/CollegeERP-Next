@@ -25,6 +25,7 @@ import {
   FileSpreadsheet,
   GraduationCap,
   Printer,
+  RefreshCw,
   RotateCcw,
 } from "lucide-react";
 import { printInvigilatorsRemunerationReport } from "../_components/printInvigilatorsRemunerationReport";
@@ -381,104 +382,98 @@ export default function InvigilatorsRemunerationReportPage() {
     <FilteredListPage
       title="Invigilator Remuneration Report"
       filters={
-        <div className="space-y-3">
-          <GlobalFilterBarRow>
-            <GlobalFilterField
-              label="Course"
-              icon={GraduationCap}
-              className="!flex-[0_1_7.5rem] !max-w-[8.5rem] !min-w-[6.5rem]"
-            >
-              <Select
-                value={courseId ? String(courseId) : null}
-                onChange={(v) => {
-                  setSkipAutoSelect(false);
-                  clearResults();
-                  setCourseId(v ? Number(v) : null);
-                }}
-                options={courses.map((r) => ({
-                  value: String(numFrom(r, ["fk_course_id", "courseId"])),
-                  label: strFrom(r, [
-                    "course_code",
-                    "courseCode",
-                    "course_name",
-                  ]),
-                }))}
-                placeholder="Course"
-                searchable
-                isLoading={loading && baseRows.length === 0}
-              />
-            </GlobalFilterField>
-            <GlobalFilterField
-              label="Exam Year"
-              icon={CalendarDays}
-              className="!flex-[0_1_8.5rem] !max-w-[9.5rem] !min-w-[7rem]"
-            >
-              <Select
-                value={academicYearId ? String(academicYearId) : null}
-                onChange={(v) => {
-                  setSkipAutoSelect(false);
-                  clearResults();
-                  setAcademicYearId(v ? Number(v) : null);
-                }}
-                options={academicYears.map((r) => ({
-                  value: String(
-                    numFrom(r, ["fk_academic_year_id", "academicYearId"]),
-                  ),
-                  label: strFrom(r, ["academic_year", "academicYear"]),
-                }))}
-                placeholder="Exam Year"
-                searchable
-              />
-            </GlobalFilterField>
-            <GlobalFilterField
-              label="Exam Master"
-              icon={ClipboardList}
-              className="!flex-[1_1_22rem] !min-w-[16rem]"
-            >
-              <Select
-                value={examId ? String(examId) : null}
-                onChange={(v) => {
-                  setSkipAutoSelect(false);
-                  clearResults();
-                  setExamId(v ? Number(v) : null);
-                }}
-                options={exams.map((r) => ({
-                  value: String(numFrom(r, ["fk_exam_id", "examId"])),
-                  label: strFrom(r, ["exam_name", "examName"]),
-                }))}
-                placeholder="Exam Master"
-                searchable
-              />
-            </GlobalFilterField>
-            <GlobalFilterField
-              label="College"
-              icon={Building2}
-              className="!flex-[0_1_7.5rem] !max-w-[8.5rem] !min-w-[6.5rem]"
-            >
-              <Select
-                value={collegeId ? String(collegeId) : null}
-                onChange={(v) => {
-                  setSkipAutoSelect(false);
-                  clearResults();
-                  setCollegeId(v ? Number(v) : null);
-                }}
-                options={colleges.map((r) => ({
-                  value: String(numFrom(r, ["fk_college_id", "collegeId"])),
-                  label: strFrom(r, [
-                    "college_code",
-                    "collegeCode",
-                    "college_name",
-                  ]),
-                }))}
-                placeholder="College"
-                searchable
-                isLoading={Boolean(examId) && loading}
-              />
-            </GlobalFilterField>
-            <div className="ml-auto flex shrink-0 flex-wrap items-center gap-3 self-end pb-0.5">
+        <div className="inv-allot-report-filters space-y-2">
+          <div className="inv-allot-report-filters__row">
+            <div className="inv-allot-report-filters__fx20">
+              <GlobalFilterField label="Course">
+                <Select
+                  value={courseId ? String(courseId) : null}
+                  onChange={(v) => {
+                    setSkipAutoSelect(false);
+                    clearResults();
+                    setCourseId(v ? Number(v) : null);
+                  }}
+                  options={courses.map((r) => ({
+                    value: String(numFrom(r, ["fk_course_id", "courseId"])),
+                    label: strFrom(r, [
+                      "course_code",
+                      "courseCode",
+                      "course_name",
+                    ]),
+                  }))}
+                  placeholder="Course"
+                  searchable
+                  isLoading={loading && baseRows.length === 0}
+                />
+              </GlobalFilterField>
+            </div>
+            <div className="inv-allot-report-filters__fx20">
+              <GlobalFilterField label="Exam Year">
+                <Select
+                  value={academicYearId ? String(academicYearId) : null}
+                  onChange={(v) => {
+                    setSkipAutoSelect(false);
+                    clearResults();
+                    setAcademicYearId(v ? Number(v) : null);
+                  }}
+                  options={academicYears.map((r) => ({
+                    value: String(
+                      numFrom(r, ["fk_academic_year_id", "academicYearId"]),
+                    ),
+                    label: strFrom(r, ["academic_year", "academicYear"]),
+                  }))}
+                  placeholder="Exam Year"
+                  searchable
+                />
+              </GlobalFilterField>
+            </div>
+            <div className="inv-allot-report-filters__fx60">
+              <GlobalFilterField label="Exam Master">
+                <Select
+                  value={examId ? String(examId) : null}
+                  onChange={(v) => {
+                    setSkipAutoSelect(false);
+                    clearResults();
+                    setExamId(v ? Number(v) : null);
+                  }}
+                  options={exams.map((r) => ({
+                    value: String(numFrom(r, ["fk_exam_id", "examId"])),
+                    label: strFrom(r, ["exam_name", "examName"]),
+                  }))}
+                  placeholder="Exam Master"
+                  searchable
+                />
+              </GlobalFilterField>
+            </div>
+          </div>
+          <div className="inv-allot-report-filters__row">
+            <div className="inv-allot-report-filters__fx20">
+              <GlobalFilterField label="College">
+                <Select
+                  value={collegeId ? String(collegeId) : null}
+                  onChange={(v) => {
+                    setSkipAutoSelect(false);
+                    clearResults();
+                    setCollegeId(v ? Number(v) : null);
+                  }}
+                  options={colleges.map((r) => ({
+                    value: String(numFrom(r, ["fk_college_id", "collegeId"])),
+                    label: strFrom(r, [
+                      "college_code",
+                      "collegeCode",
+                      "college_name",
+                    ]),
+                  }))}
+                  placeholder="College"
+                  searchable
+                  isLoading={Boolean(examId) && loading}
+                />
+              </GlobalFilterField>
+            </div>
+            <div className=" flex shrink-0 items-center gap-3  pb-0.5 inv-allot-report-filters__fx20">
               <Button
                 type="button"
-                className="h-8 text-[12px]"
+                className="h-8 text-[12px] w-full"
                 onClick={() => void handleGetReport()}
                 disabled={loading}
               >
@@ -486,16 +481,16 @@ export default function InvigilatorsRemunerationReportPage() {
               </Button>
               <Button
                 type="button"
-                variant="outline"
-                className="h-8 gap-1.5 text-[12px]"
-                onClick={handleReset}
+                variant="ghost"
+                size="icon"
+                className="h-[30px] w-[30px]"
                 title="Reset"
+                onClick={handleReset}
               >
-                <RotateCcw className="h-3.5 w-3.5" />
-                Reset
+                <RefreshCw className="h-4 w-4" />
               </Button>
             </div>
-          </GlobalFilterBarRow>
+          </div>
         </div>
       }
       rowData={rows}

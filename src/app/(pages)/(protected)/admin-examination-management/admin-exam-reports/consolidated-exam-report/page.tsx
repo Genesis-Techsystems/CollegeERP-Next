@@ -1,21 +1,24 @@
-'use client'
+"use client";
 
 /**
  * Consolidated Exam Report — Angular `consolidated-exam-report`.
  * By Course / By Student radios above the filter card; Get Report only (no Reset).
  */
 
-import { useEffect, useMemo, useState } from 'react'
-import { FilteredPage } from '@/components/layout'
-import { Button } from '@/components/ui/button'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { Select } from '@/common/components/select'
-import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
+import { useEffect, useMemo, useState } from "react";
+import { FilteredPage } from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Select } from "@/common/components/select";
+import {
+  GlobalFilterBarRow,
+  GlobalFilterField,
+} from "@/common/components/forms";
 import {
   downloadConsolidatedExamReportPdf,
   getFeeMasterCollegeFilters,
   searchStudentsByKeyword,
-} from '@/services'
+} from "@/services";
 import {
   filterAcademicYears,
   filterColleges,
@@ -25,8 +28,8 @@ import {
   pickNum,
   pickText,
   type FilterRow,
-} from '@/app/(pages)/(protected)/accounts-and-fees/fee-masters/_lib/fee-master-filters'
-import { toastError, toastSuccess } from '@/lib/toast'
+} from "@/app/(pages)/(protected)/accounts-and-fees/fee-masters/_lib/fee-master-filters";
+import { toastError, toastSuccess } from "@/lib/toast";
 import {
   Building2,
   CalendarDays,
@@ -35,220 +38,261 @@ import {
   Layers,
   School,
   UserRound,
-} from 'lucide-react'
+} from "lucide-react";
 
-type AnyRow = Record<string, any>
-type Mode = 'course' | 'student'
+type AnyRow = Record<string, any>;
+type Mode = "course" | "student";
 
 function toFilterRows(rows: AnyRow[]): FilterRow[] {
-  return rows as FilterRow[]
+  return rows as FilterRow[];
 }
 
 function openPdfBlob(blob: Blob) {
-  const url = URL.createObjectURL(blob)
-  window.open(url, '_blank', 'noopener,noreferrer')
-  setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  const url = URL.createObjectURL(blob);
+  window.open(url, "_blank", "noopener,noreferrer");
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 export default function ConsolidatedExamReportPage() {
-  const employeeId = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
-  const orgId = Number(globalThis?.localStorage?.getItem('organizationId') ?? 0)
+  const employeeId = Number(
+    globalThis?.localStorage?.getItem("employeeId") ?? 0,
+  );
+  const orgId = Number(
+    globalThis?.localStorage?.getItem("organizationId") ?? 0,
+  );
 
-  const [mode, setMode] = useState<Mode>('course')
-  const [loading, setLoading] = useState(false)
-  const [searchingStudents, setSearchingStudents] = useState(false)
+  const [mode, setMode] = useState<Mode>("course");
+  const [loading, setLoading] = useState(false);
+  const [searchingStudents, setSearchingStudents] = useState(false);
 
-  const [filtersData, setFiltersData] = useState<FilterRow[]>([])
-  const [academicData, setAcademicData] = useState<FilterRow[]>([])
+  const [filtersData, setFiltersData] = useState<FilterRow[]>([]);
+  const [academicData, setAcademicData] = useState<FilterRow[]>([]);
 
-  const [collegeId, setCollegeId] = useState<number | null>(null)
-  const [academicYearId, setAcademicYearId] = useState<number | null>(null)
-  const [courseId, setCourseId] = useState<number | null>(null)
-  const [courseGroupId, setCourseGroupId] = useState<number | null>(null)
-  const [courseYearId, setCourseYearId] = useState<number>(0)
-  const [skipAutoSelect, setSkipAutoSelect] = useState(false)
+  const [collegeId, setCollegeId] = useState<number | null>(null);
+  const [academicYearId, setAcademicYearId] = useState<number | null>(null);
+  const [courseId, setCourseId] = useState<number | null>(null);
+  const [courseGroupId, setCourseGroupId] = useState<number | null>(null);
+  const [courseYearId, setCourseYearId] = useState<number>(0);
+  const [skipAutoSelect, setSkipAutoSelect] = useState(false);
 
-  const [studentOptions, setStudentOptions] = useState<AnyRow[]>([])
-  const [studentId, setStudentId] = useState<number | null>(null)
+  const [studentOptions, setStudentOptions] = useState<AnyRow[]>([]);
+  const [studentId, setStudentId] = useState<number | null>(null);
 
-  const colleges = useMemo(() => filterColleges(filtersData), [filtersData])
+  const colleges = useMemo(() => filterColleges(filtersData), [filtersData]);
   const academicYears = useMemo(
     () => filterAcademicYears(academicData, collegeId, filtersData),
     [academicData, collegeId, filtersData],
-  )
+  );
   const courses = useMemo(
     () => filterCourses(filtersData, collegeId),
     [filtersData, collegeId],
-  )
+  );
   const courseGroups = useMemo(
     () => filterCourseGroups(filtersData, collegeId, courseId),
     [filtersData, collegeId, courseId],
-  )
+  );
   const courseYears = useMemo(
     () => filterCourseYears(filtersData, collegeId, courseId, courseGroupId),
     [filtersData, collegeId, courseId, courseGroupId],
-  )
+  );
 
   useEffect(() => {
-    let cancelled = false
+    let cancelled = false;
     async function init() {
-      setLoading(true)
+      setLoading(true);
       try {
-        const collegeFilters = await getFeeMasterCollegeFilters(orgId, employeeId)
-        if (cancelled) return
-        const nextFilters = toFilterRows(collegeFilters.filtersData ?? [])
-        const nextAy = toFilterRows(collegeFilters.academicData ?? [])
-        setFiltersData(nextFilters)
-        setAcademicData(nextAy)
-        const nextColleges = filterColleges(nextFilters)
-        setSkipAutoSelect(false)
-        setCollegeId(nextColleges[0] ? pickNum(nextColleges[0], ['fk_college_id', 'collegeId']) : null)
+        const collegeFilters = await getFeeMasterCollegeFilters(
+          orgId,
+          employeeId,
+        );
+        if (cancelled) return;
+        const nextFilters = toFilterRows(collegeFilters.filtersData ?? []);
+        const nextAy = toFilterRows(collegeFilters.academicData ?? []);
+        setFiltersData(nextFilters);
+        setAcademicData(nextAy);
+        const nextColleges = filterColleges(nextFilters);
+        setSkipAutoSelect(false);
+        setCollegeId(
+          nextColleges[0]
+            ? pickNum(nextColleges[0], ["fk_college_id", "collegeId"])
+            : null,
+        );
       } catch {
-        if (!cancelled) toastError('Failed to load filters')
+        if (!cancelled) toastError("Failed to load filters");
       } finally {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) setLoading(false);
       }
     }
-    void init()
+    void init();
     return () => {
-      cancelled = true
-    }
-  }, [orgId, employeeId])
+      cancelled = true;
+    };
+  }, [orgId, employeeId]);
 
   useEffect(() => {
     if (!collegeId) {
-      setAcademicYearId(null)
-      return
+      setAcademicYearId(null);
+      return;
     }
-    if (skipAutoSelect) return
-    const years = filterAcademicYears(academicData, collegeId, filtersData)
-    const current = years.find((r) => Number(r.is_curr_ay ?? 0) === 1)
+    if (skipAutoSelect) return;
+    const years = filterAcademicYears(academicData, collegeId, filtersData);
+    const current = years.find((r) => Number(r.is_curr_ay ?? 0) === 1);
     setAcademicYearId(
       current
-        ? pickNum(current, ['fk_academic_year_id', 'academicYearId'])
+        ? pickNum(current, ["fk_academic_year_id", "academicYearId"])
         : years[0]
-          ? pickNum(years[0], ['fk_academic_year_id', 'academicYearId'])
+          ? pickNum(years[0], ["fk_academic_year_id", "academicYearId"])
           : null,
-    )
-  }, [collegeId, academicData, filtersData, skipAutoSelect])
+    );
+  }, [collegeId, academicData, filtersData, skipAutoSelect]);
 
   useEffect(() => {
     if (!collegeId) {
-      setCourseId(null)
-      return
+      setCourseId(null);
+      return;
     }
-    if (skipAutoSelect) return
-    const list = filterCourses(filtersData, collegeId)
-    setCourseId(list[0] ? pickNum(list[0], ['fk_course_id', 'courseId']) : null)
-  }, [collegeId, filtersData, skipAutoSelect])
+    if (skipAutoSelect) return;
+    const list = filterCourses(filtersData, collegeId);
+    setCourseId(
+      list[0] ? pickNum(list[0], ["fk_course_id", "courseId"]) : null,
+    );
+  }, [collegeId, filtersData, skipAutoSelect]);
 
   useEffect(() => {
     if (!collegeId || !courseId) {
-      setCourseGroupId(null)
-      return
+      setCourseGroupId(null);
+      return;
     }
-    if (skipAutoSelect) return
-    const list = filterCourseGroups(filtersData, collegeId, courseId)
-    setCourseGroupId(list[0] ? pickNum(list[0], ['fk_course_group_id', 'courseGroupId']) : null)
-  }, [collegeId, courseId, filtersData, skipAutoSelect])
+    if (skipAutoSelect) return;
+    const list = filterCourseGroups(filtersData, collegeId, courseId);
+    setCourseGroupId(
+      list[0]
+        ? pickNum(list[0], ["fk_course_group_id", "courseGroupId"])
+        : null,
+    );
+  }, [collegeId, courseId, filtersData, skipAutoSelect]);
 
   useEffect(() => {
     if (!collegeId || !courseId || !courseGroupId) {
-      setCourseYearId(0)
-      return
+      setCourseYearId(0);
+      return;
     }
-    if (skipAutoSelect) return
-    const list = filterCourseYears(filtersData, collegeId, courseId, courseGroupId)
-    setCourseYearId(list[0] ? pickNum(list[0], ['fk_course_year_id', 'courseYearId']) : 0)
-  }, [collegeId, courseId, courseGroupId, filtersData, skipAutoSelect])
+    if (skipAutoSelect) return;
+    const list = filterCourseYears(
+      filtersData,
+      collegeId,
+      courseId,
+      courseGroupId,
+    );
+    setCourseYearId(
+      list[0] ? pickNum(list[0], ["fk_course_year_id", "courseYearId"]) : 0,
+    );
+  }, [collegeId, courseId, courseGroupId, filtersData, skipAutoSelect]);
 
   function handleModeChange(next: Mode) {
-    setMode(next)
-    setStudentId(null)
-    setStudentOptions([])
+    setMode(next);
+    setStudentId(null);
+    setStudentOptions([]);
   }
 
   /** Angular `enteredStudent` — search when length > 4. */
   async function handleStudentSearch(term: string) {
-    const q = term.trim()
+    const q = term.trim();
     if (q.length <= 4) {
-      if (!q) setStudentOptions([])
-      return
+      if (!q) setStudentOptions([]);
+      return;
     }
-    setSearchingStudents(true)
+    setSearchingStudents(true);
     try {
-      const rows = await searchStudentsByKeyword(q)
-      setStudentOptions(rows)
+      const rows = await searchStudentsByKeyword(q);
+      setStudentOptions(rows);
     } catch (e) {
-      toastError(e instanceof Error ? e.message : 'Failed to search students')
+      toastError(e instanceof Error ? e.message : "Failed to search students");
     } finally {
-      setSearchingStudents(false)
+      setSearchingStudents(false);
     }
   }
 
   function handleStudentChange(value: string | null) {
-    const id = value ? Number(value) : null
-    setStudentId(id)
-    if (!id) return
+    const id = value ? Number(value) : null;
+    setStudentId(id);
+    if (!id) return;
     const std = studentOptions.find(
       (r) => Number(r.studentId ?? r.student_id ?? r.fk_student_id) === id,
-    )
-    if (!std) return
-    setSkipAutoSelect(false)
-    const nextCollege = Number(std.collegeId ?? std.fk_college_id ?? 0) || null
-    const nextCourse = Number(std.courseId ?? std.fk_course_id ?? 0) || null
-    const nextAy = Number(std.academicYearId ?? std.fk_academic_year_id ?? 0) || null
-    if (nextCollege) setCollegeId(nextCollege)
-    if (nextCourse) setCourseId(nextCourse)
-    if (nextAy) setAcademicYearId(nextAy)
+    );
+    if (!std) return;
+    setSkipAutoSelect(false);
+    const nextCollege = Number(std.collegeId ?? std.fk_college_id ?? 0) || null;
+    const nextCourse = Number(std.courseId ?? std.fk_course_id ?? 0) || null;
+    const nextAy =
+      Number(std.academicYearId ?? std.fk_academic_year_id ?? 0) || null;
+    if (nextCollege) setCollegeId(nextCollege);
+    if (nextCourse) setCourseId(nextCourse);
+    if (nextAy) setAcademicYearId(nextAy);
   }
 
   async function handleGetReport() {
-    if (mode === 'student') {
+    if (mode === "student") {
       if (!studentId) {
-        toastError('Please select a student')
-        return
+        toastError("Please select a student");
+        return;
       }
-      setLoading(true)
+      setLoading(true);
       try {
         const std = studentOptions.find(
-          (r) => Number(r.studentId ?? r.student_id ?? r.fk_student_id) === Number(studentId),
-        )
+          (r) =>
+            Number(r.studentId ?? r.student_id ?? r.fk_student_id) ===
+            Number(studentId),
+        );
         const blob = await downloadConsolidatedExamReportPdf({
-          flag: 'exam_final_std_result_detail',
+          flag: "exam_final_std_result_detail",
           examId: 0,
           collegeId:
-            Number(std?.collegeId ?? std?.fk_college_id ?? collegeId ?? 0) || collegeId || 0,
-          courseId: Number(std?.courseId ?? std?.fk_course_id ?? courseId ?? 0) || courseId || 0,
+            Number(std?.collegeId ?? std?.fk_college_id ?? collegeId ?? 0) ||
+            collegeId ||
+            0,
+          courseId:
+            Number(std?.courseId ?? std?.fk_course_id ?? courseId ?? 0) ||
+            courseId ||
+            0,
           courseGroupId: 0,
           courseYearId: 0,
           academicYearId:
-            Number(std?.academicYearId ?? std?.fk_academic_year_id ?? academicYearId ?? 0) ||
+            Number(
+              std?.academicYearId ??
+                std?.fk_academic_year_id ??
+                academicYearId ??
+                0,
+            ) ||
             academicYearId ||
             0,
           studentId,
           regulationId: 0,
           subjectId: 0,
-        })
-        openPdfBlob(blob)
-        toastSuccess('Student PDF generated')
+        });
+        openPdfBlob(blob);
+        toastSuccess("Student PDF generated");
       } catch (e) {
-        toastError(e instanceof Error ? e.message : 'Failed to generate student PDF')
+        toastError(
+          e instanceof Error ? e.message : "Failed to generate student PDF",
+        );
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-      return
+      return;
     }
 
     if (!collegeId || !academicYearId || !courseId || !courseGroupId) {
-      toastError('Please select College, Academic Year, Course, and Course Group')
-      return
+      toastError(
+        "Please select College, Academic Year, Course, and Course Group",
+      );
+      return;
     }
-    setLoading(true)
+    setLoading(true);
     try {
       // Angular downloadCourseWise() always sends courseYearId: 0 for the PDF.
       const blob = await downloadConsolidatedExamReportPdf({
-        flag: 'exam_final_std_result_detail',
+        flag: "exam_final_std_result_detail",
         examId: 0,
         collegeId,
         courseId,
@@ -258,13 +302,13 @@ export default function ConsolidatedExamReportPage() {
         studentId: 0,
         regulationId: 0,
         subjectId: 0,
-      })
-      openPdfBlob(blob)
-      toastSuccess('PDF generated successfully')
+      });
+      openPdfBlob(blob);
+      toastSuccess("PDF generated successfully");
     } catch (e) {
-      toastError(e instanceof Error ? e.message : 'Failed to generate PDF')
+      toastError(e instanceof Error ? e.message : "Failed to generate PDF");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
@@ -275,161 +319,192 @@ export default function ConsolidatedExamReportPage() {
         onValueChange={(v) => handleModeChange(v as Mode)}
         className="flex flex-nowrap items-center gap-6"
       >
-        <label className="flex items-center gap-2 whitespace-nowrap text-sm font-medium">
+        <label className="flex items-center gap-2 whitespace-nowrap text-[14px] font-medium">
           <RadioGroupItem value="course" id="consolidated-mode-course" />
           By Course
         </label>
-        <label className="flex items-center gap-2 whitespace-nowrap text-sm font-medium">
+        <label className="flex items-center gap-2 whitespace-nowrap text-[14px]font-medium">
           <RadioGroupItem value="student" id="consolidated-mode-student" />
           By Student
         </label>
       </RadioGroup>
     </div>
-  )
+  );
 
   const getReportButton = (
-    <div className="flex shrink-0 items-center self-end pb-0.5">
+    <div className="inv-allot-report-filters__fx15 flex shrink-0 items-center self-end pb-0.5">
       <Button
         type="button"
-        className="h-8 gap-1.5 text-[12px]"
+        className="h-8 gap-1.5 text-[12px] w-full"
         onClick={() => void handleGetReport()}
         disabled={loading}
       >
-        <FileDown className="h-3.5 w-3.5" />
-        {loading ? 'Generating...' : 'Get Report'}
+        {loading ? "Generating..." : "Get Report"}
       </Button>
     </div>
-  )
+  );
 
   return (
     <FilteredPage
       title="Consolidated Exam Report"
       notice={modeToggle}
       filters={
-        mode === 'course' ? (
-          <GlobalFilterBarRow className="!flex-nowrap overflow-x-auto">
-            <GlobalFilterField label="College" icon={Building2} className="!min-w-[9rem]">
-              <Select
-                value={collegeId ? String(collegeId) : null}
-                onChange={(v) => {
-                  setSkipAutoSelect(false)
-                  setCollegeId(v ? Number(v) : null)
-                }}
-                options={colleges.map((r) => ({
-                  value: String(pickNum(r, ['fk_college_id', 'collegeId'])),
-                  label: pickText(r, ['college_code', 'collegeCode', 'college_name']),
-                }))}
-                placeholder="College"
-                searchable
-                isLoading={loading && filtersData.length === 0}
-              />
-            </GlobalFilterField>
-            <GlobalFilterField label="Academic Year" icon={CalendarDays} className="!min-w-[9rem]">
-              <Select
-                value={academicYearId ? String(academicYearId) : null}
-                onChange={(v) => {
-                  setSkipAutoSelect(false)
-                  setAcademicYearId(v ? Number(v) : null)
-                }}
-                options={academicYears.map((r) => ({
-                  value: String(pickNum(r, ['fk_academic_year_id', 'academicYearId'])),
-                  label: pickText(r, ['academic_year', 'academicYear']),
-                }))}
-                placeholder="Academic Year"
-                searchable
-              />
-            </GlobalFilterField>
-            <GlobalFilterField label="Course" icon={GraduationCap} className="!min-w-[9rem]">
-              <Select
-                value={courseId ? String(courseId) : null}
-                onChange={(v) => {
-                  setSkipAutoSelect(false)
-                  setCourseId(v ? Number(v) : null)
-                }}
-                options={courses.map((r) => ({
-                  value: String(pickNum(r, ['fk_course_id', 'courseId'])),
-                  label: pickText(r, ['course_code', 'courseCode', 'course_name']),
-                }))}
-                placeholder="Course"
-                searchable
-              />
-            </GlobalFilterField>
-            <GlobalFilterField label="Course Group" icon={School} className="!min-w-[9rem]">
-              <Select
-                value={courseGroupId ? String(courseGroupId) : null}
-                onChange={(v) => {
-                  setSkipAutoSelect(false)
-                  setCourseGroupId(v ? Number(v) : null)
-                }}
-                options={courseGroups.map((r) => ({
-                  value: String(pickNum(r, ['fk_course_group_id', 'courseGroupId'])),
-                  label: pickText(r, ['group_code', 'groupCode', 'course_group_code']),
-                }))}
-                placeholder="Course Group"
-                searchable
-              />
-            </GlobalFilterField>
-            <GlobalFilterField label="Course Year" icon={Layers} className="!min-w-[9rem]">
-              <Select
-                value={String(courseYearId)}
-                onChange={(v) => setCourseYearId(v ? Number(v) : 0)}
-                options={[
-                  { value: '0', label: 'All' },
-                  ...courseYears.map((r) => ({
-                    value: String(pickNum(r, ['fk_course_year_id', 'courseYearId'])),
-                    label: pickText(r, [
-                      'course_year_name',
-                      'courseYearName',
-                      'course_year_code',
-                      'courseYearCode',
-                    ]),
-                  })),
-                ]}
-                placeholder="Course Year"
-                searchable
-              />
-            </GlobalFilterField>
-            {getReportButton}
-          </GlobalFilterBarRow>
+        mode === "course" ? (
+          <div className="inv-allot-report-filters space-y-2">
+            <div className="inv-allot-report-filters__row">
+              <div className="inv-allot-report-filters__fx15">
+                <GlobalFilterField label="College">
+                  <Select
+                    value={collegeId ? String(collegeId) : null}
+                    onChange={(v) => {
+                      setSkipAutoSelect(false);
+                      setCollegeId(v ? Number(v) : null);
+                    }}
+                    options={colleges.map((r) => ({
+                      value: String(pickNum(r, ["fk_college_id", "collegeId"])),
+                      label: pickText(r, [
+                        "college_code",
+                        "collegeCode",
+                        "college_name",
+                      ]),
+                    }))}
+                    placeholder="College"
+                    searchable
+                    isLoading={loading && filtersData.length === 0}
+                  />
+                </GlobalFilterField>
+              </div>
+              <div className="inv-allot-report-filters__fx15">
+                <GlobalFilterField label="Academic Year">
+                  <Select
+                    value={academicYearId ? String(academicYearId) : null}
+                    onChange={(v) => {
+                      setSkipAutoSelect(false);
+                      setAcademicYearId(v ? Number(v) : null);
+                    }}
+                    options={academicYears.map((r) => ({
+                      value: String(
+                        pickNum(r, ["fk_academic_year_id", "academicYearId"]),
+                      ),
+                      label: pickText(r, ["academic_year", "academicYear"]),
+                    }))}
+                    placeholder="Academic Year"
+                    searchable
+                  />
+                </GlobalFilterField>
+              </div>
+              <div className="inv-allot-report-filters__fx15">
+                <GlobalFilterField label="Course">
+                  <Select
+                    value={courseId ? String(courseId) : null}
+                    onChange={(v) => {
+                      setSkipAutoSelect(false);
+                      setCourseId(v ? Number(v) : null);
+                    }}
+                    options={courses.map((r) => ({
+                      value: String(pickNum(r, ["fk_course_id", "courseId"])),
+                      label: pickText(r, [
+                        "course_code",
+                        "courseCode",
+                        "course_name",
+                      ]),
+                    }))}
+                    placeholder="Course"
+                    searchable
+                  />
+                </GlobalFilterField>
+              </div>
+              <div className="inv-allot-report-filters__fx15">
+                <GlobalFilterField label="Course Group">
+                  <Select
+                    value={courseGroupId ? String(courseGroupId) : null}
+                    onChange={(v) => {
+                      setSkipAutoSelect(false);
+                      setCourseGroupId(v ? Number(v) : null);
+                    }}
+                    options={courseGroups.map((r) => ({
+                      value: String(
+                        pickNum(r, ["fk_course_group_id", "courseGroupId"]),
+                      ),
+                      label: pickText(r, [
+                        "group_code",
+                        "groupCode",
+                        "course_group_code",
+                      ]),
+                    }))}
+                    placeholder="Course Group"
+                    searchable
+                  />
+                </GlobalFilterField>
+              </div>
+              <div className="inv-allot-report-filters__fx15">
+                <GlobalFilterField label="Course Year">
+                  <Select
+                    value={String(courseYearId)}
+                    onChange={(v) => setCourseYearId(v ? Number(v) : 0)}
+                    options={[
+                      { value: "0", label: "All" },
+                      ...courseYears.map((r) => ({
+                        value: String(
+                          pickNum(r, ["fk_course_year_id", "courseYearId"]),
+                        ),
+                        label: pickText(r, [
+                          "course_year_name",
+                          "courseYearName",
+                          "course_year_code",
+                          "courseYearCode",
+                        ]),
+                      })),
+                    ]}
+                    placeholder="Course Year"
+                    searchable
+                  />
+                </GlobalFilterField>
+              </div>
+              {getReportButton}
+            </div>
+          </div>
         ) : (
-          <GlobalFilterBarRow className="!flex-nowrap overflow-x-auto">
-            <GlobalFilterField
-              label="Student"
-              icon={UserRound}
-              className="!min-w-[12rem] !max-w-[16rem] !flex-[0_0_16rem]"
-            >
-              <Select
-                value={studentId ? String(studentId) : null}
-                onChange={handleStudentChange}
-                onSearch={(term) => void handleStudentSearch(term)}
-                options={studentOptions.map((r) => {
-                  const id = Number(r.studentId ?? r.student_id ?? r.fk_student_id)
-                  const roll = pickText(r, [
-                    'rollNumber',
-                    'roll_number',
-                    'hallticketNumber',
-                    'hallticket_number',
-                  ])
-                  const name = pickText(r, [
-                    'firstName',
-                    'first_name',
-                    'studentName',
-                    'student_name',
-                  ])
-                  return {
-                    value: String(id),
-                    label: name ? `${roll} (${name})` : roll || String(id),
-                  }
-                })}
-                placeholder="Student"
-                searchable
-                isLoading={searchingStudents}
-              />
-            </GlobalFilterField>
-            {getReportButton}
-          </GlobalFilterBarRow>
+          <div className="inv-allot-report-filters space-y-2">
+            <div className="inv-allot-report-filters__row">
+              <div className="inv-allot-report-filters__fx30">
+                <GlobalFilterField label="Student">
+                  <Select
+                    value={studentId ? String(studentId) : null}
+                    onChange={handleStudentChange}
+                    onSearch={(term) => void handleStudentSearch(term)}
+                    options={studentOptions.map((r) => {
+                      const id = Number(
+                        r.studentId ?? r.student_id ?? r.fk_student_id,
+                      );
+                      const roll = pickText(r, [
+                        "rollNumber",
+                        "roll_number",
+                        "hallticketNumber",
+                        "hallticket_number",
+                      ]);
+                      const name = pickText(r, [
+                        "firstName",
+                        "first_name",
+                        "studentName",
+                        "student_name",
+                      ]);
+                      return {
+                        value: String(id),
+                        label: name ? `${roll} (${name})` : roll || String(id),
+                      };
+                    })}
+                    placeholder="Student"
+                    searchable
+                    isLoading={searchingStudents}
+                  />
+                </GlobalFilterField>
+              </div>
+              {getReportButton}
+            </div>
+          </div>
         )
       }
     />
-  )
+  );
 }

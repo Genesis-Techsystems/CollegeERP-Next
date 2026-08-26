@@ -80,6 +80,7 @@ const PRINT_CSS = `
   .title-col {
     flex: 1 1 88%;
     text-align: center;
+    font-size: 16px;
   }
   .suk-banner {
     width: 100%;
@@ -112,7 +113,7 @@ const PRINT_CSS = `
   }
   .exam {
     text-align: center;
-    font-size: 14px;
+    font-size: 16px;
     margin: 4px 0 0;
   }
   .meta-line {

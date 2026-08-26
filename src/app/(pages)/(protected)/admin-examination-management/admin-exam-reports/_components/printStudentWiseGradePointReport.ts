@@ -51,77 +51,111 @@ const PRINT_CSS = `
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-  .wrap { padding: 12px 16px; width: 98%; }
+  .wrap {
+    padding: 6px 8px;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+  }
   .header-row {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 16px;
-    margin-bottom: 8px;
+    gap: 12px;
+    margin-bottom: 6px;
   }
   .logo-col {
-    width: 90px;
-    min-width: 90px;
+    width: 70px;
+    min-width: 70px;
     display: flex;
     align-items: center;
     justify-content: center;
   }
   .logo-col img {
-    max-width: 78px;
-    max-height: 78px;
+    max-width: 64px;
+    max-height: 64px;
     object-fit: contain;
   }
   .title-col {
     flex: 1;
     text-align: center;
+    
   }
   .college-name {
     text-align: center;
-    font-size: 26px;
+    font-size: 22px;
     font-weight: 700;
-    margin: 8px 0 2px;
+    margin: 4px 0 2px;
   }
   .title {
     text-align: center;
-    font-size: 22px;
+    font-size: 20px;
     font-weight: 600;
-    margin: 4px 0 16px;
+    margin: 2px 0 8px;
   }
   .details {
     text-align: center;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
-    margin: -8px 0 12px;
+    margin: -4px 0 8px;
   }
   .branch {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
-    margin: 0 0 12px;
+    margin: 0 0 8px;
   }
+  /* Wide grade matrix — fit page; last column must stay readable */
   table.data {
     width: 100%;
+    max-width: 100%;
     border-collapse: collapse;
-    margin-bottom: 12px;
-    font-size: 12px;
+    margin-bottom: 10px;
+    font-size: 8px;
+    table-layout: fixed;
   }
   table.data th,
   table.data td {
     border: 1px solid #333;
-    padding: 4px 6px;
+    padding: 1px 2px;
     text-align: center;
     vertical-align: middle;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
   table.data th {
     background: #f2f2f2;
     font-weight: 600;
+    font-size: 7.5px;
+  }
+  table.data .col-roll {
+    width: 7.5%;
+    font-size: 7px;
+  }
+  table.data .col-sgpa,
+  table.data .col-fail-count {
+    width: 3.5%;
+  }
+  /* Failed Subjects — reserve space + wrap codes so they are not clipped */
+  table.data .col-failed {
+    width: 12%;
+    min-width: 72px;
+    text-align: left;
+    font-size: 7px;
+    line-height: 1.25;
+    white-space: normal;
+    word-break: break-all;
   }
   .analysis-title {
     text-align: center;
-    font-size: 18px;
+    font-size: 14px;
     font-weight: 700;
-    margin: 20px 0 10px;
+    margin: 14px 0 8px;
   }
-  @page { margin: 12mm; }
+  /* Portrait clips this wide table; landscape matches usable print width */
+  @page {
+    size: A4 landscape;
+    margin: 6mm;
+  }
 `;
 
 function buildTableHtml(
@@ -136,11 +170,11 @@ function buildTableHtml(
     .join("");
   const head = `
     <tr>
-      <th rowspan="2">ROLL NO</th>
+      <th rowspan="2" class="col-roll">ROLL NO</th>
       ${topHeads}
-      <th rowspan="2">SGPA</th>
-      <th rowspan="2">Fail Count</th>
-      <th rowspan="2">Failed Subjects</th>
+      <th rowspan="2" class="col-sgpa">SGPA</th>
+      <th rowspan="2" class="col-fail-count">Fail Count</th>
+      <th rowspan="2" class="col-failed">Failed Subjects</th>
     </tr>
     <tr>${subHeads}</tr>`;
 
@@ -154,11 +188,11 @@ function buildTableHtml(
         )
         .join("");
       return `<tr>
-        <td>${escapeHtml(cell(first, ["hallticket_number", "hall_ticketno"]))}</td>
+        <td class="col-roll">${escapeHtml(cell(first, ["hallticket_number", "hall_ticketno"]))}</td>
         ${subjectCells}
-        <td>${escapeHtml(cell(first, ["sgpa"]))}</td>
-        <td>${escapeHtml(cell(first, ["total_fail_subjects"]))}</td>
-        <td>${escapeHtml(cell(first, ["failed_subjects"]))}</td>
+        <td class="col-sgpa">${escapeHtml(cell(first, ["sgpa"]))}</td>
+        <td class="col-fail-count">${escapeHtml(cell(first, ["total_fail_subjects"]))}</td>
+        <td class="col-failed">${escapeHtml(cell(first, ["failed_subjects"]))}</td>
       </tr>`;
     })
     .join("");

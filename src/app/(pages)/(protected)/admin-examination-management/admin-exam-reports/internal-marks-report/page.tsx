@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ColDef } from "ag-grid-community";
+import type { ColDef, IHeaderParams } from "ag-grid-community";
 import { format, parseISO } from "date-fns";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,7 @@ import {
   GraduationCap,
   Layers,
   Printer,
+  RefreshCw,
   RotateCcw,
   School,
 } from "lucide-react";
@@ -49,6 +50,28 @@ const TOOLBAR = {
   exportPdf: false,
   exportExcel: false,
 } as const;
+
+/**
+ * Angular subject `<th class="subject-header">`:
+ *   subject_code
+ *   (subject_name)  ← border-bottom line
+ *   Max Marks(n)
+ */
+type SubjectHeaderParams = IHeaderParams & {
+  subjectCode: string;
+  subjectName: string;
+  maxMarks: string | number;
+};
+
+function InternalMarksSubjectHeader(props: SubjectHeaderParams) {
+  return (
+    <div className="imr-subject-header">
+      <div className="imr-subject-header__code">{props.subjectCode}</div>
+      <div className="imr-subject-header__name">({props.subjectName})</div>
+      <div className="imr-subject-header__max">Max Marks({props.maxMarks})</div>
+    </div>
+  );
+}
 
 function parseMaybeDate(v: unknown): string {
   const s = String(v ?? "").trim();
@@ -309,12 +332,20 @@ export default function InternalMarksReportPage() {
     const subjectColDefs: ColDef<AnyRow>[] = subjectCols.map((col) => {
       const max = maxMarksBySubject[col.subject_code] ?? " ";
       return {
-        headerName: `${col.subject_code} (${col.subject_name}) Max(${max})`,
+        headerName: `${col.subject_code} (${col.subject_name})\nMax Marks(${max})`,
+        headerComponent: InternalMarksSubjectHeader,
+        headerComponentParams: {
+          subjectCode: col.subject_code,
+          subjectName: col.subject_name,
+          maxMarks: max,
+        },
+        headerClass: "imr-subject-header-cell",
         colId: col.subject_code,
-        minWidth: 150,
-        width: 150,
+        minWidth: 130,
+        width: 140,
+        wrapHeaderText: true,
+        autoHeaderHeight: true,
         cellClass: "text-center",
-        headerClass: "ag-center-header",
         valueGetter: (p) => String(p.data?.[col.subject_code] ?? " "),
       };
     });
@@ -324,6 +355,8 @@ export default function InternalMarksReportPage() {
         field: "total_marks_scored",
         minWidth: 130,
         width: 130,
+        wrapHeaderText: true,
+        autoHeaderHeight: true,
         cellClass: "text-center",
       },
       {
@@ -331,6 +364,8 @@ export default function InternalMarksReportPage() {
         field: "total_max_marks",
         minWidth: 140,
         width: 140,
+        wrapHeaderText: true,
+        autoHeaderHeight: true,
         cellClass: "text-center",
       },
       {
@@ -338,6 +373,8 @@ export default function InternalMarksReportPage() {
         field: "total_percentage",
         minWidth: 120,
         width: 120,
+        wrapHeaderText: true,
+        autoHeaderHeight: true,
         cellClass: "text-center",
       },
     ];
@@ -672,174 +709,185 @@ export default function InternalMarksReportPage() {
     <FilteredListPage
       title="Internal Marks Report"
       filters={
-        <div className="space-y-3">
+        <div className="inv-allot-report-filters space-y-2">
           {/* Angular fxFlex: Course 20 / Exam Year 20 / Exam Master 60 */}
-          <GlobalFilterBarRow className="global-filter-bar__row--mbs-r1">
-            <GlobalFilterField
-              label="Course"
-              icon={GraduationCap}
-              className="global-filter-field--fx20"
-            >
-              <Select
-                value={courseId ? String(courseId) : null}
-                onChange={(v) => {
-                  setSkipAutoSelect(false);
-                  clearResults();
-                  setCourseId(v ? Number(v) : null);
-                }}
-                options={courses.map((r) => ({
-                  value: String(numFrom(r, ["fk_course_id", "courseId"])),
-                  label: strFrom(r, [
-                    "course_code",
-                    "courseCode",
-                    "course_name",
-                  ]),
-                }))}
-                placeholder="Course"
-                searchable
-                isLoading={loading && baseRows.length === 0}
-              />
-            </GlobalFilterField>
-            <GlobalFilterField
-              label="Exam Year"
-              icon={CalendarDays}
-              className="global-filter-field--fx20"
-            >
-              <Select
-                value={academicYearId ? String(academicYearId) : null}
-                onChange={(v) => {
-                  setSkipAutoSelect(false);
-                  clearResults();
-                  setAcademicYearId(v ? Number(v) : null);
-                }}
-                options={academicYears.map((r) => ({
-                  value: String(
-                    numFrom(r, ["fk_academic_year_id", "academicYearId"]),
-                  ),
-                  label: strFrom(r, ["academic_year", "academicYear"]),
-                }))}
-                placeholder="Exam Year"
-                searchable
-              />
-            </GlobalFilterField>
-            <GlobalFilterField
-              label="Exam Master"
-              icon={ClipboardList}
-              className="global-filter-field--fx60"
-            >
-              <Select
-                value={examId ? String(examId) : null}
-                onChange={(v) => {
-                  setSkipAutoSelect(false);
-                  clearResults();
-                  setExamId(v ? Number(v) : null);
-                }}
-                options={exams.map((r) => ({
-                  value: String(numFrom(r, ["fk_exam_id", "examId"])),
-                  label: examMasterLabel(r),
-                }))}
-                placeholder="Exam Master"
-                searchable
-              />
-            </GlobalFilterField>
-          </GlobalFilterBarRow>
+          <div className="inv-allot-report-filters__row">
+            <div className="inv-allot-report-filters__fx20">
+              <GlobalFilterField
+                label="Course"
+                icon={GraduationCap}
+                className="global-filter-field--fx20"
+              >
+                <Select
+                  value={courseId ? String(courseId) : null}
+                  onChange={(v) => {
+                    setSkipAutoSelect(false);
+                    clearResults();
+                    setCourseId(v ? Number(v) : null);
+                  }}
+                  options={courses.map((r) => ({
+                    value: String(numFrom(r, ["fk_course_id", "courseId"])),
+                    label: strFrom(r, [
+                      "course_code",
+                      "courseCode",
+                      "course_name",
+                    ]),
+                  }))}
+                  placeholder="Course"
+                  searchable
+                  isLoading={loading && baseRows.length === 0}
+                />
+              </GlobalFilterField>
+            </div>
+            <div className="inv-allot-report-filters__fx20">
+              <GlobalFilterField
+                label="Exam Year"
+                icon={CalendarDays}
+                className="global-filter-field--fx20"
+              >
+                <Select
+                  value={academicYearId ? String(academicYearId) : null}
+                  onChange={(v) => {
+                    setSkipAutoSelect(false);
+                    clearResults();
+                    setAcademicYearId(v ? Number(v) : null);
+                  }}
+                  options={academicYears.map((r) => ({
+                    value: String(
+                      numFrom(r, ["fk_academic_year_id", "academicYearId"]),
+                    ),
+                    label: strFrom(r, ["academic_year", "academicYear"]),
+                  }))}
+                  placeholder="Exam Year"
+                  searchable
+                />
+              </GlobalFilterField>
+            </div>
+            <div className="inv-allot-report-filters__fx60">
+              <GlobalFilterField
+                label="Exam Master"
+                icon={ClipboardList}
+                className="global-filter-field--fx60"
+              >
+                <Select
+                  value={examId ? String(examId) : null}
+                  onChange={(v) => {
+                    setSkipAutoSelect(false);
+                    clearResults();
+                    setExamId(v ? Number(v) : null);
+                  }}
+                  options={exams.map((r) => ({
+                    value: String(numFrom(r, ["fk_exam_id", "examId"])),
+                    label: examMasterLabel(r),
+                  }))}
+                  placeholder="Exam Master"
+                  searchable
+                />
+              </GlobalFilterField>
+            </div>
+          </div>
 
-          {/* Angular fxFlex: College 20 / Course Group 20 / Course Years 20 / Get Report 15 */}
-          <GlobalFilterBarRow className="global-filter-bar__row--mbs-r2">
-            <GlobalFilterField
-              label="College"
-              icon={Building2}
-              className="global-filter-field--fx20"
-            >
-              <Select
-                value={collegeId ? String(collegeId) : null}
-                onChange={(v) => {
-                  setSkipAutoSelect(false);
-                  clearResults();
-                  setCollegeId(v ? Number(v) : null);
-                }}
-                options={colleges.map((r) => ({
-                  value: String(numFrom(r, ["fk_college_id", "collegeId"])),
-                  label: strFrom(r, [
-                    "college_code",
-                    "collegeCode",
-                    "college_name",
-                  ]),
-                }))}
-                placeholder="College"
-                searchable
-                isLoading={Boolean(examId) && loading}
-              />
-            </GlobalFilterField>
-            <GlobalFilterField
-              label="Course Group"
-              icon={Layers}
-              className="global-filter-field--fx20"
-            >
-              <Select
-                value={String(courseGroupId)}
-                onChange={(v) => {
-                  setSkipAutoSelect(false);
-                  clearResults();
-                  setCourseGroupId(v ? Number(v) : 0);
-                }}
-                options={[
-                  { value: "0", label: "All" },
-                  ...courseGroups.map((r) => ({
-                    value: String(
-                      numFrom(r, ["fk_course_group_id", "courseGroupId"]),
-                    ),
+          <div className="inv-allot-report-filters__row">
+            <div className="inv-allot-report-filters__fx20">
+              <GlobalFilterField
+                label="College"
+                icon={Building2}
+                className="global-filter-field--fx20"
+              >
+                <Select
+                  value={collegeId ? String(collegeId) : null}
+                  onChange={(v) => {
+                    setSkipAutoSelect(false);
+                    clearResults();
+                    setCollegeId(v ? Number(v) : null);
+                  }}
+                  options={colleges.map((r) => ({
+                    value: String(numFrom(r, ["fk_college_id", "collegeId"])),
                     label: strFrom(r, [
-                      "group_code",
-                      "groupCode",
-                      "group_name",
+                      "college_code",
+                      "collegeCode",
+                      "college_name",
                     ]),
-                  })),
-                ]}
-                placeholder="Course Group"
-                searchable
-              />
-            </GlobalFilterField>
-            <GlobalFilterField
-              label="Course Years"
-              icon={School}
-              className="global-filter-field--fx20"
-            >
-              <Select
-                value={String(courseYearId)}
-                onChange={(v) => {
-                  setSkipAutoSelect(false);
-                  clearResults();
-                  setCourseYearId(v ? Number(v) : 0);
-                }}
-                options={[
-                  { value: "0", label: "All" },
-                  ...courseYears.map((r) => ({
-                    value: String(
-                      numFrom(r, ["fk_course_year_id", "courseYearId"]),
-                    ),
-                    label: strFrom(r, [
-                      "course_year_code",
-                      "courseYearCode",
-                      "course_year",
-                    ]),
-                  })),
-                ]}
-                placeholder="Course Years"
-                searchable
-              />
-            </GlobalFilterField>
-            <div className="global-filter-field global-filter-field--action global-filter-field--fx15 flex items-center self-end pb-0.5">
+                  }))}
+                  placeholder="College"
+                  searchable
+                  isLoading={Boolean(examId) && loading}
+                />
+              </GlobalFilterField>
+            </div>
+            <div className="inv-allot-report-filters__fx20">
+              <GlobalFilterField
+                label="Course Group"
+                icon={Layers}
+                className="global-filter-field--fx20"
+              >
+                <Select
+                  value={String(courseGroupId)}
+                  onChange={(v) => {
+                    setSkipAutoSelect(false);
+                    clearResults();
+                    setCourseGroupId(v ? Number(v) : 0);
+                  }}
+                  options={[
+                    { value: "0", label: "All" },
+                    ...courseGroups.map((r) => ({
+                      value: String(
+                        numFrom(r, ["fk_course_group_id", "courseGroupId"]),
+                      ),
+                      label: strFrom(r, [
+                        "group_code",
+                        "groupCode",
+                        "group_name",
+                      ]),
+                    })),
+                  ]}
+                  placeholder="Course Group"
+                  searchable
+                />
+              </GlobalFilterField>
+            </div>
+            <div className="inv-allot-report-filters__fx20">
+              <GlobalFilterField
+                label="Course Years"
+                icon={School}
+                className="global-filter-field--fx20"
+              >
+                <Select
+                  value={String(courseYearId)}
+                  onChange={(v) => {
+                    setSkipAutoSelect(false);
+                    clearResults();
+                    setCourseYearId(v ? Number(v) : 0);
+                  }}
+                  options={[
+                    { value: "0", label: "All" },
+                    ...courseYears.map((r) => ({
+                      value: String(
+                        numFrom(r, ["fk_course_year_id", "courseYearId"]),
+                      ),
+                      label: strFrom(r, [
+                        "course_year_code",
+                        "courseYearCode",
+                        "course_year",
+                      ]),
+                    })),
+                  ]}
+                  placeholder="Course Years"
+                  searchable
+                />
+              </GlobalFilterField>
+            </div>
+            <div className="inv-allot-report-filters__fx15 flex items-center pb-0.5">
               <Button
                 type="button"
-                className="h-8 text-[12px]"
+                className="h-8 text-[12px] w-full"
                 onClick={() => void handleGetReport()}
                 disabled={loading}
               >
                 {loading ? "Loading..." : "Get Report"}
               </Button>
             </div>
-            <div className="global-filter-field global-filter-field--action global-filter-field--fx10 flex items-center self-end pb-0.5">
+            <div className="inv-allot-report-filters__fx20 flex items-center self-end pb-0.5">
               <Button
                 type="button"
                 variant="ghost"
@@ -848,10 +896,10 @@ export default function InternalMarksReportPage() {
                 onClick={handleReset}
                 title="Reset"
               >
-                <RotateCcw className="h-4 w-4" />
+                <RefreshCw className="h-4 w-4" />
               </Button>
             </div>
-          </GlobalFilterBarRow>
+          </div>
         </div>
       }
       showTable={showTable}
@@ -888,9 +936,27 @@ export default function InternalMarksReportPage() {
         ) : undefined
       }
       tableHeader={
-        filterSummary ? (
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm font-medium text-primary">{filterSummary}</p>
+        showTable ? (
+          <div className="table-context-header flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+            <div className="flex items-center gap-2">
+              <span
+                className="material-icons table-context-header__icon"
+                aria-hidden
+              >
+                ballot
+              </span>
+              <strong className="table-context-header__title">
+                Internal Marks Report
+              </strong>
+            </div>
+            {filterSummary ? (
+              <span
+                className="text-[13px] font-medium"
+                style={{ color: "#042956" }}
+              >
+                {filterSummary}
+              </span>
+            ) : null}
           </div>
         ) : null
       }

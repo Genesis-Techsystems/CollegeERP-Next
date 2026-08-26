@@ -722,111 +722,125 @@ export default function SubjectWiseResultPassPercentReportPage() {
 
   const filters = (
     <>
-      <GlobalFilterBarRow>
-        <GlobalFilterField label="Course *">
-          <Select
-            value={courseId || null}
-            onChange={(v) => setCourseId(v ?? "")}
-            isLoading={loadingFilters}
-            options={courses.map((c) => ({
-              value: String(num(c.fk_course_id)),
-              label: txt(c.course_code),
-            }))}
-            placeholder="Course"
-            searchable
-          />
-        </GlobalFilterField>
-        <GlobalFilterField label="Exam Year">
-          <Select
-            value={academicYearId || null}
-            onChange={(v) => setAcademicYearId(v ?? "")}
-            isLoading={loadingFilters}
-            options={academicYears.map((y) => ({
-              value: String(num(y.fk_academic_year_id)),
-              label: txt(y.academic_year),
-            }))}
-            placeholder="Exam Year"
-            searchable
-          />
-        </GlobalFilterField>
-        <GlobalFilterField label="Exam" className="min-w-[280px] flex-[2]">
-          <Select
-            value={examId || null}
-            onChange={(v) => setExamId(v ?? "")}
-            isLoading={loadingFilters}
-            options={exams.map((e) => ({
-              value: String(num(e.fk_exam_id)),
-              label: formatExamLabel(e),
-            }))}
-            placeholder="Exam"
-            searchable
-          />
-        </GlobalFilterField>
-      </GlobalFilterBarRow>
-      <GlobalFilterBarRow>
-        <GlobalFilterField label="Course Year">
-          <Select
-            value={courseYearId || null}
-            onChange={(v) => {
-              setCourseYearId(v ?? "0");
-              clearResults();
-            }}
-            isLoading={loadingFilters}
-            options={[
-              { value: "0", label: "All" },
-              ...courseYears.map((y) => ({
-                value: String(num(y.fk_course_year_id)),
-                label: txt(y.course_year_code),
-              })),
-            ]}
-            placeholder="Course Year"
-            searchable
-          />
-        </GlobalFilterField>
-        <GlobalFilterField label="Is Re-Evaluation">
-          <div className="flex h-[30px] items-center gap-2">
-            <Checkbox
-              id="swpp-is-reevaluation"
-              checked={isReevaluation}
-              onCheckedChange={(v) => {
-                setIsReevaluation(v === true);
-                clearResults();
-              }}
-            />
-            <Label
-              htmlFor="swpp-is-reevaluation"
-              className="text-[12px] font-normal"
-            >
-              Is Re-Evaluation
-            </Label>
+      <div className="inv-allot-report-filters space-y-2">
+        <div className="inv-allot-report-filters__row">
+          <div className="inv-allot-report-filters__fx20">
+            <GlobalFilterField label="Course *">
+              <Select
+                value={courseId || null}
+                onChange={(v) => setCourseId(v ?? "")}
+                isLoading={loadingFilters}
+                options={courses.map((c) => ({
+                  value: String(num(c.fk_course_id)),
+                  label: txt(c.course_code),
+                }))}
+                placeholder="Course"
+                searchable
+              />
+            </GlobalFilterField>
           </div>
-        </GlobalFilterField>
-        <GlobalFilterField
-          label=""
-          className="global-filter-field--shrink global-filter-field--action"
-        >
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              onClick={() => void onGetReport()}
-              disabled={loadingList}
-              className="h-[30px] px-3 text-[12px]"
-            >
-              Get Report
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              className="h-[30px] w-[30px]"
-              title="Reset"
-              onClick={onReset}
-            >
-              <RefreshCw className="h-3.5 w-3.5" />
-            </Button>
+          <div className="inv-allot-report-filters__fx20">
+            <GlobalFilterField label="Exam Year">
+              <Select
+                value={academicYearId || null}
+                onChange={(v) => setAcademicYearId(v ?? "")}
+                isLoading={loadingFilters}
+                options={academicYears.map((y) => ({
+                  value: String(num(y.fk_academic_year_id)),
+                  label: txt(y.academic_year),
+                }))}
+                placeholder="Exam Year"
+                searchable
+              />
+            </GlobalFilterField>
           </div>
-        </GlobalFilterField>
-      </GlobalFilterBarRow>
+          <div className="inv-allot-report-filters__fx60">
+            <GlobalFilterField label="Exam" className="min-w-[280px] flex-[2]">
+              <Select
+                value={examId || null}
+                onChange={(v) => setExamId(v ?? "")}
+                isLoading={loadingFilters}
+                options={exams.map((e) => ({
+                  value: String(num(e.fk_exam_id)),
+                  label: formatExamLabel(e),
+                }))}
+                placeholder="Exam"
+                searchable
+              />
+            </GlobalFilterField>
+          </div>
+        </div>
+        <div className="inv-allot-report-filters__row">
+          <div className="inv-allot-report-filters__fx15">
+            <GlobalFilterField label="Course Year">
+              <Select
+                value={courseYearId || null}
+                onChange={(v) => {
+                  setCourseYearId(v ?? "0");
+                  clearResults();
+                }}
+                isLoading={loadingFilters}
+                options={[
+                  { value: "0", label: "All" },
+                  ...courseYears.map((y) => ({
+                    value: String(num(y.fk_course_year_id)),
+                    label: txt(y.course_year_code),
+                  })),
+                ]}
+                placeholder="Course Year"
+                searchable
+              />
+            </GlobalFilterField>
+          </div>
+          <div className="inv-allot-report-filters__fx13">
+            <GlobalFilterField label="">
+              <div className="flex h-[30px] items-center gap-2">
+                <Checkbox
+                  id="swpp-is-reevaluation"
+                  checked={isReevaluation}
+                  onCheckedChange={(v) => {
+                    setIsReevaluation(v === true);
+                    clearResults();
+                  }}
+                />
+                <Label
+                  htmlFor="swpp-is-reevaluation"
+                  className="text-[16px] font-normal"
+                >
+                  Is Re-Evaluation
+                </Label>
+              </div>
+            </GlobalFilterField>
+          </div>
+          <div className="inv-allot-report-filters__fx15">
+            <GlobalFilterField
+              label=""
+              className="global-filter-field--shrink global-filter-field--action"
+            >
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  onClick={() => void onGetReport()}
+                  disabled={loadingList}
+                  className="h-[30px] px-3 text-[12px] w-full"
+                >
+                  Get Report
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-[30px] w-[30px]"
+                  title="Reset"
+                  onClick={onReset}
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </GlobalFilterField>
+          </div>
+        </div>
+      </div>
     </>
   );
 

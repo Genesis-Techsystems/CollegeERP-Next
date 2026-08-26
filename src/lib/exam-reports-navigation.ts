@@ -147,15 +147,32 @@ export function resolveExaminationReportHref(
     return `${EXAM_REPORTS}/exam-registered-students-count`;
   }
 
+  // Angular has TWO distinct pages — do not collapse them:
+  // 1) exam-reports/exam-registration-student-report (sidebar: Exam Registration Students)
+  // 2) exam-reports/exam-student-registration-report → React admin-exam-reports/...
   if (
     (hrefLower.includes("exam-registration-student-report") ||
-      hrefLower.includes("exam-student-registration-report") ||
-      labelLower.includes("exam student registration report") ||
       labelLower.includes("exam registration students")) &&
+    !hrefLower.includes("exam-student-registration-report") &&
     !labelLower.includes("count") &&
     !hrefLower.includes("count")
   ) {
     return `${EXAM_REPORTS}/exam-registration-student-report`;
+  }
+
+  if (
+    (hrefLower.includes("exam-student-registration-report") ||
+      labelLower.includes("exam student registration report") ||
+      (labelLower.includes("student") &&
+        labelLower.includes("registration") &&
+        labelLower.includes("report") &&
+        !labelLower.includes("exam registration students"))) &&
+    !labelLower.includes("count") &&
+    !hrefLower.includes("count") &&
+    !labelLower.includes("timetable") &&
+    !labelLower.includes(" tt")
+  ) {
+    return `${ADMIN_EXAM_REPORTS}/exam-student-registration-report`;
   }
 
   if (
