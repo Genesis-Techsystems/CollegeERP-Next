@@ -21,13 +21,11 @@ const MAX_VISIBLE_SUB_BATCHES = 3;
 
 type TimetableWeeklyGridProps = {
   timetable: AngularStudentTimetable;
-  /** Screen uses 140px/hour; print layout uses 90px/hour (Angular parity). */
   variant?: "screen" | "print";
   className?: string;
   /**
-   * `view` — weekday pastel fills, black text (view-timetable / student profile).
-   * `assign-resource` — assigned slots use subjectResource colorCode (or `#dedede`)
-   * with black text; empty slots stay white (Angular create-timetable).
+   * `view` — synced rows + calculateHeight (view-timetable).
+   * `assign-resource` — Angular create-timetable: column stacks, 1px gaps, natural height.
    */
   cellColorMode?: CellColorMode;
   onTimingClick?: (
@@ -37,9 +35,8 @@ type TimetableWeeklyGridProps = {
 };
 
 /**
- * Angular view-timetable day-column layout:
- * columns = weekdays (API order), rows within a day = stacked timings.
- * Cell content is vertically centered (Angular `vertical-align: middle`).
+ * Angular create-timetable: inline-table columns, border-spacing 1px, padding 20px 8px.
+ * Angular view-timetable: synced rows with calculateHeight (duration × 140px).
  */
 export function TimetableWeeklyGrid({
   timetable,
@@ -51,19 +48,186 @@ export function TimetableWeeklyGrid({
   const weekdays = timetable.weekdays ?? [];
   if (weekdays.length === 0) return null;
 
+  if (cellColorMode === "assign-resource" && variant === "screen") {
+    return (
+      <AssignResourceColumnGrid
+        weekdays={weekdays}
+        className={className}
+        onTimingClick={onTimingClick}
+      />
+    );
+  }
+
+  return (
+    <SyncedRowGrid
+      weekdays={weekdays}
+      variant={variant}
+      className={className}
+      cellColorMode={cellColorMode}
+      onTimingClick={onTimingClick}
+    />
+  );
+}
+
+/** Angular create-timetable.component — column stacks with 1px white gutters. */
+function AssignResourceColumnGrid({
+  weekdays,
+  className,
+  onTimingClick,
+}: {
+  weekdays: TimetableDayColumn[];
+  className: string;
+  onTimingClick?: (
+    timing: TimetableDayTiming,
+    weekday: TimetableDayColumn,
+  ) => void;
+}) {
   return (
     <div className={`overflow-x-auto ${className}`}>
-      <div className="mar flex w-full min-w-0 justify-center gap-0 print:min-w-0">
+      <div className="my-[15px] flex w-full min-w-[720px] justify-center gap-px bg-white">
         {weekdays.map((weekday) => (
           <DayColumn
             key={weekday.weekdayId || weekday.weekdayName}
             weekday={weekday}
-            variant={variant}
-            cellColorMode={cellColorMode}
+            variant="screen"
+            cellColorMode="assign-resource"
             onTimingClick={onTimingClick}
           />
         ))}
       </div>
+    </div>
+  );
+}
+
+/** Angular view-timetable — horizontal row sync + calculateHeight. */
+function SyncedRowGrid({
+  weekdays,
+  variant,
+  className,
+  cellColorMode,
+  onTimingClick,
+}: {
+  weekdays: TimetableDayColumn[];
+  variant: "screen" | "print";
+  className: string;
+  cellColorMode: CellColorMode;
+  onTimingClick?: (
+    timing: TimetableDayTiming,
+    weekday: TimetableDayColumn,
+  ) => void;
+}) {
+  const rowCount = Math.max(...weekdays.map((w) => w.timings.length), 0);
+
+  return (
+    <div className={`overflow-x-auto ${className}`}>
+      <div
+        className="my-[15px] w-full min-w-[720px]"
+        style={{
+          display: "grid",
+          gridTemplateColumns: `repeat(${weekdays.length}, minmax(120px, 1fr))`,
+        }}
+      >
+        {weekdays.map((weekday) => (
+          <DayHeader
+            key={weekday.weekdayId || weekday.weekdayName}
+            weekday={weekday}
+          />
+        ))}
+
+        {Array.from({ length: rowCount }, (_, rowIndex) => {
+          const rowTimings = weekdays.map((w) => w.timings[rowIndex]);
+          const rowHeightPx = resolveRowHeight(rowTimings, variant);
+
+          return weekdays.map((weekday) => {
+            const timing = weekday.timings[rowIndex];
+            if (!timing) {
+              return (
+                <EmptyTimingCell
+                  key={`${weekday.weekdayId}-empty-${rowIndex}`}
+                  heightPx={rowHeightPx}
+                  cellColorMode={cellColorMode}
+                />
+              );
+            }
+
+            return (
+              <TimingCell
+                key={`${timing.weekdayId}-${timing.startTime}-${rowIndex}`}
+                timing={timing}
+                variant={variant}
+                weekday={weekday}
+                cellColorMode={cellColorMode}
+                heightPx={rowHeightPx}
+                onTimingClick={onTimingClick}
+              />
+            );
+          });
+        })}
+      </div>
+    </div>
+  );
+}
+
+function DayColumn({
+  weekday,
+  variant,
+  cellColorMode,
+  onTimingClick,
+}: {
+  weekday: TimetableDayColumn;
+  variant: "screen" | "print";
+  cellColorMode: CellColorMode;
+  onTimingClick?: (
+    timing: TimetableDayTiming,
+    weekday: TimetableDayColumn,
+  ) => void;
+}) {
+  const headerName = weekday.timings[0]?.weekdayName || weekday.weekdayName;
+
+  return (
+    <div
+      className="flex min-w-[120px] flex-col gap-px"
+      style={{
+        width: "16.6%",
+        flex: "1 1 16.6%",
+      }}
+    >
+      <DayHeader weekday={weekday} nameOverride={headerName} />
+      {weekday.timings.map((timing, index) => (
+        <TimingCell
+          key={`${timing.weekdayId}-${timing.startTime}-${index}`}
+          timing={timing}
+          variant={variant}
+          weekday={weekday}
+          cellColorMode={cellColorMode}
+          onTimingClick={onTimingClick}
+        />
+      ))}
+    </div>
+  );
+}
+
+function DayHeader({
+  weekday,
+  nameOverride,
+}: {
+  weekday: TimetableDayColumn;
+  nameOverride?: string;
+}) {
+  const headerName =
+    nameOverride || weekday.timings[0]?.weekdayName || weekday.weekdayName;
+  const borderColor = TIMETABLE_CELL_BORDER;
+
+  return (
+    <div
+      className="px-[5px] py-[15px] text-center text-[19px] font-medium uppercase leading-none text-black"
+      style={{
+        backgroundColor: TIMETABLE_HEADER_ROW_BG,
+        border: `1px solid ${borderColor}`,
+        color: "#000",
+      }}
+    >
+      {headerName}
     </div>
   );
 }
@@ -96,60 +260,49 @@ function cellBackground(
   );
 }
 
-function cellTextColor(mode: CellColorMode): string {
-  return "#000";
+function resolveRowHeight(
+  rowTimings: (TimetableDayTiming | undefined)[],
+  variant: "screen" | "print",
+): number {
+  let max = 0;
+  for (const timing of rowTimings) {
+    if (!timing) continue;
+    max = Math.max(max, timingHeightPx(timing, variant));
+  }
+  return max || 96;
 }
 
-function cellBorderColor(): string {
-  return TIMETABLE_CELL_BORDER;
+function timingHeightPx(
+  timing: TimetableDayTiming,
+  variant: "screen" | "print",
+): number {
+  if (variant === "print") {
+    return Math.round(
+      Math.max(
+        0.25,
+        (parseTimeMins(timing.endTime) - parseTimeMins(timing.startTime)) / 60,
+      ) * 90,
+    );
+  }
+  return timetableCellHeightPx(timing.startTime, timing.endTime);
 }
 
-function DayColumn({
-  weekday,
-  variant,
+function EmptyTimingCell({
+  heightPx,
   cellColorMode,
-  onTimingClick,
 }: {
-  weekday: TimetableDayColumn;
-  variant: "screen" | "print";
+  heightPx: number;
   cellColorMode: CellColorMode;
-  onTimingClick?: (
-    timing: TimetableDayTiming,
-    weekday: TimetableDayColumn,
-  ) => void;
 }) {
-  const headerName = weekday.timings[0]?.weekdayName || weekday.weekdayName;
-  const borderColor = cellBorderColor();
   return (
     <div
-      className="table-span flex flex-col border"
       style={{
-        width: "16.6%",
-        minWidth: 120,
-        flex: "1 1 16.6%",
-        borderColor,
+        height: heightPx,
+        minHeight: heightPx,
+        border: `1px solid ${TIMETABLE_CELL_BORDER}`,
+        backgroundColor: "#ffffff",
       }}
-    >
-      <div
-        className="table-th border-b px-[5px] py-[15px] text-center text-[19px] font-medium uppercase leading-none text-black"
-        style={{
-          backgroundColor: TIMETABLE_HEADER_ROW_BG,
-          borderColor,
-        }}
-      >
-        {headerName}
-      </div>
-      {weekday.timings.map((timing, index) => (
-        <TimingCell
-          key={`${timing.weekdayId}-${timing.startTime}-${index}`}
-          timing={timing}
-          variant={variant}
-          weekday={weekday}
-          cellColorMode={cellColorMode}
-          onTimingClick={onTimingClick}
-        />
-      ))}
-    </div>
+    />
   );
 }
 
@@ -158,68 +311,70 @@ function TimingCell({
   variant,
   weekday,
   cellColorMode,
+  heightPx,
   onTimingClick,
 }: {
   timing: TimetableDayTiming;
   variant: "screen" | "print";
   weekday: TimetableDayColumn;
   cellColorMode: CellColorMode;
+  heightPx?: number;
   onTimingClick?: (
     timing: TimetableDayTiming,
     weekday: TimetableDayColumn,
   ) => void;
 }) {
-  const heightPx =
-    variant === "print"
-      ? Math.round(
-          Math.max(
-            0.25,
-            (parseTimeMins(timing.endTime) - parseTimeMins(timing.startTime)) /
-              60,
-          ) * 90,
-        )
-      : timetableCellHeightPx(timing.startTime, timing.endTime);
-  const timeLabel = formatTimeRange(timing.startTime, timing.endTime);
+  const isAssign = cellColorMode === "assign-resource";
+  const useNaturalHeight = isAssign && variant === "screen";
   const nameLooksLikeBreak = /break/i.test(timing.classTimingName ?? "");
   const isBreak = timing.isBreak || nameLooksLikeBreak;
   const weekdayName = weekday.weekdayName || timing.weekdayName || "";
   const cellBg = cellBackground(timing, isBreak, cellColorMode, weekdayName);
-  const textColor = cellTextColor(cellColorMode);
-  const borderColor = cellBorderColor();
+  const borderColor = TIMETABLE_CELL_BORDER;
+  const timeLabel = formatTimeRange(timing.startTime, timing.endTime);
+  const clickable = !isBreak && Boolean(onTimingClick);
 
-  // Screen: show at most 3 batches to avoid overflow; click opens full list.
-  // Print: keep all entries for a complete printout.
   const allBatches = timing.subBatches ?? [];
   const visibleBatches =
-    variant === "screen" ? allBatches.slice(0, MAX_VISIBLE_SUB_BATCHES) : allBatches;
+    variant === "screen"
+      ? allBatches.slice(0, MAX_VISIBLE_SUB_BATCHES)
+      : allBatches;
   const hiddenCount =
     variant === "screen"
       ? Math.max(0, allBatches.length - MAX_VISIBLE_SUB_BATCHES)
       : 0;
 
+  const fixedHeightPx =
+    heightPx ??
+    (useNaturalHeight ? undefined : timingHeightPx(timing, variant));
+
   return (
     <div
-      role={!isBreak && onTimingClick ? "button" : undefined}
-      tabIndex={!isBreak && onTimingClick ? 0 : undefined}
-      className={`table-td flex border-b p-0 text-center ${!isBreak && onTimingClick ? "cursor-pointer hover:brightness-95" : ""}`}
+      role={clickable ? "button" : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      className={`flex text-center text-black${
+        clickable ? " cursor-pointer hover:brightness-95" : ""
+      }${isBreak ? " bg-[#efefef]" : ""}`}
       style={{
-        backgroundColor: cellBg,
-        borderColor,
-        minHeight: heightPx,
-        height: heightPx,
-        // Angular td: vertical-align middle — center the whole content block
+        backgroundColor: isBreak ? undefined : cellBg,
+        height: "stretch",
+        border: `1px solid ${borderColor}`,
+        ...(fixedHeightPx != null
+          ? { height: fixedHeightPx, minHeight: fixedHeightPx }
+          : {}),
+        boxSizing: useNaturalHeight ? "border-box" : "content-box",
+        padding: useNaturalHeight ? "20px 8px" : isAssign ? "20px 8px" : "0",
         alignItems: "center",
         justifyContent: "center",
-        gridColumn: timing.colspan > 1 ? `span ${timing.colspan}` : undefined,
-        overflow: "hidden",
+        overflow: useNaturalHeight ? "visible" : "hidden",
       }}
       onClick={() => {
-        if (!isBreak) onTimingClick?.(timing, weekday);
+        if (clickable) onTimingClick?.(timing, weekday);
       }}
       onKeyDown={(e) => {
-        if (!isBreak && onTimingClick && (e.key === "Enter" || e.key === " ")) {
+        if (clickable && (e.key === "Enter" || e.key === " ")) {
           e.preventDefault();
-          onTimingClick(timing, weekday);
+          onTimingClick?.(timing, weekday);
         }
       }}
       title={
@@ -228,31 +383,25 @@ function TimingCell({
           : undefined
       }
     >
-      <div className="flex w-full flex-col items-center justify-center px-1 py-1">
+      <div className="flex w-full flex-col items-center justify-center">
         {!isBreak
           ? visibleBatches.map((batch, i) => (
               <SubBatchBlock
                 key={`${batch.subjectCode}-${batch.studentBatchId}-${i}`}
                 batch={batch}
-                color={textColor}
+                preferShortName={isAssign}
               />
             ))
           : null}
         {hiddenCount > 0 ? (
-          <p
-            className="m-0 text-center text-[10px] font-semibold leading-tight"
-            style={{ color: textColor }}
-          >
+          <p className="m-0 text-center text-[10px] font-semibold leading-tight text-black">
             +{hiddenCount} more
           </p>
         ) : null}
-        {/* Angular .subject-timing { font-size: smaller; padding-top: 13px } */}
         <p
-          className="subject-timing m-0 text-center text-[smaller] leading-snug"
+          className="subject-timing m-0 text-center text-[smaller] leading-snug text-black"
           style={{
-            color: textColor,
-            paddingTop:
-              isBreak || visibleBatches.length === 0 ? 0 : 13,
+            paddingTop: isBreak || visibleBatches.length === 0 ? 0 : 13,
           }}
         >
           {isBreak && timing.classTimingName ? (
@@ -270,42 +419,36 @@ function TimingCell({
 
 function SubBatchBlock({
   batch,
-  color,
+  preferShortName,
 }: {
   batch: TimetableSubBatch;
-  color: string;
+  preferShortName: boolean;
 }) {
-  // Angular active template uses subjectCode (shortName is commented out).
-  const subjectLine = batch.subjectCode || batch.shortName;
+  const subjectLine = preferShortName
+    ? batch.shortName || batch.subjectCode
+    : batch.subjectCode || batch.shortName;
   const batchPrefix =
-    batch.studentBatchId && batch.studentBatchName
+    batch.studentBatchId != null && batch.studentBatchName
       ? `[${batch.studentBatchName}]`
       : "";
   const tooltip = batch.subjectName || subjectLine || undefined;
 
   return (
-    <div className="sub-jct w-full">
+    <div className="mb-0.5 w-full last:mb-0">
       <p
-        className="m-0 text-center text-[15px] font-medium leading-tight"
-        style={{ color }}
+        className="sub-jct m-0 text-center text-[15px] font-medium leading-tight text-black"
         title={tooltip}
       >
         {batchPrefix ? <span>{batchPrefix} </span> : null}
         {subjectLine ? <span>{subjectLine}</span> : null}
       </p>
       {batch.staffName ? (
-        <p
-          className="stff m-0 text-center text-[10px] leading-tight"
-          style={{ color }}
-        >
+        <p className="stff m-0 text-center text-[10px] leading-tight text-black">
           {batch.staffName}
         </p>
       ) : null}
       {batch.roomName ? (
-        <p
-          className="stff m-0 text-center text-[10px] leading-tight"
-          style={{ color }}
-        >
+        <p className="stff m-0 text-center text-[10px] leading-tight text-black">
           {batch.roomName}
         </p>
       ) : null}

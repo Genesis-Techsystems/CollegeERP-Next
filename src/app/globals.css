@@ -5432,3 +5432,204 @@ input.student-fee-pay-amt::-webkit-outer-spin-button {
   background: #fff;
   padding: 0.5rem;
 }
+
+/* -- Assign Resource / create-timetable grid (Angular create-timetable.component.scss) -- */
+.tt-create-grid .mar,
+.tt-create-grid .tt-create-grid__row {
+  margin: 15px 0;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  justify-content: center;
+  gap: 0;
+  border-spacing: 1px;
+}
+
+.tt-create-grid .table-span,
+.tt-create-grid .tt-create-grid__col {
+  width: 16.6% !important;
+  min-width: 120px;
+  flex: 1 1 16.6%;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #c3d9ff;
+  box-sizing: border-box;
+}
+
+.tt-create-grid .table-th,
+.tt-create-grid .tt-create-grid__th {
+  padding: 15px 5px !important;
+  background: #c3d9ff;
+  font-weight: 500;
+  font-size: 19px;
+  height: auto;
+  line-height: 1.1;
+  text-transform: uppercase;
+  text-align: center;
+  color: #000;
+  border-bottom: 1px solid #c3d9ff;
+  box-sizing: border-box;
+}
+
+/* Angular create-timetable: padding 20px 8px; text-align center � NO fixed height */
+.tt-create-grid .table-td,
+.tt-create-grid .tt-create-grid__td {
+  padding: 20px 8px !important;
+  text-align: center !important;
+  vertical-align: middle;
+  color: #000;
+  border-bottom: 1px solid #c3d9ff;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tt-create-grid .tt-create-grid__td--clickable {
+  cursor: pointer;
+}
+.tt-create-grid .tt-create-grid__td--clickable:hover {
+  filter: brightness(0.97);
+}
+
+.tt-create-grid .tt-create-grid__cell-inner {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.tt-create-grid .tt-create-grid__batch {
+  width: 100%;
+}
+
+.tt-create-grid p {
+  margin: 0;
+  padding: 0;
+}
+
+.tt-create-grid .sub-jct {
+  font-weight: 500;
+  font-size: 15px;
+  text-align: center;
+  line-height: 1.25;
+  color: #000;
+}
+
+.tt-create-grid .stff {
+  font-size: 10px;
+  text-align: center;
+  line-height: 1.25;
+  color: #000;
+}
+
+.tt-create-grid .subject-timing {
+  font-size: smaller;
+  padding-top: 13px;
+  text-align: center;
+  line-height: 1.3;
+  color: #000;
+}
+
+.tt-create-grid .tt-create-grid__more {
+  margin: 2px 0 0;
+  font-size: 10px;
+  font-weight: 600;
+  text-align: center;
+  color: #000;
+}
+
+.tt-create-grid .break {
+  background: #efefef !important;
+}
+
+/* view-timetable mode: fixed-height cells (calculateHeight), padding 0 */
+.tt-view-grid .tt-create-grid__row {
+  margin: 15px 0;
+  display: flex;
+  width: 100%;
+  justify-content: center;
+}
+
+.tt-view-grid .tt-create-grid__col {
+  width: 16.6% !important;
+  min-width: 120px;
+  flex: 1 1 16.6%;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #c3d9ff;
+  box-sizing: border-box;
+}
+
+.tt-view-grid .tt-create-grid__th {
+  padding: 15px 5px !important;
+  background: #c3d9ff;
+  font-weight: 500;
+  font-size: 19px;
+  text-transform: uppercase;
+  text-align: center;
+  color: #000;
+  border-bottom: 1px solid #c3d9ff;
+}
+
+.tt-view-grid .tt-create-grid__td {
+  padding: 0 !important;
+  text-align: center;
+  vertical-align: middle;
+  border-bottom: 1px solid #c3d9ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.tt-view-grid .tt-create-grid__td--clickable {
+  cursor: pointer;
+}
+
+.tt-view-grid .tt-create-grid__cell-inner {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 4px;
+}
+
+.tt-view-grid .sub-jct {
+  font-weight: 500;
+  font-size: 15px;
+  text-align: center;
+  line-height: 1.2;
+  margin: 0;
+  color: #000;
+}
+
+.tt-view-grid .stff {
+  font-size: 10px;
+  text-align: center;
+  line-height: 1.2;
+  margin: 0;
+  color: #000;
+}
+
+.tt-view-grid .subject-timing {
+  font-size: smaller;
+  padding-top: 13px;
+  text-align: center;
+  margin: 0;
+  color: #000;
+}
+
+.tt-view-grid .tt-create-grid__more {
+  font-size: 10px;
+  font-weight: 600;
+  margin: 0;
+  text-align: center;
+}
+
+.tt-view-grid .break {
+  background: #efefef !important;
+}

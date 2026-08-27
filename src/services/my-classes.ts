@@ -6,6 +6,7 @@ import {
   ATTENDANCE_API,
   CLASS_NOTES_API,
   EMPLOYEE_API,
+  MISC_REPORT_API,
   STUDENT_API,
   SUBJECT_API,
 } from "@/config/constants/api";
@@ -13,6 +14,7 @@ import {
   domainList,
   fetchDetails,
   fetchDetailsEnvelope,
+  getAllRecords,
   postDetailsEnvelope,
   uploadFile,
 } from "./crud";
@@ -30,6 +32,7 @@ import {
   type StaffSubjectClass,
 } from "./staff-dashboard";
 import { listStaffProxies } from "./proxy-workload";
+import { listLeaveHolidayEvents } from "./staff-faculty-leaves";
 
 type AnyRow = Record<string, unknown>;
 
@@ -1157,7 +1160,7 @@ export async function refreshAfterMarkAttendanceSave(params: {
     absentQuery.timetableScheduleId = params.timetableScheduleId;
   }
 
-  const lessonParams =
+  const lessonParams: Record<string, string | number> =
     isLab && params.studentbatchId
       ? {
           timetableScheduleId: params.timetableScheduleId,
@@ -1224,6 +1227,209 @@ export async function refreshAfterMarkAttendanceSave(params: {
   });
 
   return { students, lessonDetails, units };
+}
+
+/** Angular hardcoded LESSONSTATUS detail ids. */
+export const LESSON_STATUS_IN_PROGRESS_ID = 190;
+export const LESSON_STATUS_COMPLETED_ID = 191;
+
+export type MarkAttendanceHolidayEvent = {
+  eventName?: string;
+  startDate?: string;
+  endDate?: string;
+};
+
+/**
+ * Angular `eventsbydate?collegeId&startDate&endDate&isHoliday=true&isweekoff=true`
+ * — hides Search when any holiday/week-off exists for the selected day.
+ */
+export async function listMarkAttendanceHolidayEvents(params: {
+  collegeId: number;
+  date: Date;
+}): Promise<MarkAttendanceHolidayEvent[]> {
+  const ymd = formatClassDateYmdSlash(params.date);
+  const rows = await listLeaveHolidayEvents({
+    collegeId: params.collegeId,
+    startDate: ymd,
+    endDate: ymd,
+  });
+  return rows as MarkAttendanceHolidayEvent[];
+}
+
+export type SubjectUnitTopicLessonRow = Record<string, unknown> & {
+  class_date?: string;
+  subject_name?: string;
+  subject_code?: string;
+  unit_code?: string;
+  unit_name?: string;
+  topic_name?: string;
+  Percentage?: number | string;
+  fk_teaching_method_catdet_id?: number | null;
+  fk_lessonstatus_catdet_id?: number | null;
+  subjectUnitsId?: number;
+  subjectUnitTopicId?: number;
+  teaching_method_code?: string;
+  lesson_status_code?: string;
+};
+
+/**
+ * Angular `getSubjectUnitTopics()` —
+ * `getAllRecords/s_get_subject_unit_topics` with `in_flag=lesson_status_details`.
+ * result[0] = pending/in-progress, result[1] = history.
+ */
+export async function listLessonStatusSubjectUnitTopics(params: {
+  organizationId: number;
+  employeeId: number;
+  timetableScheduleId: number;
+}): Promise<{
+  pending: SubjectUnitTopicLessonRow[];
+  completed: SubjectUnitTopicLessonRow[];
+}> {
+  if (!params.timetableScheduleId) {
+    return { pending: [], completed: [] };
+  }
+  try {
+    const data = await getAllRecords<{ result?: unknown[] }>(
+      MISC_REPORT_API.SUBJECT_UNIT_TOPICS_REPORT,
+      {
+        in_flag: "lesson_status_details",
+        in_org_id: params.organizationId || 0,
+        in_university_id: 0,
+        in_college_id: 0,
+        in_course_id: 0,
+        in_course_group_id: 0,
+        in_course_year_id: 0,
+        in_group_section_id: 0,
+        in_academic_year_id: 0,
+        in_timetable_id: 0,
+        in_timetable_schedule_id: params.timetableScheduleId,
+        in_regulation_id: 0,
+        in_subject_id: 0,
+        in_dept_id: 0,
+        in_isadmin: 0,
+        in_loginuser_empid: params.employeeId || 0,
+        in_loginuser_roleid: 0,
+        in_gm_codes: "",
+      },
+    );
+    const groups = Array.isArray(data?.result) ? data.result : [];
+    const pendingRaw = Array.isArray(groups[0])
+      ? (groups[0] as SubjectUnitTopicLessonRow[])
+      : [];
+    const completedRaw = Array.isArray(groups[1])
+      ? (groups[1] as SubjectUnitTopicLessonRow[])
+      : [];
+    const pending = pendingRaw.map((row) => ({
+      ...row,
+      fk_lessonstatus_catdet_id:
+        row.fk_lessonstatus_catdet_id == null
+          ? LESSON_STATUS_IN_PROGRESS_ID
+          : row.fk_lessonstatus_catdet_id,
+    }));
+    return { pending, completed: completedRaw };
+  } catch {
+    return { pending: [], completed: [] };
+  }
+}
+
+/**
+ * Angular `isEmptyObject(lessonStatus)` — empty `{}` / empty array = not marked.
+ * Non-empty array from `studentattendancedetails` = already marked.
+ */
+export function isAttendanceAlreadyMarked(lessonDetails: unknown): boolean {
+  if (lessonDetails == null) return false;
+  if (Array.isArray(lessonDetails)) return lessonDetails.length > 0;
+  if (typeof lessonDetails === "object") {
+    return Object.keys(lessonDetails as object).length > 0;
+  }
+  return false;
+}
+
+export function getLessonStatusScheduleMeta(lessonDetails: unknown): {
+  notesPath: string;
+  videoPath: string;
+  actualClsScheduleId: number | null;
+} {
+  const rows = Array.isArray(lessonDetails)
+    ? (lessonDetails as AnyRow[])
+    : [];
+  const first = rows[0];
+  const dto = (first?.actualClassesScheduleDTO ?? {}) as AnyRow;
+  return {
+    notesPath: String(dto.notesPath ?? "") || "",
+    videoPath: String(dto.videoPath ?? "") || "",
+    actualClsScheduleId:
+      dto.actualClsScheduleId != null
+        ? Number(dto.actualClsScheduleId) || null
+        : null,
+  };
+}
+
+export type LessonStatusPayloadItem = {
+  classDate: string;
+  comments: string;
+  isActive: boolean;
+  collegeId: number;
+  academicYearId: number;
+  groupSectionId: number;
+  actualClsScheduleId: number | null;
+  subjectResourceId: number | null;
+  timetableScheduleId: number;
+  subjectUnitsId: number | null;
+  unitName: string;
+  unitCode: string;
+  subjectUnitTopicId: number | null;
+  topicName: string;
+  lessonstatusCatDetId: number;
+  teachingMethodCatdetId: number | null;
+  percentage: number;
+};
+
+/** Angular `onPercentageChange` payload builder. */
+export function buildLessonStatusPayloadFromTopicRow(params: {
+  row: SubjectUnitTopicLessonRow;
+  day: Date;
+  collegeId: number;
+  academicYearId: number;
+  groupSectionId: number;
+  actualClsScheduleId: number | null;
+  subjectResourceId: number | null;
+  timetableScheduleId: number;
+}): LessonStatusPayloadItem | null {
+  const pct = Number(params.row.Percentage);
+  if (!Number.isFinite(pct) || pct === 0) return null;
+  const statusId =
+    pct === 100
+      ? LESSON_STATUS_COMPLETED_ID
+      : LESSON_STATUS_IN_PROGRESS_ID;
+  return {
+    classDate: formatScheduleDateYmd(params.day),
+    comments: "",
+    isActive: true,
+    collegeId: params.collegeId,
+    academicYearId: params.academicYearId,
+    groupSectionId: params.groupSectionId,
+    actualClsScheduleId: params.actualClsScheduleId,
+    subjectResourceId: params.subjectResourceId,
+    timetableScheduleId: params.timetableScheduleId,
+    subjectUnitsId:
+      params.row.subjectUnitsId != null
+        ? Number(params.row.subjectUnitsId)
+        : null,
+    unitName: String(params.row.unit_name ?? ""),
+    unitCode: String(params.row.unit_code ?? ""),
+    subjectUnitTopicId:
+      params.row.subjectUnitTopicId != null
+        ? Number(params.row.subjectUnitTopicId)
+        : null,
+    topicName: String(params.row.topic_name ?? ""),
+    lessonstatusCatDetId: statusId,
+    teachingMethodCatdetId:
+      params.row.fk_teaching_method_catdet_id != null
+        ? Number(params.row.fk_teaching_method_catdet_id)
+        : null,
+    percentage: pct,
+  };
 }
 
 export type { DigitalLiveClassEnv, LiveScheduleRow };

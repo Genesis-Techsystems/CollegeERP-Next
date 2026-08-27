@@ -1528,6 +1528,13 @@ export function buildAngularStudentTimetable(
         );
         if (existing) {
           existing.colspan = (existing.colspan || 1) + 1;
+          const mergedEnd = text(classTiming, [
+            "endTime",
+            "end_time",
+            "toTime",
+            "to_time",
+          ]);
+          if (mergedEnd) existing.endTime = mergedEnd;
           continue;
         }
       }

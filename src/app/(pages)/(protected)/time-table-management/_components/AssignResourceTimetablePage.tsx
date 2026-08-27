@@ -673,7 +673,7 @@ export function AssignResourceTimetablePage() {
             </div>
           ) : timetable && timetable.weekdays.length > 0 ? (
             <div
-              className="overflow-hidden rounded-sm border bg-white shadow-sm"
+              className="overflow-x-auto rounded-sm border bg-white shadow-sm"
               style={{ borderColor: TIMETABLE_CELL_BORDER }}
             >
               <TimetableWeeklyGrid

@@ -1,37 +1,51 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { format } from "date-fns";
-import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { ChevronDown, Timer } from "lucide-react";
 import { DatePicker } from "@/common/components/date-picker";
-import { Select } from "@/common/components/select";
-import { DataTable } from "@/common/components/table";
+import { MultiSelect, Select } from "@/common/components/select";
 import { FilteredPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { GM_CODES } from "@/config/constants/ui";
-import { rowIndexGetter } from "@/lib/utils";
+import { useSession } from "@/hooks/useSession";
+import { cn } from "@/lib/utils";
 import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
 import { getErrorMessage } from "@/lib/errors";
 import {
+  buildLessonStatusPayloadFromTopicRow,
   buildMarkAttendanceSavePayload,
   formatScheduleDateYmd,
+  getLessonStatusScheduleMeta,
+  isAttendanceAlreadyMarked,
+  LESSON_STATUS_COMPLETED_ID,
+  LESSON_STATUS_IN_PROGRESS_ID,
   listGeneralDetailsByCode,
+  listLessonStatusSubjectUnitTopics,
+  listMarkAttendanceHolidayEvents,
   listPeriodsForClassAttendance,
   listStudentsForMarkAttendance,
   listStudentsForSubjectAttendance,
-  listSubjectUnitTopicsForMarkAttendance,
-  listSubjectUnitsForMarkAttendance,
   periodOptionLabel,
   refreshAfterMarkAttendanceSave,
   saveLessonStatusList,
   saveStudentAttendanceDetails,
   tConvert,
   uploadClassNotesForAttendance,
+  type LessonStatusPayloadItem,
+  type MarkAttendanceHolidayEvent,
   type MarkAttendanceSaveItem,
   type PeriodRow,
+  type SubjectUnitTopicLessonRow,
 } from "@/services";
 import { AttendancePreviewModal } from "./AttendancePreviewModal";
 
@@ -56,15 +70,47 @@ function DetailRow({
 }: Readonly<{ label: string; value: string }>) {
   return (
     <div className="grid grid-cols-[110px_1fr] gap-2 text-sm py-0.5 sm:grid-cols-[130px_1fr]">
-      <span className="text-muted-foreground font-medium">{label} :</span>
+      <span className="text-foreground font-medium">{label} :</span>
       <span className="text-primary font-medium">{value || "—"}</span>
+    </div>
+  );
+}
+
+function UnitTopicsAccordion({
+  title,
+  children,
+  defaultOpen = false,
+}: Readonly<{
+  title: string;
+  children: ReactNode;
+  defaultOpen?: boolean;
+}>) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="app-data-table app-data-table-card flex flex-col">
+      <button
+        type="button"
+        className="flex w-full items-center justify-between px-5 py-3 text-left"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        <h2 className="text-base font-semibold tracking-tight text-foreground">
+          {title}
+        </h2>
+        <ChevronDown
+          className={`h-4 w-4 shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      {open ? (
+        <div className="px-5 pb-4 overflow-x-auto">{children}</div>
+      ) : null}
     </div>
   );
 }
 
 /**
  * Angular `staff-classes/my-classes/mark-attendance` —
- * info card + Day/Peroids/Search + Lesson Status, then students after Search.
+ * EmployeeModuleMarkAttendanceComponent full parity.
  */
 export function MarkClassAttendancePage({
   mode,
@@ -72,6 +118,7 @@ export function MarkClassAttendancePage({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { user } = useSession();
   const fromAttendanceUpdate = pathname.includes("/attendance-management/");
 
   const collegeId = Number(searchParams.get("collegeId") || 0);
@@ -89,6 +136,22 @@ export function MarkClassAttendancePage({
   const isTheory = subjectType.toUpperCase() === "THEORY";
   const isElective = subjectType.toUpperCase() === "ELECTIVE";
 
+  const organizationId = Number(
+    user?.organizationId ??
+      (typeof window !== "undefined"
+        ? localStorage.getItem("organizationId")
+        : 0) ??
+      0,
+  );
+  const loginEmployeeId = Number(
+    user?.employeeId ??
+      (typeof window !== "undefined"
+        ? localStorage.getItem("employeeId")
+        : 0) ??
+      employeeId ??
+      0,
+  );
+
   const [day, setDay] = useState<Date | null>(() =>
     parseDayParam(searchParams.get("day")),
   );
@@ -101,28 +164,36 @@ export function MarkClassAttendancePage({
   const [isAssignedProxy, setIsAssignedProxy] = useState(false);
   const [loadingPeriods, setLoadingPeriods] = useState(false);
   const [loadingSearch, setLoadingSearch] = useState(false);
+  const [events, setEvents] = useState<MarkAttendanceHolidayEvent[]>([]);
 
-  const [unitId, setUnitId] = useState<string | null>(null);
-  const [topicId, setTopicId] = useState<string | null>(null);
-  const [methodId, setMethodId] = useState<string | null>(null);
-  const [comments, setComments] = useState("");
-  const [unitOptions, setUnitOptions] = useState<
-    { value: string; label: string }[]
+  const [pendingTopics, setPendingTopics] = useState<
+    SubjectUnitTopicLessonRow[]
   >([]);
-  const [topicOptions, setTopicOptions] = useState<
-    { value: string; label: string }[]
+  const [completedTopics, setCompletedTopics] = useState<
+    SubjectUnitTopicLessonRow[]
   >([]);
   const [methodOptions, setMethodOptions] = useState<
     { value: string; label: string }[]
   >([]);
+  const [lessonPayloadList, setLessonPayloadList] = useState<
+    LessonStatusPayloadItem[]
+  >([]);
+  const [attendanceAlreadyMarked, setAttendanceAlreadyMarked] = useState(false);
+  const [notesPath, setNotesPath] = useState("");
+  const [actualClsScheduleId, setActualClsScheduleId] = useState<number | null>(
+    null,
+  );
+
   const [markAllChecked, setMarkAllChecked] = useState(true);
+  const [studentFilter, setStudentFilter] = useState("");
   const [videoPath, setVideoPath] = useState("");
-  const [classNotesFile, setClassNotesFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [pendingPayload, setPendingPayload] = useState<
     MarkAttendanceSaveItem[] | null
   >(null);
+  /** Angular `#classNotesAvatar` — read files on Save, not only from React state. */
+  const classNotesInputRef = useRef<HTMLInputElement>(null);
 
   const collegeLine =
     `${searchParams.get("collegeCode") ?? ""} / ${searchParams.get("academicYear") ?? ""}`.trim();
@@ -140,7 +211,21 @@ export function MarkClassAttendancePage({
       : ""
   }`;
 
-  const loadPeriods = useCallback(
+  const resetSearchState = useCallback(() => {
+    setRows([]);
+    setFlag(false);
+    setPendingTopics([]);
+    setCompletedTopics([]);
+    setLessonPayloadList([]);
+    setAttendanceAlreadyMarked(false);
+    setNotesPath("");
+    setActualClsScheduleId(null);
+    setVideoPath("");
+    setStudentFilter("");
+    if (classNotesInputRef.current) classNotesInputRef.current.value = "";
+  }, []);
+
+  const loadPeriodsAndEvents = useCallback(
     async (date: Date) => {
       if (
         !collegeId ||
@@ -150,30 +235,35 @@ export function MarkClassAttendancePage({
         !subjectId
       ) {
         setPeriods([]);
+        setEvents([]);
         return;
       }
       setLoadingPeriods(true);
       setClassTimingId(null);
       setSelectedPeriodIds([]);
       setSelectedPeriod(null);
-      setRows([]);
-      setFlag(false);
       setIsAssignedProxy(false);
+      resetSearchState();
       try {
-        const list = await listPeriodsForClassAttendance({
-          collegeId,
-          academicYearId,
-          employeeId,
-          groupSectionId,
-          subjectId,
-          date,
-          subjectType,
-          studentbatchId,
-        });
+        const [list, holidayEvents] = await Promise.all([
+          listPeriodsForClassAttendance({
+            collegeId,
+            academicYearId,
+            employeeId,
+            groupSectionId,
+            subjectId,
+            date,
+            subjectType,
+            studentbatchId,
+          }),
+          listMarkAttendanceHolidayEvents({ collegeId, date }),
+        ]);
         setPeriods(list);
+        setEvents(holidayEvents);
       } catch (e) {
         toastError(getErrorMessage(e));
         setPeriods([]);
+        setEvents([]);
       } finally {
         setLoadingPeriods(false);
       }
@@ -186,12 +276,13 @@ export function MarkClassAttendancePage({
       subjectId,
       subjectType,
       studentbatchId,
+      resetSearchState,
     ],
   );
 
   useEffect(() => {
-    if (day) void loadPeriods(day);
-  }, [day, loadPeriods]);
+    if (day) void loadPeriodsAndEvents(day);
+  }, [day, loadPeriodsAndEvents]);
 
   useEffect(() => {
     void (async () => {
@@ -199,17 +290,16 @@ export function MarkClassAttendancePage({
         const methods = await listGeneralDetailsByCode(
           GM_CODES.TEACHING_METHODOLOGY,
         );
-        setMethodOptions([
-          { value: "", label: "- None -" },
-          ...methods.map((m) => ({
+        setMethodOptions(
+          methods.map((m) => ({
             value: String(m.generalDetailId ?? ""),
             label: String(
               m.generalDetailDisplayName ?? m.generalDetailName ?? "",
             ),
           })),
-        ]);
+        );
       } catch {
-        setMethodOptions([{ value: "", label: "- None -" }]);
+        setMethodOptions([]);
       }
     })();
   }, []);
@@ -231,33 +321,118 @@ export function MarkClassAttendancePage({
     }));
   }, [periods, searchParams, isLab, isTheory]);
 
-  function onPeriodSelect(value: string | null) {
-    const id = value && value !== "__none__" ? Number(value) : null;
-    setFlag(false);
-    setRows([]);
-    if (isTheory) {
-      setClassTimingId(id);
-      const period =
-        periods.find((p) => Number(p.classTimingId) === id) ?? null;
-      setSelectedPeriod(period);
-      const proxies = period?.staffProxies ?? [];
-      setIsAssignedProxy(proxies.length > 0);
-      if (proxies.length > 0) {
-        toastInfo(
-          `Note : This schedule is already assigned to ${String(proxies[0]?.proxyFirstName ?? "")} (${String(proxies[0]?.subjectName ?? "")} / ${String(proxies[0]?.proxySubjecttypeDisplayName ?? "")}).`,
-        );
-      }
-    } else {
-      setSelectedPeriodIds(id ? [id] : []);
-      const period =
-        periods.find((p) => Number(p.timetableScheduleId) === id) ?? null;
-      setSelectedPeriod(period);
-      setClassTimingId(
-        period?.classTimingId != null ? Number(period.classTimingId) : null,
+  function resolvePeriodFromSelection(
+    theoryTimingId: number | null,
+    scheduleIds: number[],
+  ): PeriodRow | null {
+    if (isTheory && theoryTimingId != null) {
+      return (
+        periods.find((p) => Number(p.classTimingId) === theoryTimingId) ?? null
       );
-      const proxies = period?.staffProxies ?? [];
-      setIsAssignedProxy(proxies.length > 0);
     }
+    if (scheduleIds.length > 0) {
+      return (
+        periods.find((p) => Number(p.timetableScheduleId) === scheduleIds[0]) ??
+        null
+      );
+    }
+    return null;
+  }
+
+  function onTheoryPeriodSelect(value: string | null) {
+    const id = value && value !== "__none__" ? Number(value) : null;
+    resetSearchState();
+    setClassTimingId(id);
+    const period = resolvePeriodFromSelection(id, []);
+    setSelectedPeriod(period);
+    if (period?.timetableScheduleId != null) {
+      setSelectedPeriodIds([Number(period.timetableScheduleId)]);
+    } else {
+      setSelectedPeriodIds([]);
+    }
+    const proxies = period?.staffProxies ?? [];
+    setIsAssignedProxy(proxies.length > 0);
+    if (proxies.length > 0) {
+      toastInfo(
+        `Note : This schedule is already assigned to ${String(proxies[0]?.proxyFirstName ?? "")} (${String(proxies[0]?.subjectName ?? "")} / ${String(proxies[0]?.proxySubjecttypeDisplayName ?? "")}).`,
+      );
+    }
+  }
+
+  function onLabPeriodsSelect(values: string[]) {
+    resetSearchState();
+    const ids = values
+      .filter((v) => v && v !== "__none__")
+      .map((v) => Number(v))
+      .filter((n) => Number.isFinite(n) && n > 0);
+    setSelectedPeriodIds(ids);
+    const period = resolvePeriodFromSelection(null, ids);
+    setSelectedPeriod(period);
+    setClassTimingId(
+      period?.classTimingId != null ? Number(period.classTimingId) : null,
+    );
+    const proxies = period?.staffProxies ?? [];
+    setIsAssignedProxy(proxies.length > 0);
+  }
+
+  function upsertLessonPayload(row: SubjectUnitTopicLessonRow) {
+    if (!day || selectedPeriodIds.length === 0) return;
+    const pct = Number(row.Percentage);
+    if (!Number.isFinite(pct) || pct === 0) return;
+    if (pct > 100) {
+      toastInfo("Percentage Should not be greater than 100");
+      setPendingTopics((prev) =>
+        prev.map((r) =>
+          Number(r.subjectUnitTopicId) === Number(row.subjectUnitTopicId)
+            ? { ...r, Percentage: 0 }
+            : r,
+        ),
+      );
+      return;
+    }
+    if (pct < 0) {
+      toastInfo("Percentage Should not be in negative");
+      setPendingTopics((prev) =>
+        prev.map((r) =>
+          Number(r.subjectUnitTopicId) === Number(row.subjectUnitTopicId)
+            ? { ...r, Percentage: 0 }
+            : r,
+        ),
+      );
+      return;
+    }
+
+    const statusId =
+      pct === 100 ? LESSON_STATUS_COMPLETED_ID : LESSON_STATUS_IN_PROGRESS_ID;
+    const updatedRow: SubjectUnitTopicLessonRow = {
+      ...row,
+      Percentage: pct,
+      fk_lessonstatus_catdet_id: statusId,
+    };
+    setPendingTopics((prev) =>
+      prev.map((r) =>
+        Number(r.subjectUnitTopicId) === Number(row.subjectUnitTopicId)
+          ? updatedRow
+          : r,
+      ),
+    );
+
+    const resource = selectedPeriod?.subjectResource?.[0];
+    const payload = buildLessonStatusPayloadFromTopicRow({
+      row: updatedRow,
+      day,
+      collegeId,
+      academicYearId,
+      groupSectionId,
+      actualClsScheduleId,
+      subjectResourceId:
+        resource?.subjectResourceId != null
+          ? Number(resource.subjectResourceId)
+          : null,
+      timetableScheduleId: selectedPeriodIds[0]!,
+    });
+    if (!payload) return;
+    setLessonPayloadList((prev) => [...prev, payload]);
   }
 
   async function onSearch() {
@@ -274,20 +449,25 @@ export function MarkClassAttendancePage({
       return;
     }
     if (isAssignedProxy) return;
+    if (events.length > 0) return;
 
     const period =
       selectedPeriod ??
-      (isTheory
-        ? periods.find((p) => Number(p.classTimingId) === classTimingId)
-        : periods.find(
-            (p) => Number(p.timetableScheduleId) === selectedPeriodIds[0],
-          )) ??
-      null;
+      resolvePeriodFromSelection(classTimingId, selectedPeriodIds);
     if (!period) {
       toastError("Period schedule incomplete");
       return;
     }
     setSelectedPeriod(period);
+
+    const scheduleIds = isTheory
+      ? [Number(period.timetableScheduleId)].filter(Boolean)
+      : selectedPeriodIds.filter(Boolean);
+    if (scheduleIds.length === 0) {
+      toastError("Please select Peroids");
+      return;
+    }
+    setSelectedPeriodIds(scheduleIds);
 
     setLoadingSearch(true);
     try {
@@ -298,7 +478,6 @@ export function MarkClassAttendancePage({
       const batchId =
         Number(resource?.studentBatchId ?? studentbatchId ?? 0) || null;
 
-      // Angular LAB/ELECTIVE → studentsubjectsattendancelist; else studentsList
       let list: Record<string, unknown>[];
       if (
         (typeCode === "LAB" && batchId) ||
@@ -341,46 +520,41 @@ export function MarkClassAttendancePage({
         timetableScheduleId: period.timetableScheduleId,
       })) as StudentRow[];
 
-      // Angular selectedPeroid merges existing studentabsentlist marks
-      const timetableScheduleId = Number(period.timetableScheduleId ?? 0);
+      const timetableScheduleId = scheduleIds[0]!;
       const periodSubjectId = Number(resource?.subjectId ?? subjectId);
-      let merged = students;
-      if (timetableScheduleId && periodSubjectId) {
-        const refreshed = await refreshAfterMarkAttendanceSave({
-          collegeId,
-          groupSectionId,
-          subjectId: periodSubjectId,
-          day,
-          timetableScheduleId,
-          employeeId,
-          students,
-          subjectType,
-          studentbatchId: batchId,
-        });
-        merged = refreshed.students as StudentRow[];
-        setUnitOptions([
-          { value: "", label: "- None -" },
-          ...refreshed.units.map((u) => ({
-            value: String(u.subjectUnitsId ?? ""),
-            label: String(u.unitName ?? u.unitCode ?? ""),
-          })),
-        ]);
-      } else {
-        const sid = periodSubjectId;
-        if (sid) {
-          const units = await listSubjectUnitsForMarkAttendance(sid);
-          setUnitOptions([
-            { value: "", label: "- None -" },
-            ...units.map((u) => ({
-              value: String(u.subjectUnitsId ?? ""),
-              label: String(u.unitName ?? u.unitCode ?? ""),
-            })),
-          ]);
-        }
-      }
+
+      const refreshed = await refreshAfterMarkAttendanceSave({
+        collegeId,
+        groupSectionId,
+        subjectId: periodSubjectId,
+        day,
+        timetableScheduleId,
+        employeeId,
+        students,
+        subjectType,
+        studentbatchId: batchId,
+      });
+
+      const merged = refreshed.students as StudentRow[];
+      const alreadyMarked = isAttendanceAlreadyMarked(refreshed.lessonDetails);
+      const meta = getLessonStatusScheduleMeta(refreshed.lessonDetails);
+      setAttendanceAlreadyMarked(alreadyMarked);
+      setNotesPath(meta.notesPath);
+      setActualClsScheduleId(meta.actualClsScheduleId);
+      if (meta.videoPath) setVideoPath(meta.videoPath);
+
+      const topics = await listLessonStatusSubjectUnitTopics({
+        organizationId,
+        employeeId: loginEmployeeId || employeeId,
+        timetableScheduleId,
+      });
+      setPendingTopics(topics.pending);
+      setCompletedTopics(topics.completed);
+      setLessonPayloadList([]);
 
       setRows(merged);
       setMarkAllChecked(merged.every((r) => r.checked !== false));
+      setStudentFilter("");
       setFlag(true);
       if (merged.length === 0) toastSuccess("No Record(s) found.");
     } catch (e) {
@@ -392,28 +566,9 @@ export function MarkClassAttendancePage({
     }
   }
 
-  async function onUnitChange(value: string | null) {
-    setUnitId(value);
-    setTopicId(null);
-    setTopicOptions([{ value: "", label: "- None -" }]);
-    const id = value ? Number(value) : 0;
-    if (!id) return;
-    try {
-      const topics = await listSubjectUnitTopicsForMarkAttendance(id);
-      setTopicOptions([
-        { value: "", label: "- None -" },
-        ...topics.map((t) => ({
-          value: String(t.subjectUnitTopicId ?? ""),
-          label: String(t.topicName ?? ""),
-        })),
-      ]);
-    } catch {
-      setTopicOptions([{ value: "", label: "- None -" }]);
-    }
-  }
-
   function openAttendancePreview() {
     if (!day || !selectedPeriod || rows.length === 0) return;
+    if (!canSaveAttendance) return;
 
     const periodIds = isTheory
       ? [Number(selectedPeriod.timetableScheduleId)].filter(Boolean)
@@ -434,10 +589,10 @@ export function MarkClassAttendancePage({
       subjectType,
       studentbatchId,
       videoPath,
-      subjectUnitsId: unitId ? Number(unitId) : null,
-      subjectUnitTopicId: topicId ? Number(topicId) : null,
-      teachingMethodCatdetId: methodId ? Number(methodId) : null,
-      comments,
+      subjectUnitsId: null,
+      subjectUnitTopicId: null,
+      teachingMethodCatdetId: null,
+      comments: "",
     });
 
     if (payload.length === 0) {
@@ -459,35 +614,45 @@ export function MarkClassAttendancePage({
       return;
     }
 
-    const timetableScheduleId = Number(selectedPeriod.timetableScheduleId ?? 0);
+    const timetableScheduleId = Number(
+      selectedPeriodIds[0] ?? selectedPeriod.timetableScheduleId ?? 0,
+    );
     const periodSubjectId = Number(
       selectedPeriod.subjectResource?.[0]?.subjectId ?? subjectId,
     );
+    const batchId =
+      Number(
+        selectedPeriod.subjectResource?.[0]?.studentBatchId ??
+          studentbatchId ??
+          0,
+      ) || null;
 
     setSaving(true);
     try {
-      // 1) Angular: POST studentattendancedetails
       const result = await saveStudentAttendanceDetails(pendingPayload);
       const scheduleIds = Array.isArray(result.data) ? result.data : [];
       const firstId = scheduleIds[0];
 
-      // 2) Angular: POST uploadclassnotes (when file chosen)
-      if (classNotesFile && firstId != null && firstId !== "") {
-        await uploadClassNotesForAttendance({
-          actualClassScheduleId: firstId as string | number,
-          file: classNotesFile,
-        });
+      // Angular: FormData actualClassScheduleId + notesDoc from #classNotesAvatar
+      const notesFile = classNotesInputRef.current?.files?.[0] ?? null;
+      if (notesFile && firstId != null && firstId !== "") {
+        try {
+          await uploadClassNotesForAttendance({
+            actualClassScheduleId: firstId as string | number,
+            file: notesFile,
+          });
+          toastSuccess("Class notes uploaded successfully");
+        } catch (uploadErr) {
+          toastError(getErrorMessage(uploadErr));
+        }
       }
 
-      // 3) Angular: saveDeatils() → POST addLessonstatusList
       try {
-        await saveLessonStatusList([]);
+        await saveLessonStatusList(lessonPayloadList);
       } catch {
-        // Angular still continues even when lesson list is empty / fails
+        // Angular continues even when lesson list fails
       }
 
-      // 4) Angular: selectedPeroid() refresh APIs
-      //    GET studentabsentlist + GET studentattendancedetails + SubjectUnit
       const refreshed = await refreshAfterMarkAttendanceSave({
         collegeId,
         groupSectionId,
@@ -497,28 +662,29 @@ export function MarkClassAttendancePage({
         employeeId,
         students: rows,
         subjectType,
-        studentbatchId,
+        studentbatchId: batchId,
       });
 
       setRows(refreshed.students as StudentRow[]);
       setMarkAllChecked(refreshed.students.every((r) => r.checked !== false));
       setFlag(true);
-      setUnitOptions([
-        { value: "", label: "- None -" },
-        ...refreshed.units.map((u) => ({
-          value: String(u.subjectUnitsId ?? ""),
-          label: String(u.unitName ?? u.unitCode ?? ""),
-        })),
-      ]);
+      setAttendanceAlreadyMarked(
+        isAttendanceAlreadyMarked(refreshed.lessonDetails),
+      );
+      const meta = getLessonStatusScheduleMeta(refreshed.lessonDetails);
+      setNotesPath(meta.notesPath);
+      setActualClsScheduleId(meta.actualClsScheduleId);
+      if (meta.videoPath) setVideoPath(meta.videoPath);
 
-      // 5) Angular: clearAllLessonDetails()
-      setUnitId(null);
-      setTopicId(null);
-      setMethodId(null);
-      setComments("");
-      setVideoPath("");
-      setClassNotesFile(null);
-      setTopicOptions([{ value: "", label: "- None -" }]);
+      const topics = await listLessonStatusSubjectUnitTopics({
+        organizationId,
+        employeeId: loginEmployeeId || employeeId,
+        timetableScheduleId,
+      });
+      setPendingTopics(topics.pending);
+      setCompletedTopics(topics.completed);
+      setLessonPayloadList([]);
+      if (classNotesInputRef.current) classNotesInputRef.current.value = "";
 
       setPreviewOpen(false);
       setPendingPayload(null);
@@ -534,6 +700,51 @@ export function MarkClassAttendancePage({
     () => rows.filter((r) => r.checked === false || r.isPresent === false),
     [rows],
   );
+
+  const filteredRows = useMemo(() => {
+    const q = studentFilter.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((r) => {
+      const roll = String(
+        r.rollNumber ?? r.admissionNumber ?? "",
+      ).toLowerCase();
+      const name = String(r.firstName ?? "").toLowerCase();
+      return roll.includes(q) || name.includes(q);
+    });
+  }, [rows, studentFilter]);
+
+  const canEditAttendance = mode === "mark";
+  /** Angular: Save only when `isEmptyObject(lessonStatus)`. */
+  const canSaveAttendance = mode === "mark" && !attendanceAlreadyMarked;
+
+  function toggleMarkAll() {
+    if (!canEditAttendance) return;
+    // Angular markItems(): if check (all marked / UnMark All) → unmark all;
+    // else Mark All → mark all present.
+    const unmarkAll = markAllChecked;
+    setMarkAllChecked(!unmarkAll);
+    setRows((prev) =>
+      prev.map((r) => ({
+        ...r,
+        checked: !unmarkAll,
+        isPresent: !unmarkAll,
+      })),
+    );
+  }
+
+  function toggleStudentPresent(studentId: number, present: boolean) {
+    if (!canEditAttendance) return;
+    // Angular checkedItems: set isPresent, rebuild absents, getMarkStatus()
+    setRows((prev) => {
+      const next = prev.map((r) =>
+        Number(r.studentId) === studentId
+          ? { ...r, isPresent: present, checked: present }
+          : r,
+      );
+      setMarkAllChecked(next.every((r) => r.isPresent !== false));
+      return next;
+    });
+  }
 
   const previewPeriods = useMemo(() => {
     if (!selectedPeriod) return [];
@@ -571,77 +782,6 @@ export function MarkClassAttendancePage({
     return [group, year, section].filter(Boolean).join(" / ");
   }, [searchParams]);
 
-  const columnDefs = useMemo<ColDef<StudentRow>[]>(() => {
-    const markRenderer = (p: ICellRendererParams<StudentRow>) => {
-      const checked = p.data?.checked !== false && p.data?.isPresent !== false;
-      if (mode === "view") {
-        return (
-          <span
-            className={
-              checked
-                ? "text-emerald-600 font-semibold"
-                : "text-destructive font-semibold"
-            }
-          >
-            {checked ? "Present" : "Absent"}
-          </span>
-        );
-      }
-      return (
-        <label className="inline-flex items-center gap-1.5 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={checked}
-            aria-label="Present"
-            onChange={(e) => {
-              const present = e.target.checked;
-              setRows((prev) => {
-                const next = prev.map((r) =>
-                  Number(r.studentId) === Number(p.data?.studentId)
-                    ? { ...r, isPresent: present, checked: present }
-                    : r,
-                );
-                setMarkAllChecked(next.every((r) => r.checked !== false));
-                return next;
-              });
-            }}
-          />
-          <span
-            className={
-              checked
-                ? "text-emerald-600 font-semibold"
-                : "text-destructive font-semibold"
-            }
-          >
-            {checked ? "Present" : "Absent"}
-          </span>
-        </label>
-      );
-    };
-    return [
-      {
-        headerName: "SI.No",
-        valueGetter: rowIndexGetter,
-        width: 70,
-        flex: 0,
-      },
-      {
-        headerName: "Roll No.",
-        minWidth: 120,
-        valueGetter: (p) =>
-          String(p.data?.rollNumber ?? p.data?.admissionNumber ?? ""),
-      },
-      { field: "firstName", headerName: "Student Name", minWidth: 160 },
-      {
-        headerName: "",
-        minWidth: 150,
-        flex: 0,
-        width: 160,
-        cellRenderer: markRenderer,
-      },
-    ];
-  }, [mode]);
-
   const attendanceHeader = useMemo(() => {
     const parts = [
       searchParams.get("collegeCode"),
@@ -661,13 +801,8 @@ export function MarkClassAttendancePage({
     return `${parts.join("/")}${periodPart}${datePart}`;
   }, [searchParams, selectedPeriod, day]);
 
-  const periodSelectValue = isTheory
-    ? classTimingId
-      ? String(classTimingId)
-      : null
-    : selectedPeriodIds[0]
-      ? String(selectedPeriodIds[0])
-      : null;
+  const periodSelectValue = classTimingId ? String(classTimingId) : null;
+  const multiPeriodValues = selectedPeriodIds.map(String);
 
   return (
     <FilteredPage
@@ -675,6 +810,19 @@ export function MarkClassAttendancePage({
       filtersCollapsible={false}
       filters={
         <div className="space-y-4">
+          {events.length > 0 ? (
+            <div className="rounded-sm border border-amber-300 bg-amber-50 px-4 py-2 space-y-1">
+              {events.map((ev, i) => (
+                <p key={`${ev.eventName}-${i}`} className="text-sm font-medium">
+                  {String(ev.eventName ?? "Holiday")}
+                  {ev.startDate || ev.endDate
+                    ? ` (${ev.startDate ?? ""}${ev.endDate ? ` - ${ev.endDate}` : ""})`
+                    : ""}
+                </p>
+              ))}
+            </div>
+          ) : null}
+
           <div className="rounded-sm border border-primary/30 bg-primary/5 px-4 py-3 space-y-1">
             <DetailRow label="College" value={collegeLine} />
             <DetailRow label="Course" value={courseLine} />
@@ -698,24 +846,40 @@ export function MarkClassAttendancePage({
               maxDate={new Date()}
               className="w-[180px] shrink-0"
             />
-            <Select
-              label="Peroids *"
-              value={periodSelectValue}
-              onChange={onPeriodSelect}
-              options={periodOptions}
-              searchable
-              isLoading={loadingPeriods}
-              placeholder="Peroids"
-              className="w-full max-w-[min(100%,22rem)] sm:w-[min(40%,22rem)]"
-            />
-            <Button
-              type="button"
-              className="shrink-0 mb-0.5"
-              disabled={isAssignedProxy || loadingSearch}
-              onClick={() => void onSearch()}
-            >
-              Search
-            </Button>
+            {isTheory ? (
+              <Select
+                label="Peroids *"
+                value={periodSelectValue}
+                onChange={onTheoryPeriodSelect}
+                options={periodOptions}
+                searchable
+                isLoading={loadingPeriods}
+                placeholder="Peroids"
+                className="w-full max-w-[min(100%,28rem)] sm:w-[min(50%,28rem)]"
+              />
+            ) : (
+              <MultiSelect
+                label="Peroids *"
+                value={multiPeriodValues}
+                onChange={onLabPeriodsSelect}
+                options={periodOptions.filter((o) => o.value !== "__none__")}
+                searchable
+                isLoading={loadingPeriods}
+                placeholder="Peroids"
+                showSelectAll={false}
+                className="w-full max-w-[min(100%,36rem)] sm:w-[min(65%,36rem)]"
+              />
+            )}
+            {events.length === 0 ? (
+              <Button
+                type="button"
+                className="shrink-0 mb-0.5"
+                disabled={isAssignedProxy || loadingSearch}
+                onClick={() => void onSearch()}
+              >
+                Search
+              </Button>
+            ) : null}
           </div>
 
           {isAssignedProxy && selectedPeriod?.staffProxies?.[0] ? (
@@ -736,134 +900,338 @@ export function MarkClassAttendancePage({
         </div>
       }
     >
-      <div className="app-data-table app-data-table-card flex flex-col">
-        <div className="app-data-table-heading px-5 pt-5 pb-0">
-          <h2 className="text-lg font-semibold tracking-tight text-foreground">
-            Lesson Status
-          </h2>
-        </div>
-        <div className="global-filter-bar__inner px-5 pb-4 space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-            <Select
-              label="Unit"
-              value={unitId}
-              onChange={(v) => void onUnitChange(v)}
-              options={
-                unitOptions.length
-                  ? unitOptions
-                  : [{ value: "", label: "- None -" }]
-              }
-              searchable
-              className="md:col-span-4"
-            />
-            <Select
-              label="Topic"
-              value={topicId}
-              onChange={setTopicId}
-              options={
-                topicOptions.length
-                  ? topicOptions
-                  : [{ value: "", label: "- None -" }]
-              }
-              searchable
-              className="md:col-span-4"
-            />
-            <Select
-              label="Teaching Method"
-              value={methodId}
-              onChange={setMethodId}
-              options={
-                methodOptions.length
-                  ? methodOptions
-                  : [{ value: "", label: "- None -" }]
-              }
-              searchable
-              className="md:col-span-4"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium">Comments</Label>
-            <Textarea
-              value={comments}
-              onChange={(e) => setComments(e.target.value)}
-              rows={3}
-              placeholder="Comments"
-              className="resize-y"
-            />
-          </div>
-        </div>
-      </div>
-
-      {flag && rows.length > 0 ? (
-        <div className="space-y-3">
-          <p className="text-sm font-semibold text-[hsl(var(--card-title))] px-1">
-            Attendance -{" "}
-            <span className="font-normal text-muted-foreground">
-              {attendanceHeader}
-            </span>
-          </p>
-
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
-            <div className="lg:col-span-8 xl:col-span-9">
-              <DataTable
-                title=""
-                bordered
-                rowData={rows}
-                columnDefs={columnDefs}
-                loading={loadingSearch}
-                pagination={false}
-                height="auto"
-                toolbar={{
-                  search: true,
-                  searchPlaceholder: "Search",
-                  exportExcel: false,
-                  exportPdf: false,
-                }}
-                toolbarTrailing={
-                  <div className="flex items-center gap-3">
-                    <label className="inline-flex items-center gap-1.5 text-sm cursor-pointer">
+      {pendingTopics.length > 0 ? (
+        <UnitTopicsAccordion title="Not Started / In Progress Unit Topics">
+          <table className="w-full min-w-[720px] border-collapse text-sm text-black">
+            <thead>
+              <tr className="bg-[#ffcf46] text-center">
+                <th className="border border-black px-2 py-1">Class Date</th>
+                <th className="border border-black px-2 py-1">Subject</th>
+                <th className="border border-black px-2 py-1">Unit</th>
+                <th className="border border-black px-2 py-1">Topic Name</th>
+                <th className="border border-black px-2 py-1">
+                  Teaching Method
+                </th>
+                <th className="border border-black px-2 py-1">Lesson Status</th>
+                <th className="border border-black px-2 py-1">Percentage</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pendingTopics.map((row, idx) => {
+                const statusId = Number(row.fk_lessonstatus_catdet_id);
+                const statusLabel =
+                  statusId === LESSON_STATUS_COMPLETED_ID
+                    ? "Completed"
+                    : "In Progress";
+                return (
+                  <tr
+                    key={`${row.subjectUnitTopicId}-${idx}`}
+                    className="text-center"
+                  >
+                    <td className="border border-black px-2 py-1">
+                      {String(row.class_date ?? "")}
+                    </td>
+                    <td className="border border-black px-2 py-1">
+                      {String(row.subject_name ?? "")} (
+                      {String(row.subject_code ?? "")})
+                    </td>
+                    <td className="border border-black px-2 py-1">
+                      {String(row.unit_code ?? "")}
+                    </td>
+                    <td className="border border-black px-2 py-1 text-left">
+                      {String(row.topic_name ?? "")}
+                    </td>
+                    <td className="border border-black px-2 py-1">
+                      <Select
+                        value={
+                          row.fk_teaching_method_catdet_id != null
+                            ? String(row.fk_teaching_method_catdet_id)
+                            : null
+                        }
+                        onChange={(v) => {
+                          const next = {
+                            ...row,
+                            fk_teaching_method_catdet_id: v ? Number(v) : null,
+                          };
+                          setPendingTopics((prev) =>
+                            prev.map((r, i) => (i === idx ? next : r)),
+                          );
+                          upsertLessonPayload(next);
+                        }}
+                        options={methodOptions}
+                        searchable
+                        placeholder="Select"
+                        className="min-w-[120px]"
+                      />
+                    </td>
+                    <td className="border border-black px-2 py-1">
+                      {statusLabel}
+                    </td>
+                    <td className="border border-black px-2 py-1">
                       <input
-                        type="checkbox"
-                        checked={markAllChecked}
-                        onChange={() => {
-                          const next = !markAllChecked;
-                          setMarkAllChecked(next);
-                          setRows((prev) =>
-                            prev.map((r) => ({
-                              ...r,
-                              checked: next,
-                              isPresent: next,
-                            })),
+                        type="number"
+                        step="any"
+                        min={1}
+                        className="app-control h-8 w-20 rounded-md border bg-white px-2 text-sm text-center"
+                        value={
+                          row.Percentage === "" || row.Percentage == null
+                            ? ""
+                            : String(row.Percentage)
+                        }
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setPendingTopics((prev) =>
+                            prev.map((r, i) =>
+                              i === idx
+                                ? {
+                                    ...r,
+                                    Percentage: val === "" ? "" : Number(val),
+                                  }
+                                : r,
+                            ),
                           );
                         }}
+                        onBlur={() => upsertLessonPayload(pendingTopics[idx]!)}
                       />
-                      <span className="font-medium">
-                        {markAllChecked ? "UnMark All" : "Mark All"}
-                      </span>
-                    </label>
-                    <span className="text-sm text-muted-foreground">
-                      Total Students: {rows.length}
-                    </span>
-                  </div>
-                }
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </UnitTopicsAccordion>
+      ) : null}
+
+      {completedTopics.length > 0 ? (
+        <UnitTopicsAccordion title="History Unit Topics" defaultOpen={false}>
+          <table className="w-full min-w-[720px] border-collapse text-sm text-black">
+            <thead>
+              <tr className="bg-[#ffcf46] text-center">
+                <th className="border border-black px-2 py-1">Class Date</th>
+                <th className="border border-black px-2 py-1">Subject</th>
+                <th className="border border-black px-2 py-1">Unit</th>
+                <th className="border border-black px-2 py-1">Topic Name</th>
+                <th className="border border-black px-2 py-1">
+                  Teaching Method
+                </th>
+                <th className="border border-black px-2 py-1">Lesson Status</th>
+                <th className="border border-black px-2 py-1">Percentage</th>
+              </tr>
+            </thead>
+            <tbody>
+              {completedTopics.map((row, idx) => (
+                <tr
+                  key={`hist-${row.subjectUnitTopicId}-${idx}`}
+                  className="text-center"
+                >
+                  <td className="border border-black px-2 py-1">
+                    {String(row.class_date ?? "")}
+                  </td>
+                  <td className="border border-black px-2 py-1">
+                    {String(row.subject_name ?? "")}(
+                    {String(row.subject_code ?? "")})
+                  </td>
+                  <td className="border border-black px-2 py-1">
+                    {String(row.unit_code ?? "")}
+                  </td>
+                  <td className="border border-black px-2 py-1 text-left">
+                    {String(row.topic_name ?? "")}
+                  </td>
+                  <td className="border border-black px-2 py-1">
+                    {String(row.teaching_method_code ?? "")}
+                  </td>
+                  <td className="border border-black px-2 py-1">
+                    {String(row.lesson_status_code ?? "")}
+                  </td>
+                  <td className="border border-black px-2 py-1">
+                    {String(row.Percentage ?? "")}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </UnitTopicsAccordion>
+      ) : null}
+
+      {flag ? (
+        <div
+          className="px-1 text-sm font-semibold text-destructive"
+          role="status"
+        >
+          {attendanceAlreadyMarked
+            ? "Already attendance is marked, To update the attendance please contact HOD."
+            : "Attendance Not Marked."}
+        </div>
+      ) : null}
+
+      {flag && rows.length > 0 ? (
+        <div className="space-y-3 bg-[#fff]">
+          {/* Angular page-table-head + gold underline */}
+          <div className="mx-3 border-b-2 border-[#ffcf46] pb-2">
+            <div className="flex items-center gap-2">
+              <Timer
+                className="h-[18px] w-[18px] shrink-0 text-[hsl(var(--card-title))]"
+                aria-hidden
+              />
+              <strong className="text-[15px] font-semibold leading-snug text-[hsl(var(--card-title))]">
+                Attendance -{" "}
+                <span className="font-medium">{attendanceHeader}</span>
+              </strong>
+            </div>
+          </div>
+
+          <div className="relative px-3 pt-1">
+            <div className="mb-1 w-full max-w-[20%]">
+              {/* Angular mat-form-field floatLabel="never" Search */}
+              <input
+                type="search"
+                value={studentFilter}
+                onChange={(e) => setStudentFilter(e.target.value)}
+                placeholder="Search"
+                className="h-9 w-full border-0 border-b border-[rgba(0,0,0,0.42)] bg-transparent px-0 text-sm text-black outline-none placeholder:text-muted-foreground focus:border-b-2 focus:border-primary"
               />
             </div>
-            <div className="lg:col-span-4 xl:col-span-3">
-              <div className="rounded-sm border bg-card h-full min-h-[200px]">
-                <div className="flex items-center justify-between border-b px-3 py-2 bg-muted/40">
-                  <h3 className="text-sm font-semibold uppercase tracking-wide">
-                    Absentees
-                  </h3>
-                  <span className="text-sm font-semibold">
+            <span className="absolute right-3 top-[10px] text-[15px] font-normal text-black">
+              Total Students: {rows.length}
+            </span>
+          </div>
+
+          {/* Angular: fxFlex 70% table + 30% absentees */}
+          <div className="flex flex-col gap-0 px-3 lg:flex-row">
+            <div className="min-w-0 flex-1 lg:basis-[70%] lg:flex-none">
+              <div
+                className="mat-table-shell mat-elevation-z8 overflow-auto bg-white"
+                style={{ height: 450 }}
+              >
+                <table className="mat-table">
+                  <thead className="sticky top-0 z-10">
+                    <tr className="mat-header-row">
+                      <th className="mat-header-cell px-3 py-1.5 text-left whitespace-nowrap w-[70px] !bg-[#c3d9ff]">
+                        SI.No
+                      </th>
+                      <th className="mat-header-cell px-3 py-1.5 text-left whitespace-nowrap w-[120px] !bg-[#c3d9ff]">
+                        Roll No.
+                      </th>
+                      <th className="mat-header-cell px-3 py-1.5 text-left !bg-[#c3d9ff]">
+                        Student Name
+                      </th>
+                      <th className="mat-header-cell px-3 py-1.5 text-left whitespace-nowrap w-[160px] !bg-[#c3d9ff]">
+                        {canEditAttendance ? (
+                          <label
+                            className="inline-flex cursor-pointer items-center gap-2 text-[15px] font-medium text-black"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              toggleMarkAll();
+                            }}
+                          >
+                            <Checkbox
+                              checked={markAllChecked}
+                              tabIndex={-1}
+                              aria-label={
+                                markAllChecked ? "UnMark All" : "Mark All"
+                              }
+                            />
+                            <span>
+                              {markAllChecked ? "UnMark All" : "Mark All"}
+                            </span>
+                          </label>
+                        ) : (
+                          "Status"
+                        )}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredRows.map((row, index) => {
+                      const present =
+                        row.checked !== false && row.isPresent !== false;
+                      const sid = Number(row.studentId ?? 0);
+                      return (
+                        <tr
+                          key={String(row.studentId ?? index)}
+                          className="mat-row"
+                        >
+                          <td className="mat-cell px-3 py-1.5 text-center whitespace-nowrap">
+                            {rows.indexOf(row) + 1}
+                          </td>
+                          <td className="mat-cell px-3 py-1.5 whitespace-nowrap">
+                            {String(
+                              row.rollNumber ?? row.admissionNumber ?? "",
+                            )}
+                          </td>
+                          <td className="mat-cell px-3 py-1.5 uppercase">
+                            {String(row.firstName ?? "")}
+                          </td>
+                          <td className="mat-cell px-3 py-1.5">
+                            {canEditAttendance ? (
+                              <label className="inline-flex cursor-pointer items-center gap-2">
+                                <Checkbox
+                                  checked={present}
+                                  onCheckedChange={(v) =>
+                                    toggleStudentPresent(sid, v === true)
+                                  }
+                                  aria-label={present ? "Present" : "Absent"}
+                                />
+                                <span
+                                  className={cn(
+                                    "text-sm font-medium",
+                                    present ? "text-[#00c300]" : "text-red-600",
+                                  )}
+                                >
+                                  {present ? "Present" : "Absent"}
+                                </span>
+                              </label>
+                            ) : (
+                              <span
+                                className={cn(
+                                  "text-sm font-medium",
+                                  present ? "text-[#00c300]" : "text-red-600",
+                                )}
+                              >
+                                {present ? "Present" : "Absent"}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {filteredRows.length === 0 ? (
+                      <tr className="mat-row">
+                        <td
+                          colSpan={4}
+                          className="mat-cell px-3 py-8 text-center text-muted-foreground"
+                        >
+                          No students match the search.
+                        </td>
+                      </tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="mt-4 w-full lg:mt-0 lg:basis-[30%] lg:flex-none lg:pl-5">
+              <div className="overflow-hidden border border-[#c3d9ff] bg-white shadow-sm">
+                <h3 className="m-0 border border-[#c3d9ff] bg-[#ecf3ff] px-3 py-[11px] text-center text-sm font-medium uppercase tracking-wide text-black">
+                  Absentees
+                  <span className="float-right font-semibold">
                     {absentees.length}
                   </span>
-                </div>
-                <div className="p-3 space-y-1 max-h-[420px] overflow-y-auto text-sm">
+                </h3>
+                <div
+                  className="overflow-y-auto text-sm text-black"
+                  style={{ maxHeight: 403 }}
+                >
                   {absentees.length === 0 ? (
-                    <p className="text-muted-foreground">No absents found.</p>
+                    <p className="m-0 border-b border-[#dedede] px-[10px] py-[10px]">
+                      No absents found.
+                    </p>
                   ) : (
                     absentees.map((a) => (
-                      <p key={String(a.studentId)}>
+                      <p
+                        key={String(a.studentId)}
+                        className="m-0 border-b border-[#dedede] px-[10px] py-[10px]"
+                      >
                         {String(a.firstName ?? "")} -{" "}
                         {String(a.rollNumber ?? a.admissionNumber ?? "")}
                       </p>
@@ -874,37 +1242,46 @@ export function MarkClassAttendancePage({
             </div>
           </div>
 
-          <div className="rounded-sm border border-primary/20 bg-primary/5 px-4 py-3 flex flex-wrap items-end gap-3">
-            <div className="space-y-1">
-              <Label className="text-sm font-medium">Class Notes</Label>
-              <input
-                type="file"
-                accept=".png,.jpg,.jpeg,.pdf,.doc,.docx"
-                className="block text-sm"
-                onChange={(e) => setClassNotesFile(e.target.files?.[0] ?? null)}
-              />
-              {classNotesFile ? (
-                <p className="text-xs text-muted-foreground">
-                  {classNotesFile.name}
-                </p>
-              ) : null}
+          {/* Angular .pay-1 — 7px #c3d9ff border; file ~30% + video ~50% */}
+          <div
+            className="mx-3 mt-2.5 rounded-[3px] bg-white p-[5px]"
+            style={{ border: "7px solid #c3d9ff" }}
+          >
+            <div className="flex flex-col flex-wrap sm:flex-row sm:items-center">
+              <div className="w-full p-2 sm:w-[30%]">
+                {/* Angular: <input type="file" accept=".png, .jpg, .jpeg, .pdf, .doc" #classNotesAvatar> */}
+                <input
+                  ref={classNotesInputRef}
+                  type="file"
+                  accept=".png, .jpg, .jpeg, .pdf, .doc"
+                  className="block w-full cursor-pointer text-sm text-black"
+                />
+              </div>
+              <div className="w-full p-2 sm:w-[50%]">
+                {/* Angular matInput placeholder="Class Notes Video Link" */}
+                <input
+                  id="class-notes-video"
+                  type="text"
+                  value={videoPath}
+                  onChange={(e) => setVideoPath(e.target.value)}
+                  placeholder="Class Notes Video Link"
+                  className="h-10 w-full border-0 border-b border-[rgba(0,0,0,0.42)] bg-transparent px-0 text-sm text-black outline-none placeholder:text-muted-foreground focus:border-b-2 focus:border-primary"
+                />
+              </div>
             </div>
-            <div className="flex-1 min-w-[220px] space-y-1">
-              <Label
-                className="text-sm font-medium"
-                htmlFor="class-notes-video"
-              >
-                Class Notes Video Link
-              </Label>
-              <input
-                id="class-notes-video"
-                type="text"
-                value={videoPath}
-                onChange={(e) => setVideoPath(e.target.value)}
-                placeholder="Class Notes Video Link"
-                className="app-control flex h-9 w-full rounded-md border bg-white px-3 text-sm shadow-sm"
-              />
-            </div>
+            {notesPath ? (
+              <p className="m-0 border-0 px-2 py-1">
+                <a
+                  href={notesPath}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm underline"
+                  style={{ color: "blue" }}
+                >
+                  View Class Notes
+                </a>
+              </p>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -914,7 +1291,6 @@ export function MarkClassAttendancePage({
           type="button"
           variant="outline"
           onClick={() => {
-            // Angular attendance-update goBack restores day/empName/employeeId
             if (fromAttendanceUpdate) {
               const empId = searchParams.get("employeeId");
               if (empId) {
@@ -934,7 +1310,7 @@ export function MarkClassAttendancePage({
         >
           Back
         </Button>
-        {flag && rows.length > 0 ? (
+        {flag && rows.length > 0 && canSaveAttendance ? (
           <Button type="button" onClick={openAttendancePreview}>
             Save Attendance
           </Button>
