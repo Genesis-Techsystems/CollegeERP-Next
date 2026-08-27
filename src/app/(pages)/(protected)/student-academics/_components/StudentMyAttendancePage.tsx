@@ -2,8 +2,11 @@
 
 /**
  * Angular `student-academics/student-my-attendance` → `StudentMyAttendanceComponent`.
- * Subject-wise attendance % + total attendance header.
- * Reuses getAllRecords / loadStudentProfileTabData / buildStudentAttendanceView (no new APIs).
+ *
+ * On load Angular fires exactly **2** APIs in parallel:
+ *   1. `getAllRecords/s_rep_tt_std_tot_attendance_per` → Total Attendance %
+ *   2. `getAllRecords/s_rep_tt_std_attendance_per` → subject-wise grid
+ * No studentdetail / classwise / daywise / special-activity calls.
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -12,18 +15,14 @@ import { ListPage } from "@/components/layout";
 import { useSession } from "@/hooks/useSession";
 import { rowIndexGetter } from "@/lib/utils";
 import { toastError, toastInfo } from "@/lib/toast";
-import {
-  buildStudentAttendanceView,
-  fetchStudentDetail,
-  fetchStudentDetailByUserId,
-  getAllRecords,
-  loadStudentProfileTabData,
-} from "@/services";
+import { getAllRecordsEnvelope } from "@/services";
 
 type AnyRow = Record<string, unknown>;
 
 /** Angular `CONSTANTS.studentAttendancePercentageReportUrl` */
 const ATTENDANCE_PER_PROC = "s_rep_tt_std_attendance_per";
+/** Angular `CONSTANTS.studentAttendancePercentageOnlyReportUrl` */
+const ATTENDANCE_TOT_PROC = "s_rep_tt_std_tot_attendance_per";
 
 function positiveId(...candidates: unknown[]): number {
   for (const c of candidates) {
@@ -47,51 +46,74 @@ function txt(row: AnyRow | null | undefined, keys: string[]): string {
   return "";
 }
 
-function num(row: AnyRow | null | undefined, keys: string[]): number {
-  if (!row) return 0;
-  for (const key of keys) {
-    const v = row[key];
-    if (v != null && v !== "" && Number.isFinite(Number(v))) return Number(v);
-  }
-  return 0;
-}
+/**
+ * Angular: `result.data.result[0]` is the row array for both procs.
+ * `getAllRecordsEnvelope` already unwraps to `body.data`.
+ */
+function asAngularResult0(data: unknown): AnyRow[] {
+  if (data == null || data === "" || data === false) return [];
 
-function asProcRows(data: unknown): AnyRow[] {
-  if (data == null || data === "") return [];
+  // data.result[0] (Angular shape)
+  if (data && typeof data === "object" && !Array.isArray(data)) {
+    const o = data as AnyRow;
+    if (Array.isArray(o.result)) {
+      const first = o.result[0];
+      if (Array.isArray(first)) {
+        return first.filter(
+          (item): item is AnyRow =>
+            Boolean(item) && typeof item === "object" && !Array.isArray(item),
+        );
+      }
+      if (
+        first &&
+        typeof first === "object" &&
+        !Array.isArray(first) &&
+        first !== ""
+      ) {
+        // single object in result[0]
+        return [first as AnyRow];
+      }
+      // result itself is flat list of rows
+      if (
+        o.result.every(
+          (item) => item && typeof item === "object" && !Array.isArray(item),
+        )
+      ) {
+        return o.result as AnyRow[];
+      }
+    }
+    if (Array.isArray(o.resultList)) return asAngularResult0({ result: o.resultList });
+  }
+
+  // already [[rows]] or [rows]
   if (Array.isArray(data)) {
     if (data.length > 0 && Array.isArray(data[0])) {
-      const first = data[0];
-      if (Array.isArray(first)) return first as AnyRow[];
+      return (data[0] as unknown[]).filter(
+        (item): item is AnyRow =>
+          Boolean(item) && typeof item === "object" && !Array.isArray(item),
+      );
     }
-    if (data.every((item) => item && typeof item === "object" && !Array.isArray(item))) {
+    if (
+      data.every(
+        (item) => item && typeof item === "object" && !Array.isArray(item),
+      )
+    ) {
       return data as AnyRow[];
     }
   }
-  if (data && typeof data === "object") {
-    const o = data as AnyRow;
-    if (Array.isArray(o.result)) return asProcRows(o.result);
-    if (Array.isArray(o.resultList)) return asProcRows(o.resultList);
-  }
+
   return [];
 }
 
-/** Angular header: `studentAttendancePrecentage[0].percentage.toFixed(2)` */
-function formatTotalAttendancePct(rows: AnyRow[]): string | null {
-  for (const row of rows) {
-    const hasSubject = Boolean(
-      txt(row, ["Subject_name", "Subject_Code", "subjectName", "subjectCode"]),
-    );
-    if (hasSubject) continue;
-    const pct = num(row, ["percentage", "Percentage", "attendancePercentage"]);
-    if (pct > 0) return pct.toFixed(2);
-  }
-
-  const view = buildStudentAttendanceView(rows);
-  if (view.totalClasses > 0) {
-    return ((view.present / view.totalClasses) * 100).toFixed(2);
-  }
-  if (view.totalAttendancePct > 0) return view.totalAttendancePct.toFixed(2);
-  return null;
+/** Angular: `studentAttendancePrecentage[0].percentage.toFixed(2)` */
+function formatTotalPct(rows: AnyRow[]): string | null {
+  const first = rows[0];
+  if (!first) return null;
+  const raw = first.percentage ?? first.Percentage ?? first.attendancePercentage;
+  if (raw == null || raw === "") return null;
+  const pct = Number(raw);
+  if (!Number.isFinite(pct)) return null;
+  return pct.toFixed(2);
 }
 
 function cellText(p: ValueGetterParams<AnyRow>, keys: string[]): string {
@@ -109,7 +131,8 @@ function cellNum(p: ValueGetterParams<AnyRow>, keys: string[]): string {
 
 function cellPct(p: ValueGetterParams<AnyRow>): string {
   if (!p.data) return "—";
-  const raw = p.data.Percentage ?? p.data.percentage ?? p.data.attendancePercentage;
+  const raw =
+    p.data.Percentage ?? p.data.percentage ?? p.data.attendancePercentage;
   if (raw == null || raw === "") return "—";
   const n = Number(raw);
   if (!Number.isFinite(n)) return String(raw);
@@ -183,89 +206,73 @@ export function StudentMyAttendancePage() {
   const [rows, setRows] = useState<AnyRow[]>([]);
   const [totalPct, setTotalPct] = useState<string | null>(null);
 
+  const sessionStudentId = positiveId(user?.studentId);
+  const sessionCollegeId = positiveId(user?.collegeId);
+
   const load = useCallback(async () => {
     setLoading(true);
     setRows([]);
     setTotalPct(null);
     try {
-      // Angular: localStorage studentId / collegeId / courseYearId / …
-      const storageStudentId = positiveId(readStorage("studentId"));
-      const sessionStudentId = positiveId(user?.studentId);
-      const studentId = sessionStudentId || storageStudentId;
+      // Angular constructor: collegeId / studentId / groupSectionId from localStorage
+      const collegeId = positiveId(readStorage("collegeId"), sessionCollegeId);
+      const courseYearId = positiveId(readStorage("courseYearId"));
+      const courseGroupId = positiveId(readStorage("courseGroupId"));
+      const academicYearId = positiveId(readStorage("academicYearId"));
+      const groupSectionId = positiveId(readStorage("groupSectionId"));
+      const studentId = positiveId(readStorage("studentId"), sessionStudentId);
 
-      let detail: AnyRow | null = null;
-      if (studentId) {
-        detail = (await fetchStudentDetail(studentId)) as AnyRow | null;
-      }
-      if (!detail && user?.userId) {
-        detail = (await fetchStudentDetailByUserId(
-          user.userId,
-        )) as AnyRow | null;
-      }
-
-      const collegeId =
-        positiveId(readStorage("collegeId"), user?.collegeId) ||
-        num(detail, ["collegeId", "fk_college_id"]);
-      const courseYearId =
-        positiveId(readStorage("courseYearId")) ||
-        num(detail, ["courseYearId", "fk_course_year_id"]);
-      const courseGroupId =
-        positiveId(readStorage("courseGroupId")) ||
-        num(detail, ["courseGroupId", "fk_course_group_id"]);
-      const academicYearId =
-        positiveId(readStorage("academicYearId")) ||
-        num(detail, ["academicYearId", "fk_academic_year_id"]);
-      const groupSectionId =
-        positiveId(readStorage("groupSectionId")) ||
-        num(detail, ["groupSectionId", "fk_group_section_id", "sectionId"]);
-      const sid =
-        studentId ||
-        num(detail, ["studentId", "fk_student_id", "student_id"]);
-
-      if (!sid) {
+      if (!studentId || !collegeId || !groupSectionId) {
         toastInfo("Could not load your student profile.");
         return;
       }
 
-      let attendanceRows: AnyRow[] = [];
+      // Angular ngOnInit → getStudentAttetndance:
+      //   getStudentAttetndancePercentage(...)  // tot — fired first, not awaited
+      //   listByNineIds(...attendance_per...)  // grid — fired immediately after
+      const [totEnv, perEnv] = await Promise.all([
+        getAllRecordsEnvelope<unknown>(ATTENDANCE_TOT_PROC, {
+          in_collegeId: collegeId,
+          in_studentId: studentId,
+          in_sectionId: groupSectionId,
+          in_empId: "0",
+          in_percentage_value: "0",
+        }),
+        getAllRecordsEnvelope<unknown>(ATTENDANCE_PER_PROC, {
+          in_collegeId: collegeId,
+          in_course_year_id: courseYearId,
+          in_course_group_id: courseGroupId,
+          in_academic_year_id: academicYearId,
+          in_sectionId: groupSectionId,
+          in_studentId: studentId,
+          in_empId: "0",
+          in_from_percentage: 0,
+          in_to_percentage: 100,
+        }),
+      ]);
 
-      // Angular listByNineIds(studentAttendancePercentageReportUrl, …)
-      if (
-        collegeId &&
-        courseYearId &&
-        courseGroupId &&
-        academicYearId &&
-        groupSectionId
-      ) {
-        try {
-          const raw = await getAllRecords<unknown>(ATTENDANCE_PER_PROC, {
-            in_collegeId: collegeId,
-            in_course_year_id: courseYearId,
-            in_course_group_id: courseGroupId,
-            in_academic_year_id: academicYearId,
-            in_sectionId: groupSectionId,
-            in_studentId: sid,
-            in_empId: "0",
-            in_from_percentage: 0,
-            in_to_percentage: 100,
-          });
-          attendanceRows = asProcRows(raw);
-        } catch {
-          // fall through to profile loader
+      // Angular: statusCode 200 + data.result[0]
+      let nextTotal: string | null = null;
+      if (totEnv.statusCode === 200 || totEnv.success) {
+        const totRows = asAngularResult0(totEnv.data);
+        nextTotal = formatTotalPct(totRows);
+        if (!totRows.length && totEnv.message && !totEnv.success) {
+          // keep quiet for tot — Angular shows success toast only when empty; skip noise
         }
       }
 
-      // Fallback: same proc path used by students-profile attendance tab
-      if (attendanceRows.length === 0 && detail) {
-        attendanceRows = await loadStudentProfileTabData("attendance", detail);
-      }
-
-      if (attendanceRows.length === 0) {
-        toastInfo("No attendance records found.");
+      let attendanceRows: AnyRow[] = [];
+      if (perEnv.statusCode === 200 || perEnv.success) {
+        attendanceRows = asAngularResult0(perEnv.data);
+        if (!attendanceRows.length && perEnv.message) {
+          toastInfo(perEnv.message);
+        }
+      } else if (perEnv.message) {
+        toastError(perEnv.message);
       }
 
       setRows(attendanceRows);
-      setTotalPct(formatTotalAttendancePct(attendanceRows));
+      setTotalPct(nextTotal);
     } catch (e) {
       toastError(e, "Failed to load attendance");
       setRows([]);
@@ -273,7 +280,7 @@ export function StudentMyAttendancePage() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [sessionStudentId, sessionCollegeId]);
 
   useEffect(() => {
     if (sessionLoading) return;
@@ -313,7 +320,7 @@ export function StudentMyAttendancePage() {
       }}
       toolbarTrailing={
         totalPct != null ? (
-          <span className="text-sm font-medium whitespace-nowrap">
+          <span className="whitespace-nowrap text-sm font-medium text-[#0c51a4]">
             Total Attendance : {totalPct} %
           </span>
         ) : null
