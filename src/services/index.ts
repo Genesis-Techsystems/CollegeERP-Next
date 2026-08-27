@@ -319,6 +319,7 @@ export {
   subjectResourceOf,
 } from "./proxy-workload";
 export * from "./timetable-management";
+export * from "./my-profile";
 export * from "./library";
 export * from "./digital-library";
 export * from "./transport";

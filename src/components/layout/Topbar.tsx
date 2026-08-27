@@ -483,8 +483,18 @@ export function Topbar() {
             <DropdownMenuSeparator />
 
             <DropdownMenuItem
-              disabled
-              className="cursor-not-allowed opacity-60"
+              className="cursor-pointer"
+              onClick={() => {
+                // Angular toolbar `profileUpdate`: STUDENT → /std-profile, else /myProfile
+                const role = String(
+                  user?.userRole ?? readLs("userRole"),
+                ).toUpperCase();
+                const href =
+                  role === "STUDENT" ? "/std-profile" : "/myProfile";
+                scheduleNavigation(() => {
+                  router.push(href);
+                });
+              }}
             >
               <User className="mr-2 h-4 w-4" aria-hidden="true" />
               Profile

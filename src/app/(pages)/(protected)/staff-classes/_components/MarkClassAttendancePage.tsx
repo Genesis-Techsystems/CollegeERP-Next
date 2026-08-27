@@ -1,51 +1,39 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { format } from "date-fns";
-import { ChevronDown, Timer } from "lucide-react";
+import { BookOpen, Filter, Timer } from "lucide-react";
 import { DatePicker } from "@/common/components/date-picker";
 import { MultiSelect, Select } from "@/common/components/select";
 import { FilteredPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { GM_CODES } from "@/config/constants/ui";
-import { useSession } from "@/hooks/useSession";
 import { cn } from "@/lib/utils";
 import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
 import { getErrorMessage } from "@/lib/errors";
 import {
-  buildLessonStatusPayloadFromTopicRow,
   buildMarkAttendanceSavePayload,
   formatScheduleDateYmd,
+  getLessonStatusFormFromDetails,
   getLessonStatusScheduleMeta,
   isAttendanceAlreadyMarked,
-  LESSON_STATUS_COMPLETED_ID,
-  LESSON_STATUS_IN_PROGRESS_ID,
-  listGeneralDetailsByCode,
-  listLessonStatusSubjectUnitTopics,
-  listMarkAttendanceHolidayEvents,
   listPeriodsForClassAttendance,
+  listMarkAttendanceHolidayEvents,
   listStudentsForMarkAttendance,
   listStudentsForSubjectAttendance,
+  listSubjectUnitsForMarkAttendance,
+  listSubjectUnitTopicsForMarkAttendance,
+  listTeachingMethodsForMarkAttendance,
   periodOptionLabel,
   refreshAfterMarkAttendanceSave,
   saveLessonStatusList,
   saveStudentAttendanceDetails,
   tConvert,
   uploadClassNotesForAttendance,
-  type LessonStatusPayloadItem,
   type MarkAttendanceHolidayEvent,
   type MarkAttendanceSaveItem,
   type PeriodRow,
-  type SubjectUnitTopicLessonRow,
 } from "@/services";
 import { AttendancePreviewModal } from "./AttendancePreviewModal";
 
@@ -76,38 +64,6 @@ function DetailRow({
   );
 }
 
-function UnitTopicsAccordion({
-  title,
-  children,
-  defaultOpen = false,
-}: Readonly<{
-  title: string;
-  children: ReactNode;
-  defaultOpen?: boolean;
-}>) {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <div className="app-data-table app-data-table-card flex flex-col">
-      <button
-        type="button"
-        className="flex w-full items-center justify-between px-5 py-3 text-left"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-      >
-        <h2 className="text-base font-semibold tracking-tight text-foreground">
-          {title}
-        </h2>
-        <ChevronDown
-          className={`h-4 w-4 shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
-        />
-      </button>
-      {open ? (
-        <div className="px-5 pb-4 overflow-x-auto">{children}</div>
-      ) : null}
-    </div>
-  );
-}
-
 /**
  * Angular `staff-classes/my-classes/mark-attendance` —
  * EmployeeModuleMarkAttendanceComponent full parity.
@@ -118,7 +74,6 @@ export function MarkClassAttendancePage({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { user } = useSession();
   const fromAttendanceUpdate = pathname.includes("/attendance-management/");
 
   const collegeId = Number(searchParams.get("collegeId") || 0);
@@ -136,22 +91,6 @@ export function MarkClassAttendancePage({
   const isTheory = subjectType.toUpperCase() === "THEORY";
   const isElective = subjectType.toUpperCase() === "ELECTIVE";
 
-  const organizationId = Number(
-    user?.organizationId ??
-      (typeof window !== "undefined"
-        ? localStorage.getItem("organizationId")
-        : 0) ??
-      0,
-  );
-  const loginEmployeeId = Number(
-    user?.employeeId ??
-      (typeof window !== "undefined"
-        ? localStorage.getItem("employeeId")
-        : 0) ??
-      employeeId ??
-      0,
-  );
-
   const [day, setDay] = useState<Date | null>(() =>
     parseDayParam(searchParams.get("day")),
   );
@@ -166,18 +105,25 @@ export function MarkClassAttendancePage({
   const [loadingSearch, setLoadingSearch] = useState(false);
   const [events, setEvents] = useState<MarkAttendanceHolidayEvent[]>([]);
 
-  const [pendingTopics, setPendingTopics] = useState<
-    SubjectUnitTopicLessonRow[]
+  /** Angular Lesson Status card form (Unit / Topic / Teaching Method / Comments). */
+  const [subjectUnits, setSubjectUnits] = useState<
+    { value: string; label: string }[]
   >([]);
-  const [completedTopics, setCompletedTopics] = useState<
-    SubjectUnitTopicLessonRow[]
+  const [subjectUnitTopics, setSubjectUnitTopics] = useState<
+    { value: string; label: string }[]
   >([]);
   const [methodOptions, setMethodOptions] = useState<
     { value: string; label: string }[]
   >([]);
-  const [lessonPayloadList, setLessonPayloadList] = useState<
-    LessonStatusPayloadItem[]
-  >([]);
+  const [subjectUnitsId, setSubjectUnitsId] = useState<string | null>(null);
+  const [subjectUnitTopicId, setSubjectUnitTopicId] = useState<string | null>(
+    null,
+  );
+  const [teachingMethodCatdetId, setTeachingMethodCatdetId] = useState<
+    string | null
+  >(null);
+  const [comments, setComments] = useState("");
+  const [percentage, setPercentage] = useState("");
   const [attendanceAlreadyMarked, setAttendanceAlreadyMarked] = useState(false);
   const [notesPath, setNotesPath] = useState("");
   const [actualClsScheduleId, setActualClsScheduleId] = useState<number | null>(
@@ -214,9 +160,14 @@ export function MarkClassAttendancePage({
   const resetSearchState = useCallback(() => {
     setRows([]);
     setFlag(false);
-    setPendingTopics([]);
-    setCompletedTopics([]);
-    setLessonPayloadList([]);
+    setSubjectUnits([]);
+    setSubjectUnitTopics([]);
+    setMethodOptions([]);
+    setSubjectUnitsId(null);
+    setSubjectUnitTopicId(null);
+    setTeachingMethodCatdetId(null);
+    setComments("");
+    setPercentage("");
     setAttendanceAlreadyMarked(false);
     setNotesPath("");
     setActualClsScheduleId(null);
@@ -283,26 +234,6 @@ export function MarkClassAttendancePage({
   useEffect(() => {
     if (day) void loadPeriodsAndEvents(day);
   }, [day, loadPeriodsAndEvents]);
-
-  useEffect(() => {
-    void (async () => {
-      try {
-        const methods = await listGeneralDetailsByCode(
-          GM_CODES.TEACHING_METHODOLOGY,
-        );
-        setMethodOptions(
-          methods.map((m) => ({
-            value: String(m.generalDetailId ?? ""),
-            label: String(
-              m.generalDetailDisplayName ?? m.generalDetailName ?? "",
-            ),
-          })),
-        );
-      } catch {
-        setMethodOptions([]);
-      }
-    })();
-  }, []);
 
   const periodOptions = useMemo(() => {
     if (periods.length === 0) {
@@ -375,64 +306,104 @@ export function MarkClassAttendancePage({
     setIsAssignedProxy(proxies.length > 0);
   }
 
-  function upsertLessonPayload(row: SubjectUnitTopicLessonRow) {
-    if (!day || selectedPeriodIds.length === 0) return;
-    const pct = Number(row.Percentage);
-    if (!Number.isFinite(pct) || pct === 0) return;
-    if (pct > 100) {
-      toastInfo("Percentage Should not be greater than 100");
-      setPendingTopics((prev) =>
-        prev.map((r) =>
-          Number(r.subjectUnitTopicId) === Number(row.subjectUnitTopicId)
-            ? { ...r, Percentage: 0 }
-            : r,
-        ),
-      );
+  async function loadTopicsForUnit(unitId: number) {
+    if (!unitId) {
+      setSubjectUnitTopics([]);
       return;
     }
-    if (pct < 0) {
-      toastInfo("Percentage Should not be in negative");
-      setPendingTopics((prev) =>
-        prev.map((r) =>
-          Number(r.subjectUnitTopicId) === Number(row.subjectUnitTopicId)
-            ? { ...r, Percentage: 0 }
-            : r,
-        ),
-      );
-      return;
-    }
-
-    const statusId =
-      pct === 100 ? LESSON_STATUS_COMPLETED_ID : LESSON_STATUS_IN_PROGRESS_ID;
-    const updatedRow: SubjectUnitTopicLessonRow = {
-      ...row,
-      Percentage: pct,
-      fk_lessonstatus_catdet_id: statusId,
-    };
-    setPendingTopics((prev) =>
-      prev.map((r) =>
-        Number(r.subjectUnitTopicId) === Number(row.subjectUnitTopicId)
-          ? updatedRow
-          : r,
-      ),
+    const topics = await listSubjectUnitTopicsForMarkAttendance(unitId);
+    setSubjectUnitTopics(
+      topics
+        .map((t) => {
+          const id = Number(t.subjectUnitTopicId ?? 0);
+          if (!id) return null;
+          return {
+            value: String(id),
+            label: String(t.topicName ?? id),
+          };
+        })
+        .filter((x): x is { value: string; label: string } => x != null),
     );
+  }
 
-    const resource = selectedPeriod?.subjectResource?.[0];
-    const payload = buildLessonStatusPayloadFromTopicRow({
-      row: updatedRow,
-      day,
-      collegeId,
-      academicYearId,
-      groupSectionId,
-      actualClsScheduleId,
-      subjectResourceId:
-        resource?.subjectResourceId != null
-          ? Number(resource.subjectResourceId)
-          : null,
-      timetableScheduleId: selectedPeriodIds[0]!,
-    });
-    if (!payload) return;
-    setLessonPayloadList((prev) => [...prev, payload]);
+  async function onUnitChange(value: string | null) {
+    setSubjectUnitsId(value);
+    setSubjectUnitTopicId(null);
+    const unitId = Number(value) || 0;
+    if (!unitId) {
+      setSubjectUnitTopics([]);
+      return;
+    }
+    try {
+      const [topics, methods] = await Promise.all([
+        listSubjectUnitTopicsForMarkAttendance(unitId),
+        methodOptions.length > 0
+          ? Promise.resolve(methodOptions)
+          : listTeachingMethodsForMarkAttendance(),
+      ]);
+      setSubjectUnitTopics(
+        topics
+          .map((t) => {
+            const id = Number(t.subjectUnitTopicId ?? 0);
+            if (!id) return null;
+            return {
+              value: String(id),
+              label: String(t.topicName ?? id),
+            };
+          })
+          .filter((x): x is { value: string; label: string } => x != null),
+      );
+      if (methodOptions.length === 0) setMethodOptions(methods);
+    } catch (e) {
+      toastError(getErrorMessage(e));
+      setSubjectUnitTopics([]);
+    }
+  }
+
+  async function applyLessonStatusFromSearch(params: {
+    subjectId: number;
+    lessonDetails: unknown;
+    units?: Record<string, unknown>[];
+  }) {
+    const [unitsRows, methods] = await Promise.all([
+      params.units
+        ? Promise.resolve(params.units)
+        : listSubjectUnitsForMarkAttendance(params.subjectId),
+      listTeachingMethodsForMarkAttendance(),
+    ]);
+    setSubjectUnits(
+      unitsRows
+        .map((u) => {
+          const id = Number(u.subjectUnitsId ?? 0);
+          if (!id) return null;
+          return {
+            value: String(id),
+            label: String(u.unitName ?? id),
+          };
+        })
+        .filter((x): x is { value: string; label: string } => x != null),
+    );
+    setMethodOptions(methods);
+
+    const form = getLessonStatusFormFromDetails(params.lessonDetails);
+    setComments(form.comments);
+    setPercentage(form.percentage);
+    setTeachingMethodCatdetId(
+      form.teachingMethodCatdetId != null
+        ? String(form.teachingMethodCatdetId)
+        : null,
+    );
+    setSubjectUnitsId(
+      form.subjectUnitsId != null ? String(form.subjectUnitsId) : null,
+    );
+    setSubjectUnitTopicId(
+      form.subjectUnitTopicId != null ? String(form.subjectUnitTopicId) : null,
+    );
+    if (form.subjectUnitsId) {
+      await loadTopicsForUnit(form.subjectUnitsId);
+    } else {
+      setSubjectUnitTopics([]);
+    }
   }
 
   async function onSearch() {
@@ -523,6 +494,8 @@ export function MarkClassAttendancePage({
       const timetableScheduleId = scheduleIds[0]!;
       const periodSubjectId = Number(resource?.subjectId ?? subjectId);
 
+      // Search APIs: studentabsentlist + studentattendancedetails + SubjectUnit
+      // (+ SubjectUnitTopic / TECHMETHD via applyLessonStatusFromSearch)
       const refreshed = await refreshAfterMarkAttendanceSave({
         collegeId,
         groupSectionId,
@@ -543,14 +516,11 @@ export function MarkClassAttendancePage({
       setActualClsScheduleId(meta.actualClsScheduleId);
       if (meta.videoPath) setVideoPath(meta.videoPath);
 
-      const topics = await listLessonStatusSubjectUnitTopics({
-        organizationId,
-        employeeId: loginEmployeeId || employeeId,
-        timetableScheduleId,
+      await applyLessonStatusFromSearch({
+        subjectId: periodSubjectId,
+        lessonDetails: refreshed.lessonDetails,
+        units: refreshed.units,
       });
-      setPendingTopics(topics.pending);
-      setCompletedTopics(topics.completed);
-      setLessonPayloadList([]);
 
       setRows(merged);
       setMarkAllChecked(merged.every((r) => r.checked !== false));
@@ -589,10 +559,15 @@ export function MarkClassAttendancePage({
       subjectType,
       studentbatchId,
       videoPath,
-      subjectUnitsId: null,
-      subjectUnitTopicId: null,
-      teachingMethodCatdetId: null,
-      comments: "",
+      subjectUnitsId: subjectUnitsId ? Number(subjectUnitsId) : null,
+      subjectUnitTopicId: subjectUnitTopicId
+        ? Number(subjectUnitTopicId)
+        : null,
+      teachingMethodCatdetId: teachingMethodCatdetId
+        ? Number(teachingMethodCatdetId)
+        : null,
+      comments,
+      percentage,
     });
 
     if (payload.length === 0) {
@@ -647,12 +622,6 @@ export function MarkClassAttendancePage({
         }
       }
 
-      try {
-        await saveLessonStatusList(lessonPayloadList);
-      } catch {
-        // Angular continues even when lesson list fails
-      }
-
       const refreshed = await refreshAfterMarkAttendanceSave({
         collegeId,
         groupSectionId,
@@ -676,14 +645,11 @@ export function MarkClassAttendancePage({
       setActualClsScheduleId(meta.actualClsScheduleId);
       if (meta.videoPath) setVideoPath(meta.videoPath);
 
-      const topics = await listLessonStatusSubjectUnitTopics({
-        organizationId,
-        employeeId: loginEmployeeId || employeeId,
-        timetableScheduleId,
+      await applyLessonStatusFromSearch({
+        subjectId: periodSubjectId,
+        lessonDetails: refreshed.lessonDetails,
+        units: refreshed.units,
       });
-      setPendingTopics(topics.pending);
-      setCompletedTopics(topics.completed);
-      setLessonPayloadList([]);
       if (classNotesInputRef.current) classNotesInputRef.current.value = "";
 
       setPreviewOpen(false);
@@ -900,157 +866,113 @@ export function MarkClassAttendancePage({
         </div>
       }
     >
-      {pendingTopics.length > 0 ? (
-        <UnitTopicsAccordion title="Not Started / In Progress Unit Topics">
-          <table className="w-full min-w-[720px] border-collapse text-sm text-black">
-            <thead>
-              <tr className="bg-[#ffcf46] text-center">
-                <th className="border border-black px-2 py-1">Class Date</th>
-                <th className="border border-black px-2 py-1">Subject</th>
-                <th className="border border-black px-2 py-1">Unit</th>
-                <th className="border border-black px-2 py-1">Topic Name</th>
-                <th className="border border-black px-2 py-1">
-                  Teaching Method
-                </th>
-                <th className="border border-black px-2 py-1">Lesson Status</th>
-                <th className="border border-black px-2 py-1">Percentage</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pendingTopics.map((row, idx) => {
-                const statusId = Number(row.fk_lessonstatus_catdet_id);
-                const statusLabel =
-                  statusId === LESSON_STATUS_COMPLETED_ID
-                    ? "Completed"
-                    : "In Progress";
-                return (
-                  <tr
-                    key={`${row.subjectUnitTopicId}-${idx}`}
-                    className="text-center"
-                  >
-                    <td className="border border-black px-2 py-1">
-                      {String(row.class_date ?? "")}
-                    </td>
-                    <td className="border border-black px-2 py-1">
-                      {String(row.subject_name ?? "")} (
-                      {String(row.subject_code ?? "")})
-                    </td>
-                    <td className="border border-black px-2 py-1">
-                      {String(row.unit_code ?? "")}
-                    </td>
-                    <td className="border border-black px-2 py-1 text-left">
-                      {String(row.topic_name ?? "")}
-                    </td>
-                    <td className="border border-black px-2 py-1">
-                      <Select
-                        value={
-                          row.fk_teaching_method_catdet_id != null
-                            ? String(row.fk_teaching_method_catdet_id)
-                            : null
-                        }
-                        onChange={(v) => {
-                          const next = {
-                            ...row,
-                            fk_teaching_method_catdet_id: v ? Number(v) : null,
-                          };
-                          setPendingTopics((prev) =>
-                            prev.map((r, i) => (i === idx ? next : r)),
-                          );
-                          upsertLessonPayload(next);
-                        }}
-                        options={methodOptions}
-                        searchable
-                        placeholder="Select"
-                        className="min-w-[120px]"
-                      />
-                    </td>
-                    <td className="border border-black px-2 py-1">
-                      {statusLabel}
-                    </td>
-                    <td className="border border-black px-2 py-1">
-                      <input
-                        type="number"
-                        step="any"
-                        min={1}
-                        className="app-control h-8 w-20 rounded-md border bg-white px-2 text-sm text-center"
-                        value={
-                          row.Percentage === "" || row.Percentage == null
-                            ? ""
-                            : String(row.Percentage)
-                        }
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setPendingTopics((prev) =>
-                            prev.map((r, i) =>
-                              i === idx
-                                ? {
-                                    ...r,
-                                    Percentage: val === "" ? "" : Number(val),
-                                  }
-                                : r,
-                            ),
-                          );
-                        }}
-                        onBlur={() => upsertLessonPayload(pendingTopics[idx]!)}
-                      />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </UnitTopicsAccordion>
-      ) : null}
+      {flag ? (
+        <div className="app-data-table app-data-table-card flex flex-col overflow-hidden">
+          {/* Angular Lesson Status panel header + gold rule */}
+          <div className="flex items-center justify-between gap-3 border-b-2 border-[#ffcf46] px-5 py-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <BookOpen
+                className="h-[18px] w-[18px] shrink-0 text-[hsl(var(--card-title))]"
+                aria-hidden
+              />
+              <h2 className="text-[15px] font-semibold tracking-tight text-[hsl(var(--card-title))]">
+                Lesson Status
+              </h2>
+            </div>
+            <div className="flex shrink-0 items-center gap-1.5 text-[13px] text-muted-foreground">
+              <span>Filter</span>
+              <Filter className="h-4 w-4" aria-hidden />
+            </div>
+          </div>
 
-      {completedTopics.length > 0 ? (
-        <UnitTopicsAccordion title="History Unit Topics" defaultOpen={false}>
-          <table className="w-full min-w-[720px] border-collapse text-sm text-black">
-            <thead>
-              <tr className="bg-[#ffcf46] text-center">
-                <th className="border border-black px-2 py-1">Class Date</th>
-                <th className="border border-black px-2 py-1">Subject</th>
-                <th className="border border-black px-2 py-1">Unit</th>
-                <th className="border border-black px-2 py-1">Topic Name</th>
-                <th className="border border-black px-2 py-1">
-                  Teaching Method
-                </th>
-                <th className="border border-black px-2 py-1">Lesson Status</th>
-                <th className="border border-black px-2 py-1">Percentage</th>
-              </tr>
-            </thead>
-            <tbody>
-              {completedTopics.map((row, idx) => (
-                <tr
-                  key={`hist-${row.subjectUnitTopicId}-${idx}`}
-                  className="text-center"
+          <div className="space-y-5 px-5 py-4">
+            {/* Image 2: Unit ~35% / Topic ~35% / Teaching Method ~30% underline fields */}
+            <div className="flex flex-col gap-4 md:flex-row md:items-end md:gap-6">
+              <div className="min-w-0 flex-1 md:basis-[35%] md:flex-none">
+                <Select
+                  label="Unit"
+                  variant="standard"
+                  value={subjectUnitsId}
+                  onChange={(v) => void onUnitChange(v)}
+                  options={subjectUnits}
+                  searchable
+                  clearable
+                  placeholder="Unit"
+                  disabled={attendanceAlreadyMarked || mode === "view"}
+                />
+              </div>
+              <div className="min-w-0 flex-1 md:basis-[30%] md:flex-none">
+                <Select
+                  label="Topic"
+                  variant="standard"
+                  value={subjectUnitTopicId}
+                  onChange={(v) => setSubjectUnitTopicId(v)}
+                  options={subjectUnitTopics}
+                  searchable
+                  clearable
+                  placeholder="Topic"
+                  disabled={
+                    attendanceAlreadyMarked ||
+                    mode === "view" ||
+                    !subjectUnitsId
+                  }
+                />
+              </div>
+              <div className="min-w-0 flex-1 md:basis-[18%] md:flex-none">
+                <Select
+                  label="Teaching Method"
+                  variant="standard"
+                  value={teachingMethodCatdetId}
+                  onChange={(v) => setTeachingMethodCatdetId(v)}
+                  options={methodOptions}
+                  searchable
+                  clearable
+                  placeholder="Teaching Method"
+                  disabled={attendanceAlreadyMarked || mode === "view"}
+                />
+              </div>
+              {/* Percentage — Material underline number input (same CSS language as Teaching Method) */}
+              <div className="flex min-w-0 flex-col gap-1 md:basis-[12%] md:flex-none">
+                <label
+                  htmlFor="lesson-percentage"
+                  className="text-[12px] font-medium leading-none text-black/54"
                 >
-                  <td className="border border-black px-2 py-1">
-                    {String(row.class_date ?? "")}
-                  </td>
-                  <td className="border border-black px-2 py-1">
-                    {String(row.subject_name ?? "")}(
-                    {String(row.subject_code ?? "")})
-                  </td>
-                  <td className="border border-black px-2 py-1">
-                    {String(row.unit_code ?? "")}
-                  </td>
-                  <td className="border border-black px-2 py-1 text-left">
-                    {String(row.topic_name ?? "")}
-                  </td>
-                  <td className="border border-black px-2 py-1">
-                    {String(row.teaching_method_code ?? "")}
-                  </td>
-                  <td className="border border-black px-2 py-1">
-                    {String(row.lesson_status_code ?? "")}
-                  </td>
-                  <td className="border border-black px-2 py-1">
-                    {String(row.Percentage ?? "")}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </UnitTopicsAccordion>
+                  Percentage
+                </label>
+                <input
+                  id="lesson-percentage"
+                  type="number"
+                  step="any"
+                  min={0}
+                  max={100}
+                  value={percentage}
+                  onChange={(e) => setPercentage(e.target.value)}
+                  disabled={attendanceAlreadyMarked || mode === "view"}
+                  placeholder=" "
+                  className="h-9 w-full border-0 border-b border-[rgba(0,0,0,0.42)] bg-transparent px-0 text-sm text-black outline-none placeholder:text-transparent focus:border-b-2 focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
+                />
+              </div>
+            </div>
+
+            {/* Image 2: Comments — outlined Material field */}
+            <div className="relative pt-2">
+              <label
+                htmlFor="lesson-comments"
+                className="absolute left-3 top-0 z-[1] bg-card px-1 text-[12px] font-medium text-black/54"
+              >
+                Comments
+              </label>
+              <textarea
+                id="lesson-comments"
+                value={comments}
+                onChange={(e) => setComments(e.target.value)}
+                disabled={attendanceAlreadyMarked || mode === "view"}
+                rows={3}
+                className="min-h-[88px] w-full resize-y rounded-[4px] border border-[rgba(0,0,0,0.38)] bg-transparent px-3 pb-2 pt-3 text-sm text-black outline-none focus:border-2 focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
+              />
+            </div>
+          </div>
+        </div>
       ) : null}
 
       {flag ? (
@@ -1242,35 +1164,34 @@ export function MarkClassAttendancePage({
             </div>
           </div>
 
-          {/* Angular .pay-1 — 7px #c3d9ff border; file ~30% + video ~50% */}
+          {/* Image 1: Choose file + Class Notes Video Link — light-blue box */}
           <div
-            className="mx-3 mt-2.5 rounded-[3px] bg-white p-[5px]"
-            style={{ border: "7px solid #c3d9ff" }}
+            className="mx-3 mt-2.5 rounded-[2px] bg-white px-5 py-5"
+            style={{ border: "1px solid #c3d9ff" }}
           >
-            <div className="flex flex-col flex-wrap sm:flex-row sm:items-center">
-              <div className="w-full p-2 sm:w-[30%]">
-                {/* Angular: <input type="file" accept=".png, .jpg, .jpeg, .pdf, .doc" #classNotesAvatar> */}
+            <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:gap-10">
+              <div className="shrink-0">
+                {/* Native browser Choose file button (Angular #classNotesAvatar) */}
                 <input
                   ref={classNotesInputRef}
                   type="file"
                   accept=".png, .jpg, .jpeg, .pdf, .doc"
-                  className="block w-full cursor-pointer text-sm text-black"
+                  className="h-auto w-auto max-w-full cursor-pointer border-0 bg-transparent p-0 text-[13px] font-normal text-black shadow-none [appearance:auto] file:me-2 file:inline-block file:h-auto file:cursor-pointer file:rounded-[2px] file:border file:border-solid file:border-[#767676] file:bg-[#efefef] file:px-2.5 file:py-[3px] file:text-[13px] file:font-normal file:text-black file:shadow-none"
                 />
               </div>
-              <div className="w-full p-2 sm:w-[50%]">
-                {/* Angular matInput placeholder="Class Notes Video Link" */}
+              <div className="min-w-0 flex-1">
                 <input
                   id="class-notes-video"
                   type="text"
                   value={videoPath}
                   onChange={(e) => setVideoPath(e.target.value)}
                   placeholder="Class Notes Video Link"
-                  className="h-10 w-full border-0 border-b border-[rgba(0,0,0,0.42)] bg-transparent px-0 text-sm text-black outline-none placeholder:text-muted-foreground focus:border-b-2 focus:border-primary"
+                  className="h-10 w-full border-0 border-b border-[rgba(0,0,0,0.42)] bg-transparent px-0 text-sm text-black outline-none placeholder:text-[rgba(0,0,0,0.54)] focus:border-b-2 focus:border-primary"
                 />
               </div>
             </div>
             {notesPath ? (
-              <p className="m-0 border-0 px-2 py-1">
+              <p className="m-0 mt-3 border-0 p-0">
                 <a
                   href={notesPath}
                   target="_blank"

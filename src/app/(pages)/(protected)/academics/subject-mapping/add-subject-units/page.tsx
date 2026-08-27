@@ -808,7 +808,7 @@ export default function AddSubjectUnitsPage() {
             columnDefs={columnDefs}
             loading={loading}
             toolbar={false}
-            pagination={false}
+            pagination={true}
             autoHeight
             getRowId={(p) =>
               p.data?.__rowKey ?? String(subjectUnitsIdOf(p.data ?? {}))
@@ -919,7 +919,7 @@ export default function AddSubjectUnitsPage() {
             <DataTable
               rowData={topicsDraft}
               columnDefs={topicColumnDefs}
-              pagination={false}
+              pagination={true}
               toolbar={false}
             />
           </div>
@@ -950,7 +950,7 @@ export default function AddSubjectUnitsPage() {
             <DataTable
               rowData={topicsDraft}
               columnDefs={viewTopicColumnDefs}
-              pagination={false}
+              pagination={true}
               toolbar={false}
             />
           </div>

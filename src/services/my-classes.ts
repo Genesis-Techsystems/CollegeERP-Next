@@ -10,6 +10,7 @@ import {
   STUDENT_API,
   SUBJECT_API,
 } from "@/config/constants/api";
+import { GM_CODES } from "@/config/constants/ui";
 import {
   domainList,
   fetchDetails,
@@ -848,6 +849,8 @@ export function buildMarkAttendanceSavePayload(params: {
   subjectUnitTopicId?: number | null;
   teachingMethodCatdetId?: number | null;
   comments?: string;
+  /** Angular `studentsForm.percentage` — empty string when unset. */
+  percentage?: string | number | null;
 }): MarkAttendanceSaveItem[] {
   const classDate = formatScheduleDateYmd(params.day);
   const batchId =
@@ -955,6 +958,13 @@ export function buildMarkAttendanceSavePayload(params: {
     params.teachingMethodCatdetId != null && params.teachingMethodCatdetId > 0
       ? params.teachingMethodCatdetId
       : "";
+  const pctRaw = params.percentage;
+  const percentageVal =
+    pctRaw == null || pctRaw === ""
+      ? ""
+      : Number.isFinite(Number(pctRaw))
+        ? Number(pctRaw)
+        : String(pctRaw);
 
   const mark: MarkAttendanceSaveItem[] = [];
 
@@ -998,20 +1008,20 @@ export function buildMarkAttendanceSavePayload(params: {
         subjectResourceId: resource.subjectResourceId,
       };
 
-      // Angular always posts lessonstatusDTO (empty-string fields when unset).
+      // Angular POST `studentattendancedetails` → lessonstatusDTO shape.
       const lessonstatusDTO: Record<string, unknown> = {
         academicYearId: String(params.academicYearId),
-        collegeId: lPeriod.collegeId ?? resource.collegeId,
-        groupSectionId: lPeriod.groupSectionId,
-        timetableScheduleId: scheduleId,
-        subjectResourceId: resource.subjectResourceId,
-        percentage: "",
-        comments: params.comments ?? "",
-        subjectUnitsId: unitVal,
-        subjectUnitTopicId: topicVal,
         classDate,
+        collegeId: lPeriod.collegeId ?? resource.collegeId,
+        comments: params.comments ?? "",
+        groupSectionId: lPeriod.groupSectionId,
         isActive: true,
+        percentage: percentageVal,
+        subjectResourceId: resource.subjectResourceId,
+        subjectUnitTopicId: topicVal,
+        subjectUnitsId: unitVal,
         teachingMethodCatdetId: methodVal,
+        timetableScheduleId: scheduleId,
       };
 
       const sheduleAttendance = absentStudents.map((a) => {
@@ -1363,6 +1373,83 @@ export function getLessonStatusScheduleMeta(lessonDetails: unknown): {
         ? Number(dto.actualClsScheduleId) || null
         : null,
   };
+}
+
+/**
+ * Angular `getLessonDetails` → first `lessonstatusDTOs[0]` into the Lesson Status form.
+ */
+export function getLessonStatusFormFromDetails(lessonDetails: unknown): {
+  subjectUnitsId: number | null;
+  subjectUnitTopicId: number | null;
+  teachingMethodCatdetId: number | null;
+  comments: string;
+  percentage: string;
+} {
+  const rows = Array.isArray(lessonDetails)
+    ? (lessonDetails as AnyRow[])
+    : [];
+  const dto = (rows[0]?.lessonstatusDTOs as AnyRow[] | undefined)?.[0];
+  if (!dto) {
+    return {
+      subjectUnitsId: null,
+      subjectUnitTopicId: null,
+      teachingMethodCatdetId: null,
+      comments: "",
+      percentage: "",
+    };
+  }
+  const unitsId =
+    dto.subjectUnitsId != null && dto.subjectUnitsId !== ""
+      ? Number(dto.subjectUnitsId) || null
+      : null;
+  const topicId =
+    dto.subjectUnitTopicId != null && dto.subjectUnitTopicId !== ""
+      ? Number(dto.subjectUnitTopicId) || null
+      : null;
+  const methodId =
+    dto.teachingMethodCatdetId != null && dto.teachingMethodCatdetId !== ""
+      ? Number(dto.teachingMethodCatdetId) || null
+      : null;
+  const pct =
+    dto.percentage == null || dto.percentage === ""
+      ? ""
+      : String(dto.percentage);
+  return {
+    subjectUnitsId: unitsId,
+    subjectUnitTopicId: topicId,
+    teachingMethodCatdetId: methodId,
+    comments: String(dto.comments ?? ""),
+    percentage: pct,
+  };
+}
+
+/** Angular Lesson Status Teaching Method — `GeneralMaster.generalMasterCode==TECHMETHD`. */
+export async function listTeachingMethodsForMarkAttendance(): Promise<
+  { value: string; label: string }[]
+> {
+  try {
+    const methods = await domainList<AnyRow>(
+      "GeneralDetail",
+      buildQuery({
+        "GeneralMaster.generalMasterCode": GM_CODES.TEACHING_METHODOLOGY,
+        isActive: true,
+      }),
+    );
+    return (Array.isArray(methods) ? methods : [])
+      .map((m) => {
+        const id = Number(m.generalDetailId ?? 0);
+        if (!id) return null;
+        return {
+          value: String(id),
+          label: String(
+            m.generalDetailDisplayName ?? m.generalDetailName ?? id,
+          ),
+        };
+      })
+      .filter((x): x is { value: string; label: string } => x != null);
+  } catch {
+    return [];
+  }
 }
 
 export type LessonStatusPayloadItem = {
