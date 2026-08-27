@@ -328,10 +328,15 @@ export function AddSpecialActivityPage() {
       try {
         const years = await listAcademicYearsForCollege(cId);
         setAcademicYears(years);
-        let ay = 0;
-        if (isAcademicYearLocked && sessionAcademicYearId) {
+        // Prefer AcademicYear.isDefault === true (Angular current-year flag).
+        const defaultYear = years.find((y) => {
+          const v = y.isDefault;
+          return v === true || v === 1 || v === "true" || v === "1";
+        });
+        let ay = defaultYear ? num(defaultYear, ["academicYearId"]) : 0;
+        if (!ay && isAcademicYearLocked && sessionAcademicYearId) {
           ay = sessionAcademicYearId;
-        } else if (years.length > 0) {
+        } else if (!ay && years.length > 0) {
           ay = num(years[0], ["academicYearId"]);
         }
         if (ay) {
