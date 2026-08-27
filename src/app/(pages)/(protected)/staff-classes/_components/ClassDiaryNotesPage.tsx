@@ -375,6 +375,7 @@ export function ClassDiaryNotesPage({ mode }: ClassDiaryNotesPageProps) {
           params,
         );
         const list = asRows(data);
+        console.log("list", list, list.length);
         setLessonStatus(list);
         if (list.length === 0) {
           toastInfo(
@@ -462,6 +463,7 @@ export function ClassDiaryNotesPage({ mode }: ClassDiaryNotesPageProps) {
   ]);
 
   const handleSave = useCallback(async () => {
+    console.log(lessonStatus.length, lessonStatus, !lessonStatus.length);
     if (!selectedCourse || !day || !period) return;
     if (!lessonStatus.length) {
       toastInfo(
@@ -474,6 +476,7 @@ export function ClassDiaryNotesPage({ mode }: ClassDiaryNotesPageProps) {
     const dto = asRows(first.lessonstatusDTOs)[0] as AnyRow | undefined;
     const leassonstatusId = num(dto, ["leassonstatusId", "lessonstatusId"]);
     const actualClsScheduleId = num(actual, ["actualClsScheduleId"]);
+    console.log("leassonstatusId", leassonstatusId, actualClsScheduleId);
     if (!leassonstatusId || !actualClsScheduleId) {
       toastInfo(
         "Please take the attendance before adding class notes for the seleted date and period",

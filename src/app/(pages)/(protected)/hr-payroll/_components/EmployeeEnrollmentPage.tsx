@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Pencil } from "lucide-react";
 import { DatePicker } from "@/common/components/date-picker";
 import { Select, type SelectOption } from "@/common/components/select";
 import { Table } from "@/common/components/table";
@@ -10,7 +9,7 @@ import { PageContainer } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import { GM_CODES } from "@/config/constants/ui";
 import { getErrorMessage } from "@/lib/errors";
 import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
@@ -224,27 +223,64 @@ const RE_AADHAR = /^[0-9]{12}$/;
 /* ── Field wrapper ────────────────────────────────────────────── */
 function Field({
   label,
+  required,
   error,
   children,
 }: {
   label: string;
+  /** Shows required asterisk. Red label/underline only when `error` is set. */
+  required?: boolean;
   error?: string;
   children: React.ReactNode;
 }) {
+  const showRequired = Boolean(required) || /\*\s*$/.test(label);
+  const displayLabel = label.replace(/\s*\*\s*$/, "").trim();
+  const invalid = Boolean(error);
   return (
-    <div className="flex flex-col gap-1">
-      <Label className="text-xs text-muted-foreground">{label}</Label>
+    <div
+      className={cn(
+        "flex flex-col gap-1",
+        invalid &&
+          "[&_.app-control]:border-b-[#f44336] [&_button.app-control]:border-b-[#f44336]",
+      )}
+    >
+      <label
+        className={cn(
+          "text-[14px] font-medium leading-none",
+          invalid ? "text-[#f44336]" : "text-[hsl(var(--foreground))]",
+        )}
+      >
+        {displayLabel}
+        {showRequired ? <span className="ml-0.5 text-[#f44336]">*</span> : null}
+      </label>
       {children}
-      {error ? <p className="text-xs text-destructive">{error}</p> : null}
+      {error ? <p className="text-[11px] text-destructive">{error}</p> : null}
     </div>
   );
 }
 
-/* ── Section sub-heading ─────────────────────────────────────── */
-function SubHeader({ children }: { children: React.ReactNode }) {
+/* Angular `.sub-header` — icon + title + gold rule */
+function SubHeader({
+  children,
+  icon = "person",
+}: {
+  children: React.ReactNode;
+  icon?: string;
+}) {
   return (
-    <div className="mb-4 flex items-center gap-2 rounded bg-[#042956] px-3 py-2">
-      <span className="text-sm font-semibold text-white">{children}</span>
+    <div className="mb-4">
+      <div className="flex items-center gap-2 pb-2">
+        <span
+          className="material-icons text-[22px] leading-none text-[hsl(var(--card-title))]"
+          aria-hidden
+        >
+          {icon}
+        </span>
+        <span className="text-[15px] font-semibold leading-tight text-[hsl(var(--card-title))]">
+          {children}
+        </span>
+      </div>
+      <div className="h-0.5 w-full bg-[#ffcf46]" aria-hidden />
     </div>
   );
 }
@@ -282,67 +318,46 @@ function RowAddRemove({
   );
 }
 
-/** Angular-style mat-horizontal-stepper (display-only; navigate via Back/Next). */
+/** Angular `mat-horizontal-stepper` chrome. */
 function EnrollmentStepper({ stepIdx }: { stepIdx: number }) {
-  const progressPct =
-    STEPS.length <= 1 ? 0 : Math.round((stepIdx / (STEPS.length - 1)) * 100);
-
   return (
-    <div className="relative border-b border-slate-200 bg-sky-50/60">
-      {/* Top progress line — advances with the active step */}
-      <div className="absolute inset-x-0 top-0 h-[3px] bg-slate-200/80">
-        <div
-          className="h-full bg-primary transition-[width] duration-300 ease-out"
-          style={{ width: `${progressPct}%` }}
-        />
-      </div>
-
-      <ol className="flex items-stretch gap-0 overflow-x-auto px-2 pb-3 pt-4">
+    <div className="border-b border-slate-200 bg-[#eaf4fb]">
+      <ol className="flex items-stretch overflow-x-auto px-1">
         {STEPS.map((s, i) => {
-          const done = i < stepIdx;
           const active = i === stepIdx;
-          const upcoming = i > stepIdx;
+          const done = i < stepIdx;
           return (
-            <li key={s.id} className="flex min-w-[6.5rem] flex-1 items-start">
-              <div
-                className={`flex w-full flex-col items-center gap-1.5 rounded-md px-1 py-2 ${
-                  active ? "bg-sky-100/90" : ""
-                }`}
+            <li
+              key={s.id}
+              className={cn(
+                "relative flex min-w-[6.25rem] flex-1 flex-col items-center gap-1.5 px-1 pb-3 pt-3",
+                active &&
+                  "before:absolute before:inset-x-1 before:top-0 before:h-[3px] before:rounded-b before:bg-primary",
+              )}
+            >
+              <span
+                className={cn(
+                  "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[12px] font-semibold",
+                  active || done
+                    ? "bg-primary text-white"
+                    : "bg-[#c9e3f5] text-primary",
+                )}
+                aria-current={active ? "step" : undefined}
               >
-                <span
-                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[12px] font-semibold ${
-                    done || active
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-slate-300 text-white"
-                  }`}
-                  aria-current={active ? "step" : undefined}
-                >
-                  {done ? (
-                    <Pencil className="h-3.5 w-3.5" strokeWidth={2.25} />
-                  ) : (
-                    i + 1
-                  )}
-                </span>
-                <span
-                  className={`text-center text-[11px] leading-tight ${
-                    upcoming
-                      ? "text-muted-foreground"
-                      : active
-                        ? "font-semibold text-foreground"
-                        : "font-medium text-foreground"
-                  }`}
-                >
-                  {s.label}
-                </span>
-              </div>
-              {i < STEPS.length - 1 ? (
-                <div
-                  className={`mt-[1.35rem] h-px w-3 shrink-0 self-start sm:w-5 ${
-                    i < stepIdx ? "bg-primary" : "bg-slate-300"
-                  }`}
-                  aria-hidden
-                />
-              ) : null}
+                {i + 1}
+              </span>
+              <span
+                className={cn(
+                  "text-center text-[11px] leading-tight",
+                  active
+                    ? "font-semibold text-primary"
+                    : done
+                      ? "font-medium text-foreground"
+                      : "font-medium text-foreground/70",
+                )}
+              >
+                {s.label}
+              </span>
             </li>
           );
         })}
@@ -361,6 +376,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
   const [isSaving, setIsSaving] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const [docFiles, setDocFiles] = useState<Record<number, File>>({});
   const [baseEmployee, setBaseEmployee] = useState<AnyRow>({});
   const [orgCode, setOrgCode] = useState("");
@@ -1103,6 +1119,9 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
     if (!employee.firstName.trim()) e.firstName = MSG.required;
     else if (!RE_ALPHA.test(employee.firstName.trim()))
       e.firstName = MSG.alphanumeric;
+    if (!employee.lastName.trim()) e.lastName = MSG.required;
+    else if (!RE_ALPHA.test(employee.lastName.trim()))
+      e.lastName = MSG.alphanumeric;
     if (
       employee.fatherName.trim() &&
       !RE_ALPHA.test(employee.fatherName.trim())
@@ -1461,16 +1480,17 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
               {/* ────────────── STEP 1: Employee Info ────────────── */}
               {stepId === "employee" && (
                 <div className="space-y-4">
-                  <SubHeader>Employee Information</SubHeader>
+                  <SubHeader icon="person">Employee Information</SubHeader>
 
-                  {/* Top: fields left + photo right (Angular layout) */}
+                  {/* Angular: fields wrap + circular photo in same row */}
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
                     <div className="min-w-0 flex-1 space-y-4">
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
                         <Field label="Employee Number">
                           <Input
                             type="number"
-                            placeholder="Employee Number"
+                            variant="standard"
+                            placeholder="e.g. 10023"
                             value={employee.empNumber}
                             onChange={(e) =>
                               setEmployee((p) => ({
@@ -1481,10 +1501,12 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                           />
                         </Field>
                         <Field
-                          label="Organization *"
+                          label="Organization"
+                          required
                           error={errors.organizationId}
                         >
                           <Select
+                            variant="standard"
                             value={
                               employee.organizationId
                                 ? String(employee.organizationId)
@@ -1499,11 +1521,16 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                               }));
                             }}
                             options={organizationOptions}
-                            placeholder="Organization"
+                            placeholder="Select Organization"
                           />
                         </Field>
-                        <Field label="College *" error={errors.collegeId}>
+                        <Field
+                          label="College"
+                          required
+                          error={errors.collegeId}
+                        >
                           <Select
+                            variant="standard"
                             value={
                               employee.collegeId
                                 ? String(employee.collegeId)
@@ -1517,20 +1544,19 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                               }));
                             }}
                             options={collegeOptions}
-                            placeholder="College"
+                            placeholder="Select College"
                           />
                         </Field>
-                        <Field
-                          label="Joining Date *"
-                          error={errors.joiningDate}
-                        >
+                        <Field label="Joining Date" error={errors.joiningDate}>
                           <DatePicker
+                            variant="standard"
                             value={employee.joiningDate}
                             onChange={(v) => {
                               clearError("joiningDate");
                               setEmployee((p) => ({ ...p, joiningDate: v }));
                             }}
-                            placeholder="Joining Date"
+                            placeholder="DD/MM/YYYY"
+                            error={errors.joiningDate}
                           />
                         </Field>
                       </div>
@@ -1538,6 +1564,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
                         <Field label="Title">
                           <Select
+                            variant="standard"
                             value={
                               employee.titleId ? String(employee.titleId) : null
                             }
@@ -1545,15 +1572,17 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                               setEmployee((p) => ({ ...p, titleId: asNum(v) }))
                             }
                             options={titleOptions}
-                            placeholder="Title"
+                            placeholder="Select Title"
                           />
                         </Field>
                         <Field
-                          label="First Name (as per SSC) *"
+                          label="First Name (as per SSC)"
+                          required
                           error={errors.firstName}
                         >
                           <Input
-                            placeholder="First Name"
+                            variant="standard"
+                            placeholder="e.g. Ravi"
                             value={employee.firstName}
                             onChange={(e) => {
                               clearError("firstName");
@@ -1566,7 +1595,8 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                         </Field>
                         <Field label="Middle Name (as per SSC)">
                           <Input
-                            placeholder="Middle Name"
+                            variant="standard"
+                            placeholder="e.g. Kumar"
                             value={employee.middleName}
                             onChange={(e) =>
                               setEmployee((p) => ({
@@ -1578,10 +1608,12 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                         </Field>
                         <Field
                           label="Last Name (as per SSC)"
+                          required
                           error={errors.lastName}
                         >
                           <Input
-                            placeholder="Last Name"
+                            variant="standard"
+                            placeholder="e.g. Sharma"
                             value={employee.lastName}
                             onChange={(e) => {
                               clearError("lastName");
@@ -1595,22 +1627,29 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                       </div>
                     </div>
 
-                    <div className="flex shrink-0 flex-col items-center gap-2 self-center rounded-lg border border-dashed border-slate-200 bg-slate-50/80 px-4 py-3 lg:self-start lg:w-[9.5rem]">
-                      {photoPreview ? (
+                    {/* Angular circular `.pro_pic` — click opens file picker */}
+                    <div className="flex shrink-0 justify-center self-start lg:w-[8.5rem] lg:pt-1">
+                      <button
+                        type="button"
+                        className="relative rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                        onClick={() => photoInputRef.current?.click()}
+                        aria-label="Upload employee photo"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={photoPreview}
-                          alt="Employee"
-                          className="h-24 w-24 rounded-full border object-cover shadow-sm"
+                          src={
+                            photoPreview ||
+                            "/assets/images/avatars/default_Student.png"
+                          }
+                          alt=""
+                          className="h-[100px] w-[100px] rounded-full border border-slate-200 object-cover bg-[#e8eef5]"
                         />
-                      ) : (
-                        <div className="flex h-24 w-24 items-center justify-center rounded-full border border-slate-200 bg-white text-xs text-muted-foreground">
-                          Photo
-                        </div>
-                      )}
-                      <Input
+                      </button>
+                      <input
+                        ref={photoInputRef}
                         type="file"
                         accept=".png,.jpg,.jpeg"
-                        className="h-8 max-w-[9rem] cursor-pointer text-[11px] file:mr-1 file:rounded file:border-0 file:bg-primary/10 file:px-2 file:py-1 file:text-[11px] file:font-medium file:text-primary"
+                        className="hidden"
                         onChange={(e) => {
                           const file = e.target.files?.[0] ?? null;
                           setPhotoFile(file);
@@ -1625,8 +1664,15 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                   </div>
 
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                    <Field label="Gender *" error={errors.genderId}>
-                      <div className="flex h-10 items-center gap-4">
+                    <Field label="Gender" required error={errors.genderId}>
+                      <div
+                        className={cn(
+                          "flex h-9 items-center gap-4 border-b",
+                          errors.genderId
+                            ? "border-b-[#f44336]"
+                            : "border-b-[rgba(0,0,0,0.42)]",
+                        )}
+                      >
                         {genderOptions.map((g) => (
                           <label
                             key={g.value}
@@ -1651,7 +1697,8 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                     </Field>
                     <Field label="Father Name" error={errors.fatherName}>
                       <Input
-                        placeholder="Father Name"
+                        variant="standard"
+                        placeholder="e.g. Suresh Sharma"
                         value={employee.fatherName}
                         onChange={(e) => {
                           clearError("fatherName");
@@ -1664,7 +1711,8 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                     </Field>
                     <Field label="Mother Name" error={errors.motherName}>
                       <Input
-                        placeholder="Mother Name"
+                        variant="standard"
+                        placeholder="e.g. Lakshmi Sharma"
                         value={employee.motherName}
                         onChange={(e) => {
                           clearError("motherName");
@@ -1677,6 +1725,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                     </Field>
                     <Field label="Nationality">
                       <Select
+                        variant="standard"
                         value={
                           employee.nationalityId
                             ? String(employee.nationalityId)
@@ -1689,7 +1738,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                           }))
                         }
                         options={nationalityOptions}
-                        placeholder="Nationality"
+                        placeholder="Select Nationality"
                       />
                     </Field>
                   </div>
@@ -1697,6 +1746,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
                     <Field label="Religion">
                       <Select
+                        variant="standard"
                         value={
                           employee.religionId
                             ? String(employee.religionId)
@@ -1706,11 +1756,12 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                           setEmployee((p) => ({ ...p, religionId: asNum(v) }))
                         }
                         options={religionOptions}
-                        placeholder="Religion"
+                        placeholder="Select Religion"
                       />
                     </Field>
                     <Field label="Caste">
                       <Select
+                        variant="standard"
                         value={
                           employee.casteId ? String(employee.casteId) : null
                         }
@@ -1722,12 +1773,13 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                           }))
                         }
                         options={casteOptions}
-                        placeholder="Caste"
+                        placeholder="Select Caste"
                       />
                     </Field>
                     {subCastes.length > 0 ? (
                       <Field label="Sub Caste">
                         <Select
+                          variant="standard"
                           value={
                             employee.subCasteId
                               ? String(employee.subCasteId)
@@ -1737,22 +1789,28 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                             setEmployee((p) => ({ ...p, subCasteId: asNum(v) }))
                           }
                           options={subCasteOptions}
-                          placeholder="Sub Caste"
+                          placeholder="Select Sub Caste"
                         />
                       </Field>
                     ) : null}
-                    <Field label="Date of Birth *" error={errors.dateOfBirth}>
+                    <Field
+                      label="Date of Birth"
+                      required
+                      error={errors.dateOfBirth}
+                    >
                       <DatePicker
+                        variant="standard"
                         value={employee.dateOfBirth}
                         onChange={(v) => {
                           clearError("dateOfBirth");
                           setEmployee((p) => ({ ...p, dateOfBirth: v }));
                         }}
-                        placeholder="Date of Birth"
+                        placeholder="DD/MM/YYYY"
                       />
                     </Field>
                     <Field label="Marital Status">
                       <Select
+                        variant="standard"
                         value={
                           employee.maritalStatusId
                             ? String(employee.maritalStatusId)
@@ -1765,7 +1823,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                           }))
                         }
                         options={maritalStatusOptions}
-                        placeholder="Marital Status"
+                        placeholder="Select Marital Status"
                       />
                     </Field>
                   </div>
@@ -1773,16 +1831,18 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
                     <Field label="Wedding Date">
                       <DatePicker
+                        variant="standard"
                         value={employee.weddingDate}
                         onChange={(v) =>
                           setEmployee((p) => ({ ...p, weddingDate: v }))
                         }
-                        placeholder="Wedding Date"
+                        placeholder="DD/MM/YYYY"
                       />
                     </Field>
-                    <Field label="Mobile Number *" error={errors.mobile}>
+                    <Field label="Mobile Number" required error={errors.mobile}>
                       <Input
-                        placeholder="Mobile Number"
+                        variant="standard"
+                        placeholder="e.g. 9876543210"
                         value={employee.mobile}
                         onChange={(e) => {
                           clearError("mobile");
@@ -1793,10 +1853,11 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                         }}
                       />
                     </Field>
-                    <Field label="Email *" error={errors.email}>
+                    <Field label="Email" required error={errors.email}>
                       <Input
+                        variant="standard"
                         type="email"
-                        placeholder="Email"
+                        placeholder="e.g. ravi.sharma@college.edu"
                         value={employee.email}
                         onChange={(e) => {
                           clearError("email");
@@ -1809,7 +1870,8 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                   <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
                     <Field label="Address">
                       <Input
-                        placeholder="Address"
+                        variant="standard"
+                        placeholder="e.g. H.No. 12-3/4, Road No. 5, Hyderabad"
                         value={employee.address}
                         onChange={(e) =>
                           setEmployee((p) => ({
@@ -1826,11 +1888,11 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
               {/* ────────────── STEP 2: Office Info ────────────── */}
               {stepId === "office" && (
                 <div className="space-y-4">
-                  <SubHeader>Office Information</SubHeader>
+                  <SubHeader icon="school">Office Information</SubHeader>
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
                     <Field label="JNTU Regulation Number">
                       <Input
-                        placeholder="JNTU Regulation Number"
+                        placeholder="e.g. JNTUH/2020/1234"
                         value={office.jntuRegNo}
                         onChange={(e) =>
                           setOffice((p) => ({
@@ -1842,7 +1904,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                     </Field>
                     <Field label="AICTE Regulation Number">
                       <Input
-                        placeholder="AICTE Regulation Number"
+                        placeholder="e.g. AICTE/1-1234567890"
                         value={office.aicteRegNo}
                         onChange={(e) =>
                           setOffice((p) => ({
@@ -1859,7 +1921,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                         onChange={(v) =>
                           setOffice((p) => ({ ...p, jntuDateOfJoining: v }))
                         }
-                        placeholder="JNTU Date Of Joining"
+                        placeholder="DD/MM/YYYY"
                       />
                     </Field>
                     <Field label="Employee Status">
@@ -1871,7 +1933,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                           setOffice((p) => ({ ...p, empStatusId: asNum(v) }))
                         }
                         options={empStatusOptions}
-                        placeholder="Employee Status"
+                        placeholder="Select Status"
                         disabled
                       />
                     </Field>
@@ -1884,7 +1946,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                           setOffice((p) => ({ ...p, empStateId: asNum(v) }))
                         }
                         options={empStateOptions}
-                        placeholder="Employee State"
+                        placeholder="Select State"
                       />
                     </Field>
                     <Field label="Date Of Relieving">
@@ -1893,7 +1955,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                         onChange={(v) =>
                           setOffice((p) => ({ ...p, dateOfRelieving: v }))
                         }
-                        placeholder="Date Of Relieving"
+                        placeholder="DD/MM/YYYY"
                       />
                     </Field>
                     <Field label="Employee Type">
@@ -1905,13 +1967,13 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                           setOffice((p) => ({ ...p, empTypeId: asNum(v) }))
                         }
                         options={empTypeOptions}
-                        placeholder="Employee Type"
+                        placeholder="Select Type"
                       />
                     </Field>
                     <Field label="Tenure Days">
                       <Input
                         type="number"
-                        placeholder="Tenure Days"
+                        placeholder="e.g. 365"
                         value={office.tenureDays}
                         onChange={(e) =>
                           setOffice((p) => ({
@@ -1931,7 +1993,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                           setOffice((p) => ({ ...p, empDeptId: asNum(v) }));
                         }}
                         options={departmentOptions}
-                        placeholder="Department"
+                        placeholder="Select Department"
                       />
                     </Field>
                     <Field
@@ -1952,7 +2014,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                           }));
                         }}
                         options={departmentOptions}
-                        placeholder="Working Department"
+                        placeholder="Select Working Department"
                       />
                     </Field>
                     <Field
@@ -1973,7 +2035,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                           }));
                         }}
                         options={qualificationOptions}
-                        placeholder="Qualification"
+                        placeholder="Select Qualification"
                       />
                     </Field>
                     <Field label="Designation *" error={errors.designationId}>
@@ -1988,7 +2050,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                           setOffice((p) => ({ ...p, designationId: asNum(v) }));
                         }}
                         options={designationOptions}
-                        placeholder="Designation"
+                        placeholder="Select Designation"
                       />
                     </Field>
                     <Field
@@ -2009,7 +2071,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                           }));
                         }}
                         options={designationOptions}
-                        placeholder="Working Designation"
+                        placeholder="Select Working Designation"
                       />
                     </Field>
                     <Field label="Employee Grade">
@@ -2019,7 +2081,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                           setOffice((p) => ({ ...p, empgrade: asNum(v) }))
                         }
                         options={empGradeOptions}
-                        placeholder="Employee Grade"
+                        placeholder="Select Grade"
                       />
                     </Field>
                     <Field
@@ -2037,7 +2099,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                           setOffice((p) => ({ ...p, empCategoryId: asNum(v) }));
                         }}
                         options={empCategoryOptions}
-                        placeholder="Employee Category"
+                        placeholder="Select Category"
                       />
                     </Field>
                     <Field label="Working Category">
@@ -2054,7 +2116,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                           }))
                         }
                         options={empWorkCategoryOptions}
-                        placeholder="Working Category"
+                        placeholder="Select Working Category"
                       />
                     </Field>
                     <Field label="Teaching For (UG/PG)">
@@ -2068,7 +2130,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                           setOffice((p) => ({ ...p, teachingforId: asNum(v) }))
                         }
                         options={teacherForOptions}
-                        placeholder="Teaching For (UG/PG)"
+                        placeholder="Select UG/PG"
                       />
                     </Field>
                     <Field label="Appointment Type (FT/PT)">
@@ -2082,13 +2144,13 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                           setOffice((p) => ({ ...p, appointmentId: asNum(v) }))
                         }
                         options={appointmentTypeOptions}
-                        placeholder="Appointment Type (FT/PT)"
+                        placeholder="Select FT/PT"
                       />
                     </Field>
                     <Field label="Service Break (Yrs)">
                       <Input
                         type="number"
-                        placeholder="Service Break (Yrs)"
+                        placeholder="e.g. 0"
                         value={office.serviceBreakYrs}
                         onChange={(e) =>
                           setOffice((p) => ({
@@ -2105,7 +2167,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
               {/* ────────────── STEP 3: Contact Info ────────────── */}
               {stepId === "contact" && (
                 <div className="space-y-6">
-                  <SubHeader>Contact Information</SubHeader>
+                  <SubHeader icon="location_on">Contact Information</SubHeader>
 
                   <div>
                     <h2 className="text-sm font-semibold mb-3">
@@ -2114,7 +2176,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                     <div className="grid grid-cols-1 gap-4">
                       <Field label="Present Address">
                         <Input
-                          placeholder="Present Address"
+                          placeholder="e.g. Flat 201, Green Residency, Hyderabad"
                           value={contact.presentAddress}
                           onChange={(e) =>
                             setContact((p) => ({
@@ -2143,7 +2205,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                             }))
                           }
                           options={countryOptions}
-                          placeholder="Country"
+                          placeholder="Select Country"
                         />
                       </Field>
                       <Field label="State">
@@ -2162,7 +2224,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                             }))
                           }
                           options={presentStateOptions}
-                          placeholder="State"
+                          placeholder="Select State"
                         />
                       </Field>
                       <Field label="District">
@@ -2180,7 +2242,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                             }))
                           }
                           options={presentDistrictOptions}
-                          placeholder="District"
+                          placeholder="Select District"
                         />
                       </Field>
                       <Field label="City">
@@ -2197,12 +2259,12 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                             }))
                           }
                           options={presentCityOptions}
-                          placeholder="City"
+                          placeholder="Select City"
                         />
                       </Field>
                       <Field label="Street">
                         <Input
-                          placeholder="Street"
+                          placeholder="e.g. Road No. 12"
                           value={contact.presentStreet}
                           onChange={(e) =>
                             setContact((p) => ({
@@ -2214,7 +2276,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                       </Field>
                       <Field label="Mandal">
                         <Input
-                          placeholder="Mandal"
+                          placeholder="e.g. Serilingampally"
                           value={contact.presentMandal}
                           onChange={(e) =>
                             setContact((p) => ({
@@ -2227,7 +2289,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                       <Field label="Pin Code">
                         <Input
                           type="number"
-                          placeholder="Pin Code"
+                          placeholder="e.g. 500032"
                           value={contact.presentPincode}
                           onChange={(e) =>
                             setContact((p) => ({
@@ -2247,7 +2309,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                     <div className="grid grid-cols-1 gap-4">
                       <Field label="Permanent Address">
                         <Input
-                          placeholder="Permanent Address"
+                          placeholder="e.g. H.No. 10-2/3, Warangal"
                           value={contact.permanentAddress}
                           onChange={(e) =>
                             setContact((p) => ({
@@ -2276,7 +2338,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                             }))
                           }
                           options={countryOptions}
-                          placeholder="Country"
+                          placeholder="Select Country"
                         />
                       </Field>
                       <Field label="State">
@@ -2295,7 +2357,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                             }))
                           }
                           options={permStateOptions}
-                          placeholder="State"
+                          placeholder="Select State"
                         />
                       </Field>
                       <Field label="District">
@@ -2313,7 +2375,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                             }))
                           }
                           options={permDistrictOptions}
-                          placeholder="District"
+                          placeholder="Select District"
                         />
                       </Field>
                       <Field label="City">
@@ -2330,12 +2392,12 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                             }))
                           }
                           options={permCityOptions}
-                          placeholder="City"
+                          placeholder="Select City"
                         />
                       </Field>
                       <Field label="Street">
                         <Input
-                          placeholder="Street"
+                          placeholder="e.g. Road No. 12"
                           value={contact.permanentStreet}
                           onChange={(e) =>
                             setContact((p) => ({
@@ -2347,7 +2409,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                       </Field>
                       <Field label="Mandal">
                         <Input
-                          placeholder="Mandal"
+                          placeholder="e.g. Serilingampally"
                           value={contact.permanentMandal}
                           onChange={(e) =>
                             setContact((p) => ({
@@ -2360,7 +2422,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                       <Field label="Pin Code">
                         <Input
                           type="number"
-                          placeholder="Pin Code"
+                          placeholder="e.g. 500032"
                           value={contact.permanentPincode}
                           onChange={(e) =>
                             setContact((p) => ({
@@ -2384,7 +2446,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                       >
                         <Input
                           type="number"
-                          placeholder="Office Mobile"
+                          placeholder="e.g. 9876543210"
                           value={contact.officialMobile}
                           onChange={(e) => {
                             clearError("officialMobile");
@@ -2398,7 +2460,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                       <Field label="Residence Phone">
                         <Input
                           type="number"
-                          placeholder="Residence Phone"
+                          placeholder="e.g. 04012345678"
                           value={contact.residencePhone}
                           onChange={(e) =>
                             setContact((p) => ({
@@ -2414,7 +2476,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                       >
                         <Input
                           type="number"
-                          placeholder="Emergency Mobile"
+                          placeholder="e.g. 9123456780"
                           value={contact.emergencyMobile}
                           onChange={(e) => {
                             clearError("emergencyMobile");
@@ -2433,7 +2495,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
               {/* ────────────── STEP 4: Education Info ────────────── */}
               {stepId === "education" && (
                 <div className="space-y-4">
-                  <SubHeader>Education Information</SubHeader>
+                  <SubHeader icon="school">Education Information</SubHeader>
                   <Table
                     rows={education}
                     pageSize={0}
@@ -2445,7 +2507,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                         label: "Institution Name",
                         render: (row, i) => (
                           <Input
-                            placeholder="Name"
+                            placeholder="e.g. Osmania University"
                             value={row.nameOfInstitution}
                             onChange={(e) =>
                               setEducation((prev) =>
@@ -2468,7 +2530,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                         label: "Board",
                         render: (row, i) => (
                           <Input
-                            placeholder="Board"
+                            placeholder="e.g. Board of Intermediate"
                             value={row.board}
                             onChange={(e) =>
                               setEducation((prev) =>
@@ -2488,7 +2550,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                         label: "Medium",
                         render: (row, i) => (
                           <Input
-                            placeholder="Medium"
+                            placeholder="e.g. English"
                             value={row.medium}
                             onChange={(e) =>
                               setEducation((prev) =>
@@ -2521,7 +2583,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                               )
                             }
                             options={modeOfStudyOptions}
-                            placeholder="Mode"
+                            placeholder="Select Mode"
                           />
                         ),
                       },
@@ -2530,7 +2592,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                         label: "Address",
                         render: (row, i) => (
                           <Input
-                            placeholder="Address"
+                            placeholder="e.g. Hyderabad"
                             value={row.address}
                             onChange={(e) =>
                               setEducation((prev) =>
@@ -2550,7 +2612,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                         label: "Major Subjects",
                         render: (row, i) => (
                           <Input
-                            placeholder="Subjects"
+                            placeholder="e.g. Mathematics"
                             value={row.majorSubjects}
                             onChange={(e) =>
                               setEducation((prev) =>
@@ -2570,7 +2632,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                         label: "Grade",
                         render: (row, i) => (
                           <Input
-                            placeholder="Grade"
+                            placeholder="e.g. First Class"
                             value={row.gradeClassSecured}
                             onChange={(e) =>
                               setEducation((prev) =>
@@ -2593,7 +2655,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                         label: "Year Of Completion",
                         render: (row, i) => (
                           <Input
-                            placeholder="Year"
+                            placeholder="e.g. 2018"
                             value={row.yearOfCompletion}
                             onChange={(e) =>
                               setEducation((prev) =>
@@ -2614,7 +2676,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                         render: (row, i) => (
                           <Input
                             type="number"
-                            placeholder="%"
+                            placeholder="e.g. 78.5"
                             value={row.precentage}
                             onChange={(e) =>
                               setEducation((prev) =>
@@ -2658,7 +2720,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
               {/* ────────────── STEP 5: Experience Info ────────────── */}
               {stepId === "experience" && (
                 <div className="space-y-4">
-                  <SubHeader>Experience Information</SubHeader>
+                  <SubHeader icon="school">Experience Information</SubHeader>
                   <Table
                     rows={experience}
                     pageSize={0}
@@ -2670,7 +2732,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                         label: "Previous Institution",
                         render: (row, i) => (
                           <Input
-                            placeholder="Name"
+                            placeholder="e.g. ABC Engineering College"
                             value={row.prevoiusInstitutions}
                             onChange={(e) =>
                               setExperience((prev) =>
@@ -2706,7 +2768,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                               )
                             }
                             options={designationOptions}
-                            placeholder="Designation"
+                            placeholder="Select Designation"
                           />
                         ),
                       },
@@ -2715,7 +2777,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                         label: "Subjects",
                         render: (row, i) => (
                           <Input
-                            placeholder="Subjects"
+                            placeholder="e.g. Mathematics"
                             value={row.subjects}
                             onChange={(e) =>
                               setExperience((prev) =>
@@ -2735,7 +2797,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                         label: "Experience",
                         render: (row, i) => (
                           <Input
-                            placeholder="Experience"
+                            placeholder="e.g. Teaching"
                             value={row.experienceDetail}
                             onChange={(e) =>
                               setExperience((prev) =>
@@ -2763,7 +2825,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                                 ),
                               )
                             }
-                            placeholder="From"
+                            placeholder="DD/MM/YYYY"
                           />
                         ),
                       },
@@ -2780,7 +2842,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                                 ),
                               )
                             }
-                            placeholder="To"
+                            placeholder="DD/MM/YYYY"
                           />
                         ),
                       },
@@ -2789,7 +2851,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                         label: "Total Years",
                         render: (row, i) => (
                           <Input
-                            placeholder="Total Years"
+                            placeholder="e.g. 5"
                             value={row.experienceYear}
                             onChange={(e) =>
                               setExperience((prev) =>
@@ -2809,7 +2871,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                         label: "Total Months",
                         render: (row, i) => (
                           <Input
-                            placeholder="Total Months"
+                            placeholder="e.g. 6"
                             value={row.experienceMonth}
                             onChange={(e) =>
                               setExperience((prev) =>
@@ -2853,7 +2915,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
               {/* ────────────── STEP 6: Certificates ────────────── */}
               {stepId === "certificates" && (
                 <div className="space-y-4">
-                  <SubHeader>Certificates</SubHeader>
+                  <SubHeader icon="computer">Certificates</SubHeader>
                   <Table
                     rows={documents}
                     pageSize={0}
@@ -2958,7 +3020,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                         label: "Rack Number",
                         render: (d) => (
                           <Input
-                            placeholder="Rack Number"
+                            placeholder="e.g. R-12"
                             value={d.rackNumber}
                             onChange={(e) =>
                               setDocuments((prev) =>
@@ -3005,7 +3067,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
               {/* ────────────── STEP 7: Other Info ────────────── */}
               {stepId === "other" && (
                 <div className="space-y-6">
-                  <SubHeader>Other Information</SubHeader>
+                  <SubHeader icon="school">Other Information</SubHeader>
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
                     <Field label="Blood Group">
                       <Select
@@ -3016,13 +3078,13 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                           setOther((p) => ({ ...p, bloodgroupId: asNum(v) }))
                         }
                         options={bloodGroupOptions}
-                        placeholder="Blood Group"
+                        placeholder="Select Blood Group"
                       />
                     </Field>
                     <Field label="Aadhar Card No. *" error={errors.aadharNo}>
                       <Input
                         type="number"
-                        placeholder="Aadhar Card No."
+                        placeholder="e.g. 123456789012"
                         value={other.aadharNo}
                         onChange={(e) => {
                           clearError("aadharNo");
@@ -3032,7 +3094,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                     </Field>
                     <Field label="Pan Card No.">
                       <Input
-                        placeholder="Pan Card No."
+                        placeholder="e.g. ABCDE1234F"
                         value={other.pancard}
                         onChange={(e) =>
                           setOther((p) => ({ ...p, pancard: e.target.value }))
@@ -3041,7 +3103,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                     </Field>
                     <Field label="Voter Id">
                       <Input
-                        placeholder="Voter Id"
+                        placeholder="e.g. ABC1234567"
                         value={other.voterId}
                         onChange={(e) =>
                           setOther((p) => ({ ...p, voterId: e.target.value }))
@@ -3050,7 +3112,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                     </Field>
                     <Field label="Passport No.">
                       <Input
-                        placeholder="Passport No."
+                        placeholder="e.g. Z1234567"
                         value={other.passportNo}
                         onChange={(e) =>
                           setOther((p) => ({
@@ -3062,7 +3124,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                     </Field>
                     <Field label="EPF No.">
                       <Input
-                        placeholder="EPF No."
+                        placeholder="e.g. AP/HYD/1234567"
                         value={other.epfNo}
                         onChange={(e) =>
                           setOther((p) => ({ ...p, epfNo: e.target.value }))
@@ -3071,7 +3133,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                     </Field>
                     <Field label="ESI Reg No.">
                       <Input
-                        placeholder="ESI Reg No."
+                        placeholder="e.g. 1234567890"
                         value={other.esiRegNo}
                         onChange={(e) =>
                           setOther((p) => ({ ...p, esiRegNo: e.target.value }))
@@ -3080,7 +3142,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                     </Field>
                     <Field label="LIC No.">
                       <Input
-                        placeholder="LIC No."
+                        placeholder="e.g. 123456789"
                         value={other.licNo}
                         onChange={(e) =>
                           setOther((p) => ({ ...p, licNo: e.target.value }))
@@ -3094,7 +3156,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                           setOther((p) => ({ ...p, paymodeId: asNum(v) }))
                         }
                         options={payModeOptions}
-                        placeholder="Pay Mode"
+                        placeholder="Select Pay Mode"
                       />
                     </Field>
                     <Field label="Promoted Date">
@@ -3103,7 +3165,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                         onChange={(v) =>
                           setOther((p) => ({ ...p, promotedDate: v }))
                         }
-                        placeholder="Promoted Date"
+                        placeholder="DD/MM/YYYY"
                       />
                     </Field>
                     <Field label="Date Of Resignation">
@@ -3112,13 +3174,13 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                         onChange={(v) =>
                           setOther((p) => ({ ...p, resignationDate: v }))
                         }
-                        placeholder="Date Of Resignation"
+                        placeholder="DD/MM/YYYY"
                       />
                     </Field>
                     <Field label="Monthly Salary">
                       <Input
                         type="number"
-                        placeholder="Monthly Salary"
+                        placeholder="e.g. 45000"
                         value={other.monthlySalary}
                         onChange={(e) =>
                           setOther((p) => ({
@@ -3137,7 +3199,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                           setOther((p) => ({ ...p, residentId: asNum(v) }))
                         }
                         options={residentOptions}
-                        placeholder="Resident"
+                        placeholder="Select Resident"
                       />
                     </Field>
                     <Field label="Accommodation">
@@ -3151,12 +3213,12 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                           setOther((p) => ({ ...p, accommodationId: asNum(v) }))
                         }
                         options={accommodationOptions}
-                        placeholder="Accommodation"
+                        placeholder="Select Accommodation"
                       />
                     </Field>
                     <Field label="Bio Code">
                       <Input
-                        placeholder="Bio Code"
+                        placeholder="e.g. BIO001"
                         value={other.biometricCode}
                         onChange={(e) =>
                           setOther((p) => ({
@@ -3200,11 +3262,11 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                     ))}
                   </div>
 
-                  <SubHeader>Bank Details</SubHeader>
+                  <SubHeader icon="account_balance">Bank Details</SubHeader>
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
                     <Field label="Bank Name">
                       <Input
-                        placeholder="Bank Name"
+                        placeholder="e.g. State Bank of India"
                         value={other.bankName}
                         onChange={(e) =>
                           setOther((p) => ({ ...p, bankName: e.target.value }))
@@ -3213,7 +3275,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                     </Field>
                     <Field label="Account No.">
                       <Input
-                        placeholder="Account No."
+                        placeholder="e.g. 123456789012"
                         value={other.accountNumber}
                         onChange={(e) =>
                           setOther((p) => ({
@@ -3225,7 +3287,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                     </Field>
                     <Field label="Branch Name">
                       <Input
-                        placeholder="Branch Name"
+                        placeholder="e.g. Madhapur"
                         value={other.branchName}
                         onChange={(e) =>
                           setOther((p) => ({
@@ -3237,7 +3299,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                     </Field>
                     <Field label="IFSC Code">
                       <Input
-                        placeholder="IFSC Code"
+                        placeholder="e.g. SBIN0001234"
                         value={other.ifscCode}
                         onChange={(e) =>
                           setOther((p) => ({ ...p, ifscCode: e.target.value }))
@@ -3246,7 +3308,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                     </Field>
                     <Field label="Bank Address">
                       <Input
-                        placeholder="Bank Address"
+                        placeholder="e.g. Madhapur, Hyderabad"
                         value={other.bankAddress}
                         onChange={(e) =>
                           setOther((p) => ({
@@ -3258,7 +3320,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                     </Field>
                     <Field label="DD Payable Address">
                       <Input
-                        placeholder="DD Payable Address"
+                        placeholder="e.g. Hyderabad"
                         value={other.ddPayableAddress}
                         onChange={(e) =>
                           setOther((p) => ({
@@ -3270,7 +3332,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                     </Field>
                     <Field label="Phone">
                       <Input
-                        placeholder="Phone"
+                        placeholder="e.g. 04012345678"
                         value={other.phone}
                         onChange={(e) =>
                           setOther((p) => ({ ...p, phone: e.target.value }))

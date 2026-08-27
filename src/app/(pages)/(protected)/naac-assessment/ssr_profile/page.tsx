@@ -140,16 +140,16 @@ export default function NaacAssessmentSsrProfilePage() {
                   Evaluative Report of the Departments
                 </TabsTrigger>
                 <TabsTrigger value="nep" className={naacMatTabTriggerClass}>
-                  Institutional preparedness for NEP
-                </TabsTrigger>
+                Institutional preparedness for NEP
+              </TabsTrigger>
                 <TabsTrigger
                   value="literacy"
                   className={naacMatTabTriggerClass}
                 >
                   Institutional Initiatives for Electoral Literacy
-                </TabsTrigger>
-              </TabsList>
-            </div>
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
             {/* ── Basic Information ── */}
             <TabsContent value="basic" className="m-0 space-y-0 p-4">
@@ -469,7 +469,7 @@ export default function NaacAssessmentSsrProfilePage() {
                           />
                         </NaacMatTd>
                         <NaacMatTd value>
-                          <Textarea
+                <Textarea
                             rows={2}
                             value={row.remarks}
                             onChange={(e) =>
@@ -684,17 +684,17 @@ export default function NaacAssessmentSsrProfilePage() {
                   Save
                 </Button>
               </div>
-            </TabsContent>
+          </TabsContent>
 
             {/* ── Electoral Literacy ── */}
             <TabsContent value="literacy" className="m-0 space-y-4 p-4">
-              {SSR_LITERACY_ITEMS.map((item) => (
+            {SSR_LITERACY_ITEMS.map((item) => (
                 <div key={item.id} className="rounded bg-white p-4 shadow-sm">
                   <p className="mb-2 text-sm font-medium text-[#1565c0]">
                     {item.label}
                   </p>
                   <RichTextEditor
-                    value={literacyText[item.id] ?? ""}
+                  value={literacyText[item.id] ?? ""}
                     onChange={(html) =>
                       setLiteracyText((prev) => ({
                         ...prev,
@@ -705,17 +705,17 @@ export default function NaacAssessmentSsrProfilePage() {
                     minHeight={140}
                   />
                   <div className="mt-2 flex justify-end">
-                    <CopyTextButton text={literacyText[item.id] ?? ""} />
-                  </div>
+                  <CopyTextButton text={literacyText[item.id] ?? ""} />
                 </div>
-              ))}
+              </div>
+            ))}
               <div className="flex justify-end">
                 <Button type="button" onClick={saveLocal}>
                   Save
                 </Button>
               </div>
-            </TabsContent>
-          </Tabs>
+          </TabsContent>
+        </Tabs>
         </div>
         <div className="mt-4 flex justify-end">
           <Button

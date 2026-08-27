@@ -10,7 +10,6 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
-import { FileText, PencilIcon } from "lucide-react";
 import {
   Select,
   MultiSelect,
@@ -31,14 +30,16 @@ import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/common/components/data-display";
 import { ActiveStatusField } from "@/common/components/forms";
 import { ListPage } from "@/components/layout";
-import { toastError, toastSuccess } from "@/lib/toast";
+import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
 import { toDateOnlyISO } from "@/common/generic-functions";
 import { listActiveColleges } from "@/services/pre-examination";
 import { listRegulations } from "@/services/examination";
 import {
   createEvaluatorBankDetails,
   createEvaluatorProfile,
+  getAssignSubjectsEvaluatorRoles,
   getEvaluatorBankDetails,
+  getRegSupBaseFilters,
   listActiveCourses,
   listEvaluatorProfiles,
   listEvaluatorTitles,
@@ -46,9 +47,10 @@ import {
   listExamEvaluatorPreferences,
   listSubjectsByCourseForPreferences,
   searchEvaluatorEmployees,
+  sendEvaluatorCredentials,
   updateEvaluatorProfile,
   updateExamEvaluatorPreferences,
-} from "@/services/evaluation-process";
+} from "@/services";
 
 type AnyRow = Record<string, any>;
 
@@ -136,7 +138,7 @@ function makeDetailsRenderer(
   openPreferences: (row: AnyRow) => void,
 ) {
   return (p: { data?: AnyRow }) => (
-    <div className="text-[12px]">
+    <div className="text-[14px]">
       <button
         type="button"
         className="text-blue-700 hover:underline"
@@ -167,34 +169,97 @@ function BankSummaryRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+function dedupeByNum(rows: AnyRow[], key: string): AnyRow[] {
+  const seen = new Set<number>();
+  return rows.filter((r) => {
+    const id = Number(r[key] ?? 0);
+    if (!id || seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+}
+
+function fmtExamDate(v: unknown): string {
+  if (!v) return "";
+  const d = new Date(String(v));
+  if (Number.isNaN(d.getTime())) return String(v);
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function examOptionLabel(row: AnyRow): string {
+  const name = String(row.exam_name ?? `Exam ${row.fk_exam_id ?? ""}`);
+  const from = fmtExamDate(row.from_date);
+  const to = fmtExamDate(row.to_date);
+  const range = from && to ? ` (${from} - ${to})` : "";
+  const tags = [
+    row.is_internal_exam ? "(Internal)" : "",
+    row.is_regular_exam ? "(Regular)" : "",
+    row.is_supply_exam ? "(Supple)" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return `${name}${range}${tags ? ` ${tags}` : ""}`;
+}
+
 function makeActionsRenderer(
   openEdit: (row: AnyRow) => void,
+  openMail: (row: AnyRow) => void,
   openBank: (row: AnyRow) => void,
 ) {
-  return (p: { data?: AnyRow }) => (
-    <div className="flex items-center gap-1.5">
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        className="h-8 w-8 p-0"
-        aria-label="Edit evaluator"
-        onClick={() => openEdit(p.data ?? {})}
-      >
-        <PencilIcon className="h-3.5 w-3.5" />
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        className="h-8 w-8 p-0"
-        aria-label="Bank copy"
-        onClick={() => openBank(p.data ?? {})}
-      >
-        <FileText className="h-3.5 w-3.5" />
-      </Button>
-    </div>
-  );
+  return (p: { data?: AnyRow }) => {
+    const row = p.data ?? {};
+    return (
+      <div className="flex h-full items-center gap-1.5">
+        {/* Angular: material-icons.edit — border_color / mail / account_balance */}
+        <button
+          type="button"
+          title="Edit"
+          aria-label="Edit"
+          className="inline-flex items-center justify-center border-0 bg-transparent p-0"
+          onClick={() => openEdit(row)}
+        >
+          <span
+            className="material-icons cursor-pointer text-[18px] leading-none text-[#0e62c7]"
+            aria-hidden
+          >
+            border_color
+          </span>
+        </button>
+        <button
+          type="button"
+          title="Send E-mail"
+          aria-label="Send E-mail"
+          className="inline-flex items-center justify-center border-0 bg-transparent p-0"
+          onClick={() => openMail(row)}
+        >
+          <span
+            className="material-icons cursor-pointer text-[18px] leading-none text-[#0e62c7]"
+            aria-hidden
+          >
+            mail
+          </span>
+        </button>
+        <button
+          type="button"
+          title="Add Bank Details"
+          aria-label="Add Bank Details"
+          className="inline-flex items-center justify-center border-0 bg-transparent p-0"
+          onClick={() => openBank(row)}
+        >
+          <span
+            className="material-icons cursor-pointer text-[18px] leading-none text-[#0e62c7]"
+            aria-hidden
+          >
+            account_balance
+          </span>
+        </button>
+      </div>
+    );
+  };
 }
 
 const PREF_COL_DEFS = {
@@ -385,6 +450,126 @@ export default function CreateEvaluatorsPage() {
     isActive: true,
     reason: "",
   });
+
+  /** Angular NotifyModal — Send Credentials (single row or bulk). */
+  type CredMode = { kind: "single"; row: AnyRow } | { kind: "bulk" } | null;
+  const [credTarget, setCredTarget] = useState<CredMode>(null);
+  const [credBaseRows, setCredBaseRows] = useState<AnyRow[]>([]);
+  const [credRoles, setCredRoles] = useState<AnyRow[]>([]);
+  const [credCourseId, setCredCourseId] = useState<number | null>(null);
+  const [credAyId, setCredAyId] = useState<number | null>(null);
+  const [credExamId, setCredExamId] = useState<number | null>(null);
+  const [credRoleId, setCredRoleId] = useState<number | null>(null);
+  const [credLoading, setCredLoading] = useState(false);
+  const [credSending, setCredSending] = useState(false);
+
+  const credCourses = useMemo(
+    () => dedupeByNum(credBaseRows, "fk_course_id"),
+    [credBaseRows],
+  );
+  const credYears = useMemo(
+    () =>
+      dedupeByNum(
+        credBaseRows.filter(
+          (r) => Number(r.fk_course_id) === Number(credCourseId),
+        ),
+        "fk_academic_year_id",
+      ).sort(
+        (a, b) =>
+          Number.parseInt(String(b.academic_year ?? "0"), 10) -
+          Number.parseInt(String(a.academic_year ?? "0"), 10),
+      ),
+    [credBaseRows, credCourseId],
+  );
+  const credExams = useMemo(
+    () =>
+      dedupeByNum(
+        credBaseRows.filter(
+          (r) =>
+            Number(r.fk_course_id) === Number(credCourseId) &&
+            Number(r.fk_academic_year_id) === Number(credAyId),
+        ),
+        "fk_exam_id",
+      ),
+    [credBaseRows, credCourseId, credAyId],
+  );
+
+  async function openCredentials(target: Exclude<CredMode, null>) {
+    setCredTarget(target);
+    setCredCourseId(null);
+    setCredAyId(null);
+    setCredExamId(null);
+    setCredRoleId(null);
+    setCredLoading(true);
+    try {
+      const employeeId = Number(
+        globalThis?.localStorage?.getItem("employeeId") ?? 0,
+      );
+      const [filters, roles] = await Promise.all([
+        getRegSupBaseFilters(employeeId).catch(() => []),
+        getAssignSubjectsEvaluatorRoles().catch(() => []),
+      ]);
+      setCredBaseRows(Array.isArray(filters) ? filters : []);
+      setCredRoles(Array.isArray(roles) ? roles : []);
+    } finally {
+      setCredLoading(false);
+    }
+  }
+
+  function closeCredentials() {
+    if (credSending) return;
+    setCredTarget(null);
+  }
+
+  async function confirmSendCredentials() {
+    if (!credTarget) return;
+    if (!credCourseId || !credAyId || !credExamId || !credRoleId) {
+      toastInfo("Please Select Required Filters");
+      return;
+    }
+    const payload =
+      credTarget.kind === "single"
+        ? [
+            {
+              examEvaluatorProfileId: Number(
+                credTarget.row.examEvaluatorProfileId ?? 0,
+              ),
+              examId: credExamId,
+              examEvaluatorProfileDetailsDTOS: [
+                { evaluatorRoleId: credRoleId },
+              ],
+            },
+          ]
+        : rows
+            .map((r) => ({
+              examEvaluatorProfileId: Number(r.examEvaluatorProfileId ?? 0),
+              examId: credExamId,
+              examEvaluatorProfileDetailsDTOS: [
+                { evaluatorRoleId: credRoleId },
+              ],
+            }))
+            .filter((p) => p.examEvaluatorProfileId > 0);
+
+    if (payload.length === 0) {
+      toastError("No evaluators to send credentials.");
+      return;
+    }
+
+    setCredSending(true);
+    try {
+      const result = await sendEvaluatorCredentials(payload);
+      const message =
+        pickText(result as AnyRow, ["message"]) ||
+        "Credentials sent successfully.";
+      toastSuccess(message);
+      setCredTarget(null);
+      await loadList();
+    } catch (e) {
+      toastError(e, "Failed to send credentials");
+    } finally {
+      setCredSending(false);
+    }
+  }
 
   async function loadList() {
     setLoading(true);
@@ -896,8 +1081,16 @@ export default function CreateEvaluatorsPage() {
       },
       {
         headerName: "Actions",
-        minWidth: 100,
-        cellRenderer: makeActionsRenderer(openEdit, openBank),
+        minWidth: 130,
+        width: 130,
+        flex: 0,
+        sortable: false,
+        filter: false,
+        cellRenderer: makeActionsRenderer(
+          openEdit,
+          (row) => void openCredentials({ kind: "single", row }),
+          openBank,
+        ),
       },
     ],
     [openSubjects, openPreferences],
@@ -916,11 +1109,34 @@ export default function CreateEvaluatorsPage() {
         search: true,
         searchPlaceholder: "Search…",
         pdfDocumentTitle: "Create Evaluators",
+        exportExcel: false,
+        exportPdf: false,
       }}
       toolbarTrailing={
-        <Button type="button" onClick={openAdd} disabled={loading}>
-          Create Evaluator
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            className="h-[30px] bg-[#0a2e67] px-3 text-[14px] text-white hover:bg-[#082653]"
+            disabled={loading || rows.length === 0}
+            onClick={() => void openCredentials({ kind: "bulk" })}
+          >
+            <span className="material-icons mr-1 text-[16px] leading-none">
+              mail
+            </span>
+            Send Evaluator Credentials
+          </Button>
+          <Button
+            type="button"
+            className="h-[30px] bg-[#0a2e67] px-3 text-[14px] text-white hover:bg-[#082653]"
+            onClick={openAdd}
+            disabled={loading}
+          >
+            <span className="material-icons mr-1 text-[16px] leading-none">
+              add
+            </span>
+            Create Evaluator
+          </Button>
+        </div>
       }
     >
       <Dialog
@@ -952,12 +1168,12 @@ export default function CreateEvaluatorsPage() {
                     setEmployeeCache([]);
                   }}
                 />
-                <span className="text-[12px]">Existing Employee</span>
+                <span className="text-[14px]">Existing Employee</span>
               </div>
             )}
             {form.isEmp ? (
               <div className="md:col-span-2 space-y-1">
-                <Label className="text-[12px]">Employee</Label>
+                <Label className="text-[14px]">Employee</Label>
                 <Select
                   value={form.evaluatorEmpId || null}
                   onChange={onSelectEmployeeId}
@@ -971,7 +1187,7 @@ export default function CreateEvaluatorsPage() {
               </div>
             ) : (
               <div className="space-y-1">
-                <Label className="text-[12px]">
+                <Label className="text-[14px]">
                   University College <span className="text-red-600">*</span>
                 </Label>
                 <Select
@@ -996,7 +1212,7 @@ export default function CreateEvaluatorsPage() {
               </div>
             )}
             <div className="space-y-1">
-              <Label className="text-[12px]">
+              <Label className="text-[14px]">
                 Title <span className="text-red-600">*</span>
               </Label>
               <Select
@@ -1008,7 +1224,7 @@ export default function CreateEvaluatorsPage() {
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-[12px]">
+              <Label className="text-[14px]">
                 Name <span className="text-red-600">*</span>
               </Label>
               <Input
@@ -1025,7 +1241,7 @@ export default function CreateEvaluatorsPage() {
               ) : null}
             </div>
             <div className="space-y-1">
-              <Label className="text-[12px]">
+              <Label className="text-[14px]">
                 Email <span className="text-red-600">*</span>
               </Label>
               <Input
@@ -1042,7 +1258,7 @@ export default function CreateEvaluatorsPage() {
               ) : null}
             </div>
             <div className="space-y-1">
-              <Label className="text-[12px]">
+              <Label className="text-[14px]">
                 Phone Number <span className="text-red-600">*</span>
               </Label>
               <Input
@@ -1058,7 +1274,7 @@ export default function CreateEvaluatorsPage() {
               ) : null}
             </div>
             <div className="space-y-1">
-              <Label className="text-[12px]">
+              <Label className="text-[14px]">
                 Alternate Phone <span className="text-red-600">*</span>
               </Label>
               <Input
@@ -1076,7 +1292,7 @@ export default function CreateEvaluatorsPage() {
               ) : null}
             </div>
             <div className="space-y-1">
-              <Label className="text-[12px]">
+              <Label className="text-[14px]">
                 Aadhar <span className="text-red-600">*</span>
               </Label>
               <Input
@@ -1092,7 +1308,7 @@ export default function CreateEvaluatorsPage() {
               ) : null}
             </div>
             <div className="space-y-1">
-              <Label className="text-[12px]">Pan Card No.</Label>
+              <Label className="text-[14px]">Pan Card No.</Label>
               <Input
                 value={form.panCardNo ?? ""}
                 onChange={(e) => updateFormField("panCardNo", e.target.value)}
@@ -1105,7 +1321,7 @@ export default function CreateEvaluatorsPage() {
               ) : null}
             </div>
             <div className="space-y-1">
-              <Label className="text-[12px]">Travel to Evaluation center</Label>
+              <Label className="text-[14px]">Travel to Evaluation center</Label>
               <Input
                 type="number"
                 value={form.travelToEvaluationCenter ?? ""}
@@ -1116,7 +1332,7 @@ export default function CreateEvaluatorsPage() {
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-[12px]">
+              <Label className="text-[14px]">
                 Start Date <span className="text-red-600">*</span>
               </Label>
               <Input
@@ -1135,7 +1351,7 @@ export default function CreateEvaluatorsPage() {
               ) : null}
             </div>
             <div className="space-y-1">
-              <Label className="text-[12px]">
+              <Label className="text-[14px]">
                 End Date <span className="text-red-600">*</span>
               </Label>
               <Input
@@ -1191,7 +1407,7 @@ export default function CreateEvaluatorsPage() {
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-start">
               <div className="md:col-span-3 space-y-1">
-                <Label className="text-[12px]">
+                <Label className="text-[14px]">
                   Course <span className="text-red-600">*</span>
                 </Label>
                 <Select
@@ -1221,7 +1437,7 @@ export default function CreateEvaluatorsPage() {
                 />
               </div>
               <div className="md:col-span-3 space-y-1">
-                <Label className="text-[12px]">
+                <Label className="text-[14px]">
                   Regulation <span className="text-red-600">*</span>
                 </Label>
                 <Select
@@ -1252,7 +1468,7 @@ export default function CreateEvaluatorsPage() {
                 />
               </div>
               <div className="md:col-span-4 space-y-1">
-                <Label className="text-[12px]">
+                <Label className="text-[14px]">
                   Subjects <span className="text-red-600">*</span>
                 </Label>
                 <MultiSelect
@@ -1317,6 +1533,111 @@ export default function CreateEvaluatorsPage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog
+        open={credTarget != null}
+        onOpenChange={(open) => {
+          if (!open) closeCredentials();
+        }}
+      >
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span className="material-icons text-[22px] text-[#0c51a4]">
+                ballot
+              </span>
+              Send Credentials
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
+            <div className="space-y-1">
+              <Label className="text-[14px]">Course *</Label>
+              <Select
+                value={credCourseId ? String(credCourseId) : null}
+                onChange={(v) => {
+                  setCredCourseId(v ? Number(v) : null);
+                  setCredAyId(null);
+                  setCredExamId(null);
+                }}
+                options={credCourses.map((r) => ({
+                  value: String(r.fk_course_id),
+                  label: String(r.course_code ?? ""),
+                }))}
+                placeholder="Course"
+                isLoading={credLoading}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[14px]">Academic Year *</Label>
+              <Select
+                value={credAyId ? String(credAyId) : null}
+                onChange={(v) => {
+                  setCredAyId(v ? Number(v) : null);
+                  setCredExamId(null);
+                }}
+                options={credYears.map((r) => ({
+                  value: String(r.fk_academic_year_id),
+                  label: String(r.academic_year ?? ""),
+                }))}
+                placeholder="Academic Year"
+                disabled={!credCourseId}
+              />
+            </div>
+            <div className="space-y-1 sm:col-span-2">
+              <Label className="text-[14px]">Exam *</Label>
+              <Select
+                value={credExamId ? String(credExamId) : null}
+                onChange={(v) => setCredExamId(v ? Number(v) : null)}
+                options={credExams.map((r) => ({
+                  value: String(r.fk_exam_id),
+                  label: examOptionLabel(r),
+                }))}
+                placeholder="Exam"
+                searchable
+                disabled={!credAyId}
+              />
+            </div>
+            <div className="space-y-1 sm:col-span-2">
+              <Label className="text-[14px]">Select Role *</Label>
+              <Select
+                value={credRoleId ? String(credRoleId) : null}
+                onChange={(v) => setCredRoleId(v ? Number(v) : null)}
+                options={credRoles.map((r) => ({
+                  value: String(r.pk_role_id ?? r.roleId ?? ""),
+                  label: String(r.role_name ?? r.roleName ?? ""),
+                }))}
+                placeholder="Select Role"
+                isLoading={credLoading}
+              />
+            </div>
+          </div>
+          <p className="text-sm">
+            Send Credentials to{" "}
+            <span className="font-medium">
+              {credTarget?.kind === "single"
+                ? String(credTarget.row.evaluatorName ?? "")
+                : "All Evaluators"}
+            </span>
+          </p>
+          <DialogFooter>
+            <Button
+              type="button"
+              onClick={() => void confirmSendCredentials()}
+              disabled={credSending || credLoading}
+            >
+              {credSending ? "Sending…" : "Send"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={closeCredentials}
+              disabled={credSending}
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={bankOpen} onOpenChange={setBankOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
@@ -1341,7 +1662,7 @@ export default function CreateEvaluatorsPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div>
-                <Label className="text-[12px]">Bank Name</Label>
+                <Label className="text-[14px]">Bank Name</Label>
                 <Input
                   value={bankForm.bankName}
                   onChange={(e) =>
@@ -1351,7 +1672,7 @@ export default function CreateEvaluatorsPage() {
                 />
               </div>
               <div>
-                <Label className="text-[12px]">Branch Name</Label>
+                <Label className="text-[14px]">Branch Name</Label>
                 <Input
                   value={bankForm.branchName}
                   onChange={(e) =>
@@ -1361,7 +1682,7 @@ export default function CreateEvaluatorsPage() {
                 />
               </div>
               <div>
-                <Label className="text-[12px]">Account Number</Label>
+                <Label className="text-[14px]">Account Number</Label>
                 <Input
                   value={bankForm.accountNumber}
                   onChange={(e) =>
@@ -1374,7 +1695,7 @@ export default function CreateEvaluatorsPage() {
                 />
               </div>
               <div>
-                <Label className="text-[12px]">Ifsc Code</Label>
+                <Label className="text-[14px]">Ifsc Code</Label>
                 <Input
                   value={bankForm.ifscCode}
                   onChange={(e) =>
@@ -1384,7 +1705,7 @@ export default function CreateEvaluatorsPage() {
                 />
               </div>
               <div>
-                <Label className="text-[12px]">Bank Address</Label>
+                <Label className="text-[14px]">Bank Address</Label>
                 <Input
                   value={bankForm.bankAddress}
                   onChange={(e) =>
@@ -1394,7 +1715,7 @@ export default function CreateEvaluatorsPage() {
                 />
               </div>
               <div>
-                <Label className="text-[12px]">Phone no</Label>
+                <Label className="text-[14px]">Phone no</Label>
                 <Input
                   value={bankForm.phone}
                   onChange={(e) =>
@@ -1404,7 +1725,7 @@ export default function CreateEvaluatorsPage() {
                 />
               </div>
               <div>
-                <Label className="text-[12px]">Upi</Label>
+                <Label className="text-[14px]">Upi</Label>
                 <Input
                   value={bankForm.upi}
                   onChange={(e) =>
@@ -1420,11 +1741,11 @@ export default function CreateEvaluatorsPage() {
                     setBankForm((p) => ({ ...p, isActive: v === true }))
                   }
                 />
-                <span className="text-[12px]">Active</span>
+                <span className="text-[14px]">Active</span>
               </div>
               {!bankForm.isActive && (
                 <div className="md:col-span-3">
-                  <Label className="text-[12px]">Reason</Label>
+                  <Label className="text-[14px]">Reason</Label>
                   <Input
                     value={bankForm.reason}
                     onChange={(e) =>

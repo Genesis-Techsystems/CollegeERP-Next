@@ -3,13 +3,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { format } from "date-fns";
-import { Timer } from "lucide-react";
+import type {
+  ColDef,
+  ICellRendererParams,
+  IHeaderParams,
+} from "ag-grid-community";
 import { DatePicker } from "@/common/components/date-picker";
 import { MultiSelect, Select } from "@/common/components/select";
+import { DataTable } from "@/common/components/table";
 import { AngularFilterCard, FilteredPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { cn } from "@/lib/utils";
+import { cn, rowIndexGetter } from "@/lib/utils";
 import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
 import { getErrorMessage } from "@/lib/errors";
 import {
@@ -27,7 +32,6 @@ import {
   listTeachingMethodsForMarkAttendance,
   periodOptionLabel,
   refreshAfterMarkAttendanceSave,
-  saveLessonStatusList,
   saveStudentAttendanceDetails,
   tConvert,
   uploadClassNotesForAttendance,
@@ -45,6 +49,32 @@ type StudentRow = Record<string, unknown> & {
   checked?: boolean;
   studentId?: number;
 };
+
+type MarkAllHeaderParams = IHeaderParams & {
+  checked: boolean;
+  onToggle: (checked: boolean) => void;
+  canEdit: boolean;
+};
+
+function MarkAllHeader(props: MarkAllHeaderParams) {
+  if (!props.canEdit) {
+    return (
+      <span className="flex h-full items-center px-1 text-[12px] font-medium">
+        Status
+      </span>
+    );
+  }
+  return (
+    <label className="flex h-full w-full cursor-pointer items-center gap-1.5 px-1 text-[12px] font-medium leading-none">
+      <Checkbox
+        checked={props.checked}
+        onCheckedChange={(v) => props.onToggle(v === true)}
+        aria-label={props.checked ? "UnMark All" : "Mark All"}
+      />
+      <span>{props.checked ? "UnMark All" : "Mark All"}</span>
+    </label>
+  );
+}
 
 function parseDayParam(raw: string | null): Date {
   if (!raw) return new Date();
@@ -131,7 +161,6 @@ export function MarkClassAttendancePage({
   );
 
   const [markAllChecked, setMarkAllChecked] = useState(true);
-  const [studentFilter, setStudentFilter] = useState("");
   const [videoPath, setVideoPath] = useState("");
   const [saving, setSaving] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -140,6 +169,10 @@ export function MarkClassAttendancePage({
   >(null);
   /** Angular `#classNotesAvatar` — read files on Save, not only from React state. */
   const classNotesInputRef = useRef<HTMLInputElement>(null);
+  const setMarkAllRef = useRef<(checked: boolean) => void>(() => {});
+  const toggleStudentPresentRef = useRef<
+    (studentId: number, present: boolean) => void
+  >(() => {});
 
   const collegeLine =
     `${searchParams.get("collegeCode") ?? ""} / ${searchParams.get("academicYear") ?? ""}`.trim();
@@ -172,7 +205,6 @@ export function MarkClassAttendancePage({
     setNotesPath("");
     setActualClsScheduleId(null);
     setVideoPath("");
-    setStudentFilter("");
     if (classNotesInputRef.current) classNotesInputRef.current.value = "";
   }, []);
 
@@ -524,7 +556,6 @@ export function MarkClassAttendancePage({
 
       setRows(merged);
       setMarkAllChecked(merged.every((r) => r.checked !== false));
-      setStudentFilter("");
       setFlag(true);
       if (merged.length === 0) toastSuccess("No Record(s) found.");
     } catch (e) {
@@ -667,33 +698,18 @@ export function MarkClassAttendancePage({
     [rows],
   );
 
-  const filteredRows = useMemo(() => {
-    const q = studentFilter.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((r) => {
-      const roll = String(
-        r.rollNumber ?? r.admissionNumber ?? "",
-      ).toLowerCase();
-      const name = String(r.firstName ?? "").toLowerCase();
-      return roll.includes(q) || name.includes(q);
-    });
-  }, [rows, studentFilter]);
-
   const canEditAttendance = mode === "mark";
   /** Angular: Save only when `isEmptyObject(lessonStatus)`. */
   const canSaveAttendance = mode === "mark" && !attendanceAlreadyMarked;
 
-  function toggleMarkAll() {
+  function setMarkAll(checked: boolean) {
     if (!canEditAttendance) return;
-    // Angular markItems(): if check (all marked / UnMark All) → unmark all;
-    // else Mark All → mark all present.
-    const unmarkAll = markAllChecked;
-    setMarkAllChecked(!unmarkAll);
+    setMarkAllChecked(checked);
     setRows((prev) =>
       prev.map((r) => ({
         ...r,
-        checked: !unmarkAll,
-        isPresent: !unmarkAll,
+        checked,
+        isPresent: checked,
       })),
     );
   }
@@ -711,6 +727,112 @@ export function MarkClassAttendancePage({
       return next;
     });
   }
+
+  setMarkAllRef.current = setMarkAll;
+  toggleStudentPresentRef.current = toggleStudentPresent;
+
+  const attendanceColumnDefs = useMemo<ColDef<StudentRow>[]>(
+    () => [
+      {
+        headerName: "SI.No",
+        valueGetter: rowIndexGetter,
+        width: 70,
+        flex: 0,
+      },
+      {
+        headerName: "Roll No.",
+        minWidth: 120,
+        valueGetter: (p) =>
+          String(p.data?.rollNumber ?? p.data?.admissionNumber ?? ""),
+      },
+      {
+        headerName: "Student Name",
+        minWidth: 180,
+        flex: 1,
+        valueGetter: (p) => String(p.data?.firstName ?? "").toUpperCase(),
+      },
+      {
+        headerName: "Status",
+        minWidth: 160,
+        width: 160,
+        flex: 0,
+        sortable: false,
+        filter: false,
+        headerComponent: MarkAllHeader,
+        headerComponentParams: {
+          checked: markAllChecked,
+          canEdit: canEditAttendance,
+          onToggle: (checked: boolean) => setMarkAllRef.current(checked),
+        },
+        cellRenderer: (p: ICellRendererParams<StudentRow>) => {
+          const present =
+            p.data?.checked !== false && p.data?.isPresent !== false;
+          const sid = Number(p.data?.studentId ?? 0);
+          if (!canEditAttendance) {
+            return (
+              <span
+                className={cn(
+                  "text-sm font-medium",
+                  present ? "text-[#00c300]" : "text-red-600",
+                )}
+              >
+                {present ? "Present" : "Absent"}
+              </span>
+            );
+          }
+          return (
+            <label className="inline-flex h-full cursor-pointer items-center gap-2">
+              <Checkbox
+                checked={present}
+                onCheckedChange={(v) =>
+                  toggleStudentPresentRef.current(sid, v === true)
+                }
+                aria-label={present ? "Present" : "Absent"}
+              />
+              <span
+                className={cn(
+                  "text-sm font-medium",
+                  present ? "text-[#00c300]" : "text-red-600",
+                )}
+              >
+                {present ? "Present" : "Absent"}
+              </span>
+            </label>
+          );
+        },
+      },
+    ],
+    [markAllChecked, canEditAttendance],
+  );
+
+  const absenteesRail = (
+    <div className="overflow-hidden border border-[#c3d9ff] bg-white shadow-sm">
+      <h3 className="m-0 border border-[#c3d9ff] bg-[#ecf3ff] px-3 py-[11px] text-center text-sm font-medium uppercase tracking-wide text-black">
+        Absentees
+        <span className="float-right font-semibold">{absentees.length}</span>
+      </h3>
+      <div
+        className="overflow-y-auto text-sm text-black"
+        style={{ maxHeight: 403 }}
+      >
+        {absentees.length === 0 ? (
+          <p className="m-0 border-b border-[#dedede] px-[10px] py-[10px]">
+            No absents found.
+          </p>
+        ) : (
+          absentees.map((a) => (
+            <p
+              key={String(a.studentId)}
+              className="m-0 border-b border-[#dedede] px-[10px] py-[10px]"
+            >
+              {String(a.firstName ?? "")} -{" "}
+              {String(a.rollNumber ?? a.admissionNumber ?? "")}
+            </p>
+          ))
+        )}
+      </div>
+    </div>
+  );
 
   const previewPeriods = useMemo(() => {
     if (!selectedPeriod) return [];
@@ -918,7 +1040,7 @@ export function MarkClassAttendancePage({
               <div className="flex min-w-0 flex-col gap-1 md:basis-[12%] md:flex-none">
                 <label
                   htmlFor="lesson-percentage"
-                  className="text-[12px] font-medium leading-none text-black/54"
+                  className="text-[14px] font-medium leading-none text-[hsl(var(--foreground))]"
                 >
                   Percentage
                 </label>
@@ -941,7 +1063,7 @@ export function MarkClassAttendancePage({
             <div className="relative pt-2">
               <label
                 htmlFor="lesson-comments"
-                className="absolute left-3 top-0 z-[1] bg-card px-1 text-[12px] font-medium text-black/54"
+                className="absolute left-3 top-0 z-[1] bg-card px-1 text-[14px] font-medium text-[hsl(var(--foreground))]"
               >
                 Comments
               </label>
@@ -953,6 +1075,43 @@ export function MarkClassAttendancePage({
                 rows={3}
                 className="min-h-[88px] w-full resize-y rounded-[4px] border border-[rgba(0,0,0,0.38)] bg-transparent px-3 pb-2 pt-3 text-sm text-black outline-none focus:border-2 focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
               />
+            </div>
+            {/* Image 1: Choose file + Class Notes Video Link — light-blue box */}
+            <div className="mx-3 mt-0 rounded-[2px] bg-white px-0 py-0">
+              <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:gap-10">
+                <div className="shrink-0">
+                  {/* Native browser Choose file button (Angular #classNotesAvatar) */}
+                  <input
+                    ref={classNotesInputRef}
+                    type="file"
+                    accept=".png, .jpg, .jpeg, .pdf, .doc"
+                    className="h-auto w-auto max-w-full cursor-pointer border-0 bg-transparent p-0 text-[13px] font-normal text-black shadow-none [appearance:auto] file:me-2 file:inline-block file:h-auto file:cursor-pointer file:rounded-[2px] file:border file:border-solid file:border-[#767676] file:bg-[#efefef] file:px-2.5 file:py-[3px] file:text-[13px] file:font-normal file:text-black file:shadow-none"
+                  />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <input
+                    id="class-notes-video"
+                    type="text"
+                    value={videoPath}
+                    onChange={(e) => setVideoPath(e.target.value)}
+                    placeholder="Class Notes Video Link"
+                    className="h-10 w-full border-0 border-b border-[rgba(0,0,0,0.42)] bg-transparent px-0 text-sm text-black outline-none placeholder:text-[rgba(0,0,0,0.54)] focus:border-b-2 focus:border-primary"
+                  />
+                </div>
+              </div>
+              {notesPath ? (
+                <p className="m-0 mt-3 border-0 p-0">
+                  <a
+                    href={notesPath}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-sm underline"
+                    style={{ color: "blue" }}
+                  >
+                    View Class Notes
+                  </a>
+                </p>
+              ) : null}
             </div>
           </div>
         </AngularFilterCard>
@@ -970,224 +1129,33 @@ export function MarkClassAttendancePage({
       ) : null}
 
       {flag && rows.length > 0 ? (
-        <div className="space-y-3 bg-[#fff]">
-          {/* Angular page-table-head + gold underline */}
-          <div className="mx-3 border-b-2 border-[#ffcf46] pb-2">
-            <div className="flex items-center gap-2">
-              <Timer
-                className="h-[18px] w-[18px] shrink-0 text-[hsl(var(--card-title))]"
-                aria-hidden
-              />
-              <strong className="text-[15px] font-semibold leading-snug text-[hsl(var(--card-title))]">
-                Attendance -{" "}
-                <span className="font-medium">{attendanceHeader}</span>
-              </strong>
-            </div>
-          </div>
-
-          <div className="relative px-3 pt-1">
-            <div className="mb-1 w-full max-w-[20%]">
-              {/* Angular mat-form-field floatLabel="never" Search */}
-              <input
-                type="search"
-                value={studentFilter}
-                onChange={(e) => setStudentFilter(e.target.value)}
-                placeholder="Search"
-                className="h-9 w-full border-0 border-b border-[rgba(0,0,0,0.42)] bg-transparent px-0 text-sm text-black outline-none placeholder:text-muted-foreground focus:border-b-2 focus:border-primary"
-              />
-            </div>
-            <span className="absolute right-3 top-[10px] text-[15px] font-normal text-black">
+        <DataTable<StudentRow>
+          title={`Attendance - ${attendanceHeader}`}
+          titleIcon="book"
+          bordered
+          contentCollapsible={false}
+          rowData={rows}
+          columnDefs={attendanceColumnDefs}
+          autoHeight={true}
+          pagination={true}
+          getRowId={(p) => String(p.data?.studentId ?? "")}
+          toolbar={{
+            search: true,
+            searchPlaceholder: "Search",
+            searchFields: ["rollNumber", "admissionNumber", "firstName"],
+            columnPicker: false,
+            exportExcel: false,
+            exportPdf: false,
+            columnFilters: false,
+          }}
+          toolbarTrailing={
+            <span className="text-[15px] font-normal text-black">
               Total Students: {rows.length}
             </span>
-          </div>
-
-          {/* Angular: fxFlex 70% table + 30% absentees */}
-          <div className="flex flex-col gap-0 px-3 lg:flex-row">
-            <div className="min-w-0 flex-1 lg:basis-[70%] lg:flex-none">
-              <div
-                className="mat-table-shell mat-elevation-z8 overflow-auto bg-white"
-                style={{ height: 450 }}
-              >
-                <table className="mat-table">
-                  <thead className="sticky top-0 z-10">
-                    <tr className="mat-header-row">
-                      <th className="mat-header-cell px-3 py-1.5 text-left whitespace-nowrap w-[70px] !bg-[#c3d9ff]">
-                        SI.No
-                      </th>
-                      <th className="mat-header-cell px-3 py-1.5 text-left whitespace-nowrap w-[120px] !bg-[#c3d9ff]">
-                        Roll No.
-                      </th>
-                      <th className="mat-header-cell px-3 py-1.5 text-left !bg-[#c3d9ff]">
-                        Student Name
-                      </th>
-                      <th className="mat-header-cell px-3 py-1.5 text-left whitespace-nowrap w-[160px] !bg-[#c3d9ff]">
-                        {canEditAttendance ? (
-                          <label
-                            className="inline-flex cursor-pointer items-center gap-2 text-[15px] font-medium text-black"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              toggleMarkAll();
-                            }}
-                          >
-                            <Checkbox
-                              checked={markAllChecked}
-                              tabIndex={-1}
-                              aria-label={
-                                markAllChecked ? "UnMark All" : "Mark All"
-                              }
-                            />
-                            <span>
-                              {markAllChecked ? "UnMark All" : "Mark All"}
-                            </span>
-                          </label>
-                        ) : (
-                          "Status"
-                        )}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredRows.map((row, index) => {
-                      const present =
-                        row.checked !== false && row.isPresent !== false;
-                      const sid = Number(row.studentId ?? 0);
-                      return (
-                        <tr
-                          key={String(row.studentId ?? index)}
-                          className="mat-row"
-                        >
-                          <td className="mat-cell px-3 py-1.5 text-center whitespace-nowrap">
-                            {rows.indexOf(row) + 1}
-                          </td>
-                          <td className="mat-cell px-3 py-1.5 whitespace-nowrap">
-                            {String(
-                              row.rollNumber ?? row.admissionNumber ?? "",
-                            )}
-                          </td>
-                          <td className="mat-cell px-3 py-1.5 uppercase">
-                            {String(row.firstName ?? "")}
-                          </td>
-                          <td className="mat-cell px-3 py-1.5">
-                            {canEditAttendance ? (
-                              <label className="inline-flex cursor-pointer items-center gap-2">
-                                <Checkbox
-                                  checked={present}
-                                  onCheckedChange={(v) =>
-                                    toggleStudentPresent(sid, v === true)
-                                  }
-                                  aria-label={present ? "Present" : "Absent"}
-                                />
-                                <span
-                                  className={cn(
-                                    "text-sm font-medium",
-                                    present ? "text-[#00c300]" : "text-red-600",
-                                  )}
-                                >
-                                  {present ? "Present" : "Absent"}
-                                </span>
-                              </label>
-                            ) : (
-                              <span
-                                className={cn(
-                                  "text-sm font-medium",
-                                  present ? "text-[#00c300]" : "text-red-600",
-                                )}
-                              >
-                                {present ? "Present" : "Absent"}
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {filteredRows.length === 0 ? (
-                      <tr className="mat-row">
-                        <td
-                          colSpan={4}
-                          className="mat-cell px-3 py-8 text-center text-muted-foreground"
-                        >
-                          No students match the search.
-                        </td>
-                      </tr>
-                    ) : null}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div className="mt-4 w-full lg:mt-0 lg:basis-[30%] lg:flex-none lg:pl-5">
-              <div className="overflow-hidden border border-[#c3d9ff] bg-white shadow-sm">
-                <h3 className="m-0 border border-[#c3d9ff] bg-[#ecf3ff] px-3 py-[11px] text-center text-sm font-medium uppercase tracking-wide text-black">
-                  Absentees
-                  <span className="float-right font-semibold">
-                    {absentees.length}
-                  </span>
-                </h3>
-                <div
-                  className="overflow-y-auto text-sm text-black"
-                  style={{ maxHeight: 403 }}
-                >
-                  {absentees.length === 0 ? (
-                    <p className="m-0 border-b border-[#dedede] px-[10px] py-[10px]">
-                      No absents found.
-                    </p>
-                  ) : (
-                    absentees.map((a) => (
-                      <p
-                        key={String(a.studentId)}
-                        className="m-0 border-b border-[#dedede] px-[10px] py-[10px]"
-                      >
-                        {String(a.firstName ?? "")} -{" "}
-                        {String(a.rollNumber ?? a.admissionNumber ?? "")}
-                      </p>
-                    ))
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Image 1: Choose file + Class Notes Video Link — light-blue box */}
-          <div
-            className="mx-3 mt-2.5 rounded-[2px] bg-white px-5 py-5"
-            style={{ border: "1px solid #c3d9ff" }}
-          >
-            <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:gap-10">
-              <div className="shrink-0">
-                {/* Native browser Choose file button (Angular #classNotesAvatar) */}
-                <input
-                  ref={classNotesInputRef}
-                  type="file"
-                  accept=".png, .jpg, .jpeg, .pdf, .doc"
-                  className="h-auto w-auto max-w-full cursor-pointer border-0 bg-transparent p-0 text-[13px] font-normal text-black shadow-none [appearance:auto] file:me-2 file:inline-block file:h-auto file:cursor-pointer file:rounded-[2px] file:border file:border-solid file:border-[#767676] file:bg-[#efefef] file:px-2.5 file:py-[3px] file:text-[13px] file:font-normal file:text-black file:shadow-none"
-                />
-              </div>
-              <div className="min-w-0 flex-1">
-                <input
-                  id="class-notes-video"
-                  type="text"
-                  value={videoPath}
-                  onChange={(e) => setVideoPath(e.target.value)}
-                  placeholder="Class Notes Video Link"
-                  className="h-10 w-full border-0 border-b border-[rgba(0,0,0,0.42)] bg-transparent px-0 text-sm text-black outline-none placeholder:text-[rgba(0,0,0,0.54)] focus:border-b-2 focus:border-primary"
-                />
-              </div>
-            </div>
-            {notesPath ? (
-              <p className="m-0 mt-3 border-0 p-0">
-                <a
-                  href={notesPath}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-sm underline"
-                  style={{ color: "blue" }}
-                >
-                  View Class Notes
-                </a>
-              </p>
-            ) : null}
-          </div>
-        </div>
+          }
+          rightRailCols={3}
+          rightRail={absenteesRail}
+        />
       ) : null}
 
       <div className="flex justify-end gap-2">

@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { useQuery } from "@tanstack/react-query";
-import { MailIcon, PencilIcon, PlusIcon } from "lucide-react";
+import { MailIcon, PlusIcon } from "lucide-react";
 import { ConfirmDialog } from "@/common/components/feedback";
 import { SearchModeRadioStrip } from "@/common/components/forms";
 import { Select, type SelectOption } from "@/common/components/select";
@@ -217,27 +217,36 @@ function makeActionsRenderer(
   return function ActionsRenderer(p: ICellRendererParams<EmpRow>) {
     if (!p.data) return null;
     return (
-      <div className="flex items-center gap-0.5">
-        <Button
+      <div className="flex h-full items-center gap-2">
+        {/* Angular: material-icons.edit border_color / mail — #0e62c7 */}
+        <button
           type="button"
-          size="sm"
-          variant="ghost"
-          className="h-8 w-8 px-0"
           title="Edit Employee"
+          aria-label="Edit Employee"
+          className="inline-flex items-center justify-center border-0 bg-transparent p-0"
           onClick={() => onEdit(p.data!)}
         >
-          <PencilIcon className="h-3.5 w-3.5" />
-        </Button>
-        <Button
+          <span
+            className="material-icons cursor-pointer text-[15px] leading-none text-[#0e62c7]"
+            aria-hidden
+          >
+            border_color
+          </span>
+        </button>
+        <button
           type="button"
-          size="sm"
-          variant="ghost"
-          className="h-8 w-8 px-0"
           title="Send E-mail"
+          aria-label="Send E-mail"
+          className="inline-flex items-center justify-center border-0 bg-transparent p-0"
           onClick={() => onMail(p.data!)}
         >
-          <MailIcon className="h-3.5 w-3.5" />
-        </Button>
+          <span
+            className="material-icons cursor-pointer text-[15px] leading-none text-[#0e62c7]"
+            aria-hidden
+          >
+            mail
+          </span>
+        </button>
       </div>
     );
   };
@@ -436,12 +445,14 @@ export function EmployeeListPage() {
 
       {showTable ? (
         <DataTable
-          title="Employee"
+          title="Employee List"
           bordered
           rowData={displayRows}
           columnDefs={columnDefs}
           loading={mode === "all" ? isFetching : isFetchingSearch}
           pagination
+          autoHeight={true}
+          fitColumnsToWidth={false}
           rowHeight={60}
           toolbar={
             mode === "all"

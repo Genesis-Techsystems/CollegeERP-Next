@@ -6,7 +6,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const labelVariants = cva(
-  "app-label font-normal leading-none text-black/54 peer-disabled:cursor-not-allowed peer-disabled:opacity-70",
+  "app-label font-normal leading-none text-[hsl(var(--foreground))] peer-disabled:cursor-not-allowed peer-disabled:opacity-70",
 );
 
 function withInputAsterisk(children: React.ReactNode): React.ReactNode {

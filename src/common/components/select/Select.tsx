@@ -273,8 +273,8 @@ export function Select({
         <label
           htmlFor={triggerId}
           className={cn(
-            "text-[12px] font-medium leading-none transition-colors",
-            open ? "text-[#0c51a4]" : "text-black/54",
+            "text-[14px] bold font-medium leading-none transition-colors",
+            "text-[hsl(var(--foreground))]",
           )}
         >
           {label}

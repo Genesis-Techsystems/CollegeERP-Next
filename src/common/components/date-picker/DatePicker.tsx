@@ -90,7 +90,7 @@ export function DatePicker({
       {label && (
         <label
           htmlFor={id}
-          className="text-[12px] font-medium leading-none text-black/54"
+          className="text-[14px] font-medium leading-none text-[hsl(var(--foreground))]"
         >
           {label}
           {required && <span className="ml-0.5 text-destructive">*</span>}
