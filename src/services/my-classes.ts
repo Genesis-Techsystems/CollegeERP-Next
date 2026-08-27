@@ -1360,9 +1360,7 @@ export function getLessonStatusScheduleMeta(lessonDetails: unknown): {
   videoPath: string;
   actualClsScheduleId: number | null;
 } {
-  const rows = Array.isArray(lessonDetails)
-    ? (lessonDetails as AnyRow[])
-    : [];
+  const rows = Array.isArray(lessonDetails) ? (lessonDetails as AnyRow[]) : [];
   const first = rows[0];
   const dto = (first?.actualClassesScheduleDTO ?? {}) as AnyRow;
   return {
@@ -1385,9 +1383,7 @@ export function getLessonStatusFormFromDetails(lessonDetails: unknown): {
   comments: string;
   percentage: string;
 } {
-  const rows = Array.isArray(lessonDetails)
-    ? (lessonDetails as AnyRow[])
-    : [];
+  const rows = Array.isArray(lessonDetails) ? (lessonDetails as AnyRow[]) : [];
   const dto = (rows[0]?.lessonstatusDTOs as AnyRow[] | undefined)?.[0];
   if (!dto) {
     return {
@@ -1486,9 +1482,7 @@ export function buildLessonStatusPayloadFromTopicRow(params: {
   const pct = Number(params.row.Percentage);
   if (!Number.isFinite(pct) || pct === 0) return null;
   const statusId =
-    pct === 100
-      ? LESSON_STATUS_COMPLETED_ID
-      : LESSON_STATUS_IN_PROGRESS_ID;
+    pct === 100 ? LESSON_STATUS_COMPLETED_ID : LESSON_STATUS_IN_PROGRESS_ID;
   return {
     classDate: formatScheduleDateYmd(params.day),
     comments: "",

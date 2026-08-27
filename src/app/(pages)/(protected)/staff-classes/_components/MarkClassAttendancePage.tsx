@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { format } from "date-fns";
-import { BookOpen, Filter, Timer } from "lucide-react";
+import { Timer } from "lucide-react";
 import { DatePicker } from "@/common/components/date-picker";
 import { MultiSelect, Select } from "@/common/components/select";
-import { FilteredPage } from "@/components/layout";
+import { AngularFilterCard, FilteredPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
@@ -867,25 +867,8 @@ export function MarkClassAttendancePage({
       }
     >
       {flag ? (
-        <div className="app-data-table app-data-table-card flex flex-col overflow-hidden">
-          {/* Angular Lesson Status panel header + gold rule */}
-          <div className="flex items-center justify-between gap-3 border-b-2 border-[#ffcf46] px-5 py-3">
-            <div className="flex items-center gap-2 min-w-0">
-              <BookOpen
-                className="h-[18px] w-[18px] shrink-0 text-[hsl(var(--card-title))]"
-                aria-hidden
-              />
-              <h2 className="text-[15px] font-semibold tracking-tight text-[hsl(var(--card-title))]">
-                Lesson Status
-              </h2>
-            </div>
-            <div className="flex shrink-0 items-center gap-1.5 text-[13px] text-muted-foreground">
-              <span>Filter</span>
-              <Filter className="h-4 w-4" aria-hidden />
-            </div>
-          </div>
-
-          <div className="space-y-5 px-5 py-4">
+        <AngularFilterCard title="Lesson Status" icon="book" defaultOpen>
+          <div className="space-y-5">
             {/* Image 2: Unit ~35% / Topic ~35% / Teaching Method ~30% underline fields */}
             <div className="flex flex-col gap-4 md:flex-row md:items-end md:gap-6">
               <div className="min-w-0 flex-1 md:basis-[35%] md:flex-none">
@@ -931,7 +914,7 @@ export function MarkClassAttendancePage({
                   disabled={attendanceAlreadyMarked || mode === "view"}
                 />
               </div>
-              {/* Percentage — Material underline number input (same CSS language as Teaching Method) */}
+              {/* Percentage — Material underline number input */}
               <div className="flex min-w-0 flex-col gap-1 md:basis-[12%] md:flex-none">
                 <label
                   htmlFor="lesson-percentage"
@@ -972,7 +955,7 @@ export function MarkClassAttendancePage({
               />
             </div>
           </div>
-        </div>
+        </AngularFilterCard>
       ) : null}
 
       {flag ? (
