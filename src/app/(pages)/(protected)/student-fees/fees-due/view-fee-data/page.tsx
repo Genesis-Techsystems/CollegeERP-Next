@@ -9,7 +9,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { Printer } from "lucide-react";
-import { DataTable, TableCard } from "@/common/components/table";
+import { DataTable } from "@/common/components/table";
 import { FilteredPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { QK } from "@/lib/query-keys";
@@ -65,7 +65,12 @@ function pick(
 
 /** Angular `getFinalBalance`. */
 function getFinalBalance(
-  item: Record<string, unknown> | FeeStudentParticularRow | FeeStudentData | null | undefined,
+  item:
+    | Record<string, unknown>
+    | FeeStudentParticularRow
+    | FeeStudentData
+    | null
+    | undefined,
 ): number {
   if (!item) return 0;
   const row = item as Record<string, unknown>;
@@ -107,14 +112,14 @@ function profileFromParams(
     courseYearName: feeData?.studentCourseYearName ?? base.courseYearName,
     section: feeData?.studentSection ?? base.section,
     studentStatusDisplayName:
-      pick(feeData as Record<string, unknown> | undefined, "studentStatus", "studentStatusDisplayName") ||
-      base.studentStatusDisplayName,
+      pick(
+        feeData as Record<string, unknown> | undefined,
+        "studentStatus",
+        "studentStatusDisplayName",
+      ) || base.studentStatusDisplayName,
     isLateral:
-      (feeData as Record<string, unknown> | null | undefined)?.isLateral !=
-      null
-        ? Boolean(
-            (feeData as Record<string, unknown>).isLateral,
-          )
+      (feeData as Record<string, unknown> | null | undefined)?.isLateral != null
+        ? Boolean((feeData as Record<string, unknown>).isLateral)
         : base.isLateral,
   };
 }
@@ -286,7 +291,8 @@ function ViewFeeDataContent() {
   );
 
   const balanceDue = getFinalBalance(feeData);
-  const showTotals = Boolean(feeData) && Number(feeData?.balanceAmount ?? 0) > 0;
+  const showTotals =
+    Boolean(feeData) && Number(feeData?.balanceAmount ?? 0) > 0;
 
   return (
     <FilteredPage
@@ -325,116 +331,115 @@ function ViewFeeDataContent() {
         </div>
       }
       body={
-        <div className="space-y-5">
-          <div className="overflow-x-auto rounded-[10px] border border-[#b8d0f0] bg-white">
-            {isLoading ? (
-              <p className="px-4 py-6 text-sm text-muted-foreground">
-                Loading particulars…
-              </p>
-            ) : (
-              <table className="w-full border-collapse text-[13px]">
-                <thead>
-                  <tr className="bg-[#c3d9ff]">
-                    <th className="border border-[#b8d0f0] px-3 py-2 text-left font-semibold">
-                      Sl No
-                    </th>
-                    <th className="border border-[#b8d0f0] px-3 py-2 text-left font-semibold">
-                      Particulars
-                    </th>
-                    <th className="border border-[#b8d0f0] px-3 py-2 text-right font-semibold">
-                      Gross Amt (₹)
-                    </th>
-                    <th className="border border-[#b8d0f0] px-3 py-2 text-right font-semibold">
-                      LateFee (₹)
-                    </th>
-                    <th className="border border-[#b8d0f0] px-3 py-2 text-right font-semibold">
-                      Paid Amt (₹)
-                    </th>
-                    <th className="border border-[#b8d0f0] px-3 py-2 text-right font-semibold">
-                      Bal Amt (₹)
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {particularTableRows.map((row, idx) => {
-                    if (row.kind === "group") {
-                      return (
-                        <tr key={`g-${row.label}-${idx}`} className="bg-[#c3d9ff]">
-                          <td className="border border-[#b8d0f0] px-3 py-2" />
-                          <td
-                            className="border border-[#b8d0f0] px-3 py-2 font-bold"
-                            colSpan={5}
-                          >
-                            {row.label}
-                          </td>
-                        </tr>
-                      );
-                    }
-                    const { particular, siNo } = row;
-                    const label = [
-                      particular.categoryName,
-                      particular.particularsName,
-                    ]
-                      .filter(Boolean)
-                      .join(" - ");
-                    const bal = getFinalBalance(particular);
+        <div className="overflow-x-auto rounded-[10px] border border-[#b8d0f0] bg-white">
+          {isLoading ? (
+            <p className="px-4 py-6 text-sm text-muted-foreground">
+              Loading particulars…
+            </p>
+          ) : (
+            <table className="w-full border-collapse text-[13px]">
+              <thead>
+                <tr className="bg-[#c3d9ff]">
+                  <th className="border border-[#b8d0f0] px-3 py-2 text-left font-semibold">
+                    Sl No
+                  </th>
+                  <th className="border border-[#b8d0f0] px-3 py-2 text-left font-semibold">
+                    Particulars
+                  </th>
+                  <th className="border border-[#b8d0f0] px-3 py-2 text-right font-semibold">
+                    Gross Amt (₹)
+                  </th>
+                  <th className="border border-[#b8d0f0] px-3 py-2 text-right font-semibold">
+                    LateFee (₹)
+                  </th>
+                  <th className="border border-[#b8d0f0] px-3 py-2 text-right font-semibold">
+                    Paid Amt (₹)
+                  </th>
+                  <th className="border border-[#b8d0f0] px-3 py-2 text-right font-semibold">
+                    Bal Amt (₹)
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {particularTableRows.map((row, idx) => {
+                  if (row.kind === "group") {
                     return (
-                      <tr key={`d-${siNo}-${label}`}>
-                        <td className="border border-[#b8d0f0] px-3 py-2">
-                          {siNo}
-                        </td>
-                        <td className="border border-[#b8d0f0] px-3 py-2">
-                          {label}
-                        </td>
-                        <td className="border border-[#b8d0f0] px-3 py-2 text-right">
-                          {amt(particular.grossAmount)}
-                        </td>
-                        <td className="border border-[#b8d0f0] px-3 py-2 text-right">
-                          {amt(particular.fineAmount)}
-                        </td>
-                        <td className="border border-[#b8d0f0] px-3 py-2 text-right">
-                          {amt(particular.paidAmount)}
-                        </td>
-                        <td className="border border-[#b8d0f0] px-3 py-2 text-right">
-                          {bal >= 0 ? amt(bal) : ""}
+                      <tr
+                        key={`g-${row.label}-${idx}`}
+                        className="bg-[#c3d9ff]"
+                      >
+                        <td className="border border-[#b8d0f0] px-3 py-2" />
+                        <td
+                          className="border border-[#b8d0f0] px-3 py-2 font-bold"
+                          colSpan={5}
+                        >
+                          {row.label}
                         </td>
                       </tr>
                     );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
-
-          {receiptRows.length > 0 || loadingReceipts ? (
-            <TableCard
-              headerLeft={
-                <span className="text-sm font-medium">Fee Receipts</span>
-              }
-            >
-              <DataTable
-                columnDefs={receiptCols}
-                rowData={receiptRows}
-                loading={loadingReceipts}
-                height="auto"
-                toolbar={false}
-                pagination={false}
-              />
-            </TableCard>
-          ) : null}
-
-          <div className="flex justify-end">
-            <Button
-              type="button"
-              className="h-9 min-w-[88px] bg-[#f0c040] px-5 text-[13px] font-medium text-slate-900 hover:bg-[#e5b535]"
-              onClick={() => router.push("/student-fees/fees-due")}
-            >
-              Back
-            </Button>
-          </div>
+                  }
+                  const { particular, siNo } = row;
+                  const label = [
+                    particular.categoryName,
+                    particular.particularsName,
+                  ]
+                    .filter(Boolean)
+                    .join(" - ");
+                  const bal = getFinalBalance(particular);
+                  return (
+                    <tr key={`d-${siNo}-${label}`}>
+                      <td className="border border-[#b8d0f0] px-3 py-2">
+                        {siNo}
+                      </td>
+                      <td className="border border-[#b8d0f0] px-3 py-2">
+                        {label}
+                      </td>
+                      <td className="border border-[#b8d0f0] px-3 py-2 text-right">
+                        {amt(particular.grossAmount)}
+                      </td>
+                      <td className="border border-[#b8d0f0] px-3 py-2 text-right">
+                        {amt(particular.fineAmount)}
+                      </td>
+                      <td className="border border-[#b8d0f0] px-3 py-2 text-right">
+                        {amt(particular.paidAmount)}
+                      </td>
+                      <td className="border border-[#b8d0f0] px-3 py-2 text-right">
+                        {bal >= 0 ? amt(bal) : ""}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
         </div>
       }
-    />
+    >
+      {/* Sibling DataTable — same pattern as PayFeesPage / Employee List
+          (`title` works because it is not nested inside another .app-card). */}
+      {receiptRows.length > 0 || loadingReceipts ? (
+        <DataTable
+          title="Fee Receipts"
+          bordered
+          columnDefs={receiptCols}
+          rowData={receiptRows}
+          loading={loadingReceipts}
+          height="auto"
+          toolbar={false}
+          pagination
+        />
+      ) : null}
+
+      <div className="flex justify-end">
+        <Button
+          type="button"
+          className="h-9 min-w-[88px] bg-[#f0c040] px-5 text-[13px] font-medium text-slate-900 hover:bg-[#e5b535]"
+          onClick={() => router.push("/student-fees/fees-due")}
+        >
+          Back
+        </Button>
+      </div>
+    </FilteredPage>
   );
 }
 
