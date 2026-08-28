@@ -28,6 +28,7 @@ import {
 import type { IronSessionData, SessionUser, UserDTO } from "@/types/user";
 import {
   APP_CONFIG,
+  isChiefEvaluatorRole,
   resolveDefaultDashboardPath,
 } from "@/config/constants/app";
 import { setCachedNav } from "@/lib/nav-cache";
@@ -215,6 +216,11 @@ export async function POST(request: NextRequest) {
       isManagement: roleFlags.isManagement,
       isViceChancellor: roleFlags.isViceChancellor,
       isDeptAdmin,
+      isChiefEvaluator: isChiefEvaluatorRole(
+        userRole,
+        roleName,
+        userDto.userRoles,
+      ),
       // Angular parity: evaluators → /evaluator, students → /student-dashboard,
       // Admin/Staff/others → /dashboard.
       defaultDashboardPath: resolveDefaultDashboardPath(userRole, roleName),

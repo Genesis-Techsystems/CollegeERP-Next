@@ -6,6 +6,7 @@ import { sessionOptions } from "@/lib/session";
 import type { IronSessionData } from "@/types/user";
 import {
   APP_CONFIG,
+  isChiefEvaluatorRole,
   resolveDefaultDashboardPath,
 } from "@/config/constants/app";
 import {
@@ -99,9 +100,22 @@ export async function GET() {
       if (dto.userTypeCode) session.user.userTypeCode = dto.userTypeCode;
       if (dto.userRole) session.user.userRole = dto.userRole;
       if (dto.roleName) session.user.roleName = dto.roleName;
+      session.user.isChiefEvaluator = isChiefEvaluatorRole(
+        dto.userRole,
+        dto.roleName,
+        dto.userRoles,
+      );
       session.roleFlagsVersion = ROLE_FLAGS_VERSION;
       await session.save();
     }
+  }
+
+  if (typeof session.user.isChiefEvaluator !== "boolean") {
+    session.user.isChiefEvaluator = isChiefEvaluatorRole(
+      session.user.userRole,
+      session.user.roleName,
+    );
+    await session.save();
   }
 
   // Return session user only — modules/pages are never included (nav tree built server-side)
