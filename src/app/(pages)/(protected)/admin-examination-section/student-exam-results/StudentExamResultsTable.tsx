@@ -18,7 +18,7 @@ import { StudentExamResultsHeader } from "./StudentExamResultsHeader";
 type AnyRow = Record<string, unknown>;
 
 const SEM_TAB_CLASS =
-  "h-9 min-w-[110px] flex-1 rounded-none border-0 border-r border-[#d7e1ed] px-4 text-[12px] font-normal text-[#666] shadow-none last:border-r-0 data-[state=active]:bg-[#ffcf46] data-[state=active]:font-medium data-[state=active]:text-[#111] data-[state=active]:shadow-none";
+  "h-9 min-w-[110px] rounded-none border-0 border-r border-[#d7e1ed] px-4 text-[12px] font-normal text-[#666] shadow-none last:border-r-0 data-[state=active]:bg-[#ffcf46] data-[state=active]:font-medium data-[state=active]:text-[#111] data-[state=active]:shadow-none";
 
 function cellValue(row: AnyRow | undefined, keys: string[]): string {
   if (!row) return "—";
@@ -79,17 +79,27 @@ const COL_DEFS = {
   } as ColDef<AnyRow>,
 };
 
+/** Column width ratios — keep footer aligned with AG Grid when fitColumnsToWidth is on. */
+const FOOTER_GRID_COLS = "50fr 130fr 280fr 110fr 90fr 70fr 80fr";
+
 function ResultsSummary({ rows }: { readonly rows: AnyRow[] }) {
   const summary = rows[0] ?? {};
   return (
-    <div className="flex flex-wrap items-center justify-end gap-x-6 gap-y-1 border-t border-[#d7e1ed] px-3 py-2 text-xs font-semibold text-[#0c51a4]">
-      <span>
+    <div
+      className="grid w-full border-t border-[#d7e1ed] text-xs font-semibold text-[#0c51a4]"
+      style={{ gridTemplateColumns: FOOTER_GRID_COLS }}
+    >
+      <div aria-hidden />
+      <div aria-hidden />
+      <div aria-hidden />
+      <div aria-hidden />
+      <div className="px-2 py-2 text-center">
         SGPA : {cellValue(summary, ["sgpa", "semesterGpa", "sem_gpa"])}
-      </span>
-      <span>
+      </div>
+      <div className="px-2 py-2 text-center">
         CGPA : {cellValue(summary, ["cgpa", "cumulativeGpa", "cum_gpa"])}
-      </span>
-      <span>
+      </div>
+      <div className="px-2 py-2 text-center">
         RESULT :{" "}
         {cellValue(summary, [
           "result",
@@ -97,7 +107,7 @@ function ResultsSummary({ rows }: { readonly rows: AnyRow[] }) {
           "exam_result",
           "overallResult",
         ])}
-      </span>
+      </div>
     </div>
   );
 }
@@ -190,7 +200,7 @@ export function StudentExamResultsTable({
         {semesters.length > 0 ? (
           <Tabs value={activeSem} onValueChange={setActiveSem}>
             <div className="overflow-x-auto rounded-[3px] border border-[#d7e1ed]">
-              <TabsList className="flex h-9 min-w-max justify-start rounded-none bg-white p-0 sm:min-w-full">
+              <TabsList className="flex h-9 w-full justify-start rounded-none bg-white p-0">
                 {semesters.map((sem) => (
                   <TabsTrigger
                     key={sem.courseYearId}
@@ -219,7 +229,7 @@ export function StudentExamResultsTable({
               pagination={false}
               toolbar={false}
               columnFilters={false}
-              fitColumnsToWidth={false}
+              fitColumnsToWidth={true}
               autoHeight
               rowHeight={28}
               getRowId={(p) => {
