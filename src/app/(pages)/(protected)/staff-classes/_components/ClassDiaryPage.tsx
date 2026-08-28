@@ -20,7 +20,9 @@ import { rowIndexGetter } from "@/lib/utils";
 import { toastError, toastInfo } from "@/lib/toast";
 import {
   fetchDetails,
+  getClassDiaryNotesPath,
   getStaffSubjectsForToday,
+  normalizeAndSortClassDiaryRows,
   type StaffSubjectClass,
 } from "@/services";
 
@@ -109,15 +111,11 @@ function enrichNotes(
     }
     return next;
   });
-  return [...mapped].sort((a, b) => {
-    const aId = num(a, ["leassonstatusId", "lessonstatusId", "lessonStatusId"]);
-    const bId = num(b, ["leassonstatusId", "lessonstatusId", "lessonStatusId"]);
-    return bId - aId;
-  });
+  return normalizeAndSortClassDiaryRows(mapped);
 }
 
 function fileRenderer(p: ICellRendererParams<AnyRow>) {
-  const path = txt(p.data, ["notesPath", "notes_path"]);
+  const path = getClassDiaryNotesPath(p.data);
   if (!path) {
     return <span className="text-muted-foreground">No Docs Uploaded</span>;
   }

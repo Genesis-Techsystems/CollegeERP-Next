@@ -74,6 +74,34 @@ export function isEvaluatorPortalRole(
   return role.includes("MODERATOR") || name.includes("MODERATOR");
 }
 
+/** Spring Boot role ids for Chief Evaluator (assign-evaluator-subjectroles parity). */
+export const CHIEF_EVALUATOR_ROLE_IDS = [97, 116] as const;
+
+/**
+ * True when the active login is Chief Evaluator — used to show the Angular-style
+ * Moderator Dashboard on `/evaluator` without affecting other evaluator roles.
+ */
+export function isChiefEvaluatorRole(
+  userRole?: string | null,
+  roleName?: string | null,
+  userRoles?: Array<{ roleName?: string; roleId?: number }> | null,
+): boolean {
+  const matchName = (raw: string) => {
+    const v = raw.toUpperCase().replace(/[\s_-]+/g, " ");
+    return v.includes("CHIEF EVALUATOR") || v === "CHIEFEVALUATOR";
+  };
+  const matchRoleEntry = (r: { roleName?: string; roleId?: number }) =>
+    matchName(String(r.roleName ?? "")) ||
+    CHIEF_EVALUATOR_ROLE_IDS.includes(
+      Number(r.roleId) as (typeof CHIEF_EVALUATOR_ROLE_IDS)[number],
+    );
+
+  if (matchName(roleName ?? "")) return true;
+  if (matchName(userRole ?? "")) return true;
+  if (userRoles?.some(matchRoleEntry)) return true;
+  return false;
+}
+
 /**
  * True when the active login is Offline Internal Evaluator (`OFFLINEEVALUATION`).
  * Checks roleName, userRole, and userDetails.userRoles (Angular loginUser.userRoles).

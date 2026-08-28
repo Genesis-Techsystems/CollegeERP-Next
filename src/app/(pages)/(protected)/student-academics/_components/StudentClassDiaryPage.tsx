@@ -22,7 +22,9 @@ import {
   fetchDetails,
   fetchStudentDetail,
   fetchStudentDetailByUserId,
+  getClassDiaryNotesPath,
   listStudentSubjectsForStudent,
+  normalizeAndSortClassDiaryRows,
 } from "@/services";
 
 type AnyRow = Record<string, unknown>;
@@ -93,16 +95,11 @@ function normalizeLessonRows(rows: AnyRow[]): AnyRow[] {
       txt(row, ["subjectUnitTopicName", "subject_unit_topic_name"]);
     return { ...row, unitName, topicName };
   });
-  // Angular: _.orderBy(..., ['leassonstatusId'], ['desc'])
-  return [...mapped].sort((a, b) => {
-    const aId = num(a, ["leassonstatusId", "lessonstatusId", "lessonStatusId"]);
-    const bId = num(b, ["leassonstatusId", "lessonstatusId", "lessonStatusId"]);
-    return bId - aId;
-  });
+  return normalizeAndSortClassDiaryRows(mapped);
 }
 
 function fileRenderer(p: ICellRendererParams<AnyRow>) {
-  const path = txt(p.data, ["notesPath", "notes_path"]);
+  const path = getClassDiaryNotesPath(p.data);
   if (!path) {
     return <span className="text-muted-foreground">No Docs Uploaded</span>;
   }
@@ -341,7 +338,9 @@ export function StudentClassDiaryPage() {
         direction: "DESC",
       });
       const list = await domainList<AnyRow>(ASSESSMENT_API.LESSONSTATUS, query);
-      const normalized = Array.isArray(list) ? list : [];
+      const normalized = normalizeAndSortClassDiaryRows(
+        Array.isArray(list) ? list : [],
+      );
       setRows(normalized);
       if (normalized.length === 0) toastInfo("No class diary entries found.");
     } catch (e) {

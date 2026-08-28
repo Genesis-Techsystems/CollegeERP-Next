@@ -1373,6 +1373,69 @@ export function getLessonStatusScheduleMeta(lessonDetails: unknown): {
   };
 }
 
+function pickClassDiaryString(
+  row: AnyRow,
+  keys: string[],
+): string {
+  for (const key of keys) {
+    const value = row[key];
+    if (value != null && String(value).trim() !== "") return String(value).trim();
+  }
+  return "";
+}
+
+/** Notes file path on Lessonstatus / getLessonstatus rows (top-level or nested schedule DTO). */
+export function getClassDiaryNotesPath(
+  row: Record<string, unknown> | null | undefined,
+): string {
+  if (!row) return "";
+  const top = pickClassDiaryString(row, [
+    "notesPath",
+    "notes_path",
+    "notesDocPath",
+    "notes_doc_path",
+  ]);
+  if (top) return top;
+  const actual = row.actualClassesScheduleDTO;
+  if (actual && typeof actual === "object") {
+    return pickClassDiaryString(actual as AnyRow, [
+      "notesPath",
+      "notes_path",
+      "notesDocPath",
+      "notes_doc_path",
+    ]);
+  }
+  return "";
+}
+
+export function normalizeClassDiaryRow(
+  row: Record<string, unknown>,
+): Record<string, unknown> {
+  const notesPath = getClassDiaryNotesPath(row);
+  return notesPath ? { ...row, notesPath } : row;
+}
+
+/** Rows with uploaded documents first, then newest lessonstatus id (Angular orderBy desc). */
+export function sortClassDiaryRows<T extends Record<string, unknown>>(
+  rows: T[],
+): T[] {
+  return [...rows].sort((a, b) => {
+    const aDoc = getClassDiaryNotesPath(a) ? 1 : 0;
+    const bDoc = getClassDiaryNotesPath(b) ? 1 : 0;
+    if (bDoc !== aDoc) return bDoc - aDoc;
+    const id = (r: Record<string, unknown>) =>
+      Number(r.leassonstatusId ?? r.lessonstatusId ?? r.lessonStatusId ?? 0) ||
+      0;
+    return id(b) - id(a);
+  });
+}
+
+export function normalizeAndSortClassDiaryRows<T extends Record<string, unknown>>(
+  rows: T[],
+): T[] {
+  return sortClassDiaryRows(rows.map((row) => normalizeClassDiaryRow(row) as T));
+}
+
 /**
  * Angular `getLessonDetails` → first `lessonstatusDTOs[0]` into the Lesson Status form.
  */
