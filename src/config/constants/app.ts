@@ -45,11 +45,17 @@ export type UserRoleType = (typeof USER_ROLES)[keyof typeof USER_ROLES];
  * True when the authenticated account is an evaluator-type user. Used only to
  * route evaluators to the /evaluator portal after login — the OTP step itself is
  * driven by the Spring backend's own 2FA (`twoFactorRequired`), not this flag.
+ *
+ * QuestionPaperSetter shares the ExamEvaluatorProfiles login path in Angular but
+ * must NOT land on the evaluator subjects portal.
  */
 export function isEvaluatorRole(
   userRole?: string | null,
   roleName?: string | null,
+  userRoles?: Array<{ roleName?: string; roleId?: number }> | null,
 ): boolean {
+  // Pure paper-setter logins (role only in userRoles[]) must not count as evaluators.
+  if (isPureQuestionPaperSetter(userRole, roleName, userRoles)) return false;
   const role = (userRole ?? "").toUpperCase();
   const name = (roleName ?? "").toUpperCase();
   // Match genuine evaluators only — role/name contains "EVALUATOR" (Online/Offline/
@@ -63,15 +69,112 @@ export function isEvaluatorRole(
   );
 }
 
+/** Angular ExamEvaluatorProfiles roleId for Question Paper Setter (not used for Home). */
+export const QUESTION_PAPER_SETTER_ROLE_ID = 70;
+
+function normalizeRoleKey(raw: string): string {
+  return raw.toUpperCase().replace(/[\s_-]+/g, "");
+}
+
+function isQuestionPaperSetterName(raw: string): boolean {
+  const v = normalizeRoleKey(raw);
+  return v === "QUESTIONPAPERSETTER" || v.includes("QUESTIONPAPERSETTER");
+}
+
+/** Online Evaluator / Evaluator / Moderator names in userRoles (excludes QPS). */
+function isEvaluatorOrModeratorRoleName(raw: string): boolean {
+  const v = normalizeRoleKey(raw);
+  if (isQuestionPaperSetterName(raw)) return false;
+  return (
+    v.includes("ONLINEEVALUATOR") ||
+    v === "EVALUATOR" ||
+    v.includes("EXTERNALEVALUATOR") ||
+    v.includes("OFFLINEEVALUATION") ||
+    v.includes("MODERATOR") ||
+    (v.includes("EVALUATOR") && !v.includes("QUESTIONPAPER"))
+  );
+}
+
+/**
+ * True when login carries QuestionPaperSetter via `userRole`, `roleName`, or
+ * `userRoles[].roleName` (Angular stores the role there; top-level `userRole`
+ * is sometimes a generic exam-profile string).
+ */
+export function isQuestionPaperSetterRole(
+  userRole?: string | null,
+  roleName?: string | null,
+  userRoles?: Array<{ roleName?: string; roleId?: number }> | null,
+): boolean {
+  if (
+    isQuestionPaperSetterName(userRole ?? "") ||
+    isQuestionPaperSetterName(roleName ?? "")
+  ) {
+    return true;
+  }
+  return (userRoles ?? []).some((r) =>
+    isQuestionPaperSetterName(String(r.roleName ?? "")),
+  );
+}
+
+/**
+ * Paper-setter Home: has QuestionPaperSetter and no Online Evaluator / Evaluator
+ * / Moderator entry in `userRoles`. Prevents dual-role accounts from being
+ * forced onto `/question-paper-setter`.
+ */
+export function isPureQuestionPaperSetter(
+  userRole?: string | null,
+  roleName?: string | null,
+  userRoles?: Array<{ roleName?: string; roleId?: number }> | null,
+): boolean {
+  if (!isQuestionPaperSetterRole(userRole, roleName, userRoles)) return false;
+  const roles = userRoles ?? [];
+  if (roles.some((r) => isEvaluatorOrModeratorRoleName(String(r.roleName ?? "")))) {
+    return false;
+  }
+  // Top-level Online Evaluator + only QPS in userRoles → still pure QPS for Home
+  // (matches Matrusri paper-setter login where userRoles = [{ QuestionPaperSetter }]).
+  return true;
+}
+
 /** Evaluator portal access — Evaluator and/or Moderator (Angular evaluation-subjects-list). */
 export function isEvaluatorPortalRole(
   userRole?: string | null,
   roleName?: string | null,
+  userRoles?: Array<{ roleName?: string; roleId?: number }> | null,
 ): boolean {
-  if (isEvaluatorRole(userRole, roleName)) return true;
+  if (isPureQuestionPaperSetter(userRole, roleName, userRoles)) return false;
+  if (isEvaluatorRole(userRole, roleName, userRoles)) return true;
   const role = (userRole ?? "").toUpperCase();
   const name = (roleName ?? "").toUpperCase();
   return role.includes("MODERATOR") || name.includes("MODERATOR");
+}
+
+/** Spring Boot role ids for Chief Evaluator (assign-evaluator-subjectroles parity). */
+export const CHIEF_EVALUATOR_ROLE_IDS = [97, 116] as const;
+
+/**
+ * True when the active login is Chief Evaluator — used to show the Angular-style
+ * Moderator Dashboard on `/evaluator` without affecting other evaluator roles.
+ */
+export function isChiefEvaluatorRole(
+  userRole?: string | null,
+  roleName?: string | null,
+  userRoles?: Array<{ roleName?: string; roleId?: number }> | null,
+): boolean {
+  const matchName = (raw: string) => {
+    const v = raw.toUpperCase().replace(/[\s_-]+/g, " ");
+    return v.includes("CHIEF EVALUATOR") || v === "CHIEFEVALUATOR";
+  };
+  const matchRoleEntry = (r: { roleName?: string; roleId?: number }) =>
+    matchName(String(r.roleName ?? "")) ||
+    CHIEF_EVALUATOR_ROLE_IDS.includes(
+      Number(r.roleId) as (typeof CHIEF_EVALUATOR_ROLE_IDS)[number],
+    );
+
+  if (matchName(roleName ?? "")) return true;
+  if (matchName(userRole ?? "")) return true;
+  if (userRoles?.some(matchRoleEntry)) return true;
+  return false;
 }
 
 /**
@@ -130,13 +233,21 @@ export function isStudentRole(userRole?: string | null): boolean {
 
 /**
  * Post-login home path — mirrors Angular role dashboards:
+ * question paper setters → `/question-paper-setter`,
  * evaluators → `/evaluator`, students → `/student-dashboard`, else `/dashboard`.
+ *
+ * QPS is detected from `userRole` / `roleName` / `userRoles[].roleName`
+ * (login preview often only has QuestionPaperSetter under `userRoles`).
  */
 export function resolveDefaultDashboardPath(
   userRole?: string | null,
   roleName?: string | null,
+  userRoles?: Array<{ roleName?: string; roleId?: number }> | null,
 ): string {
-  if (isEvaluatorRole(userRole, roleName)) return "/evaluator";
+  if (isPureQuestionPaperSetter(userRole, roleName, userRoles)) {
+    return "/question-paper-setter";
+  }
+  if (isEvaluatorRole(userRole, roleName, userRoles)) return "/evaluator";
   if (isStudentRole(userRole)) return "/student-dashboard";
   return "/dashboard";
 }

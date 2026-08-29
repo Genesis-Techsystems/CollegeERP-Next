@@ -8,14 +8,18 @@
  * All paths are sourced from NEXT_API / AUTH_API constants.
  */
 
-import { EMPLOYEE_API, NEXT_API, AUTH_API } from "@/config/constants/api";
+import { EMPLOYEE_API, EXAM_EVAL_API, NEXT_API, AUTH_API } from "@/config/constants/api";
+import {
+  isEvaluatorRole,
+  isQuestionPaperSetterRole,
+} from "@/config/constants/app";
 import { clearStickyRoleFlagsFromLocalStorage } from "@/lib/employee-login-context";
 import {
   isNewVcDashboardUserType,
   roleLooksLikeViceChancellor,
 } from "@/lib/user-context";
 import type { SessionUser, UserRoleEntry } from "@/types/user";
-import { fetchDetails } from "./crud";
+import { buildQuery, domainList, fetchDetails } from "./crud";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -173,8 +177,51 @@ export async function login(
   if (typeof globalThis.window !== "undefined") {
     const { useNavigationStore } = await import("@/store/navigation-store");
     useNavigationStore.getState().resetNavItems();
+    // Angular login getEvaluatorProfile() for Online Evaluator / QuestionPaperSetter / …
+    void persistExamEvaluatorProfile(result.user, result.userRoles);
   }
   return result;
+}
+
+/**
+ * Angular `getEvaluatorProfile` — domain ExamEvaluatorProfiles by user.userId.
+ * Stores examEvaluatorProfileId + examEvaluatorRole for QP / evaluation pages.
+ */
+async function persistExamEvaluatorProfile(
+  user?: SessionUser,
+  userRoles?: UserRoleEntry[],
+): Promise<void> {
+  if (!user?.userId) return;
+  const needsProfile =
+    isQuestionPaperSetterRole(user.userRole, user.roleName, userRoles) ||
+    isEvaluatorRole(user.userRole, user.roleName, userRoles);
+  if (!needsProfile) return;
+
+  try {
+    const rows = await domainList<{
+      examEvaluatorProfileId?: number;
+      roleId?: number;
+      role?: { roleId?: number };
+    }>(
+      EXAM_EVAL_API.EVALUATOR_PROFILES,
+      buildQuery({ "user.userId": user.userId }),
+    );
+    const row = Array.isArray(rows) ? rows[0] : null;
+    if (!row) return;
+    const profileId = Number(row.examEvaluatorProfileId ?? 0);
+    const roleId = Number(row.roleId ?? row.role?.roleId ?? 0);
+    if (profileId > 0) {
+      globalThis.localStorage.setItem(
+        "examEvaluatorProfileId",
+        String(profileId),
+      );
+    }
+    if (roleId > 0) {
+      globalThis.localStorage.setItem("examEvaluatorRole", String(roleId));
+    }
+  } catch {
+    // Profile optional — QP pages fall back without it.
+  }
 }
 
 export type ResetStudentPasswordPayload = {

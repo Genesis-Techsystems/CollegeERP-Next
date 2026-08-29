@@ -98,6 +98,8 @@ export interface SessionUser {
   isViceChancellor: boolean;
   /** Angular `isDeprtAdmin` — any active userRoles entry with roleName DEPTADMIN */
   isDeptAdmin: boolean;
+  /** Chief Evaluator (roleId 97/116 or roleName) — Angular Moderator Dashboard on /evaluator */
+  isChiefEvaluator: boolean;
   defaultDashboardPath: string; // computed from userRole/userTypeCode on the server
 }
 

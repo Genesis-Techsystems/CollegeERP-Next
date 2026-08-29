@@ -1778,7 +1778,7 @@ export function useBreadcrumb(
   items = studentReadmissionApplicationBreadcrumb(pathname, items);
   items = subjectsSyllabusPlanBreadcrumb(pathname, items);
 
-  // Role home path (evaluator → /evaluator, student → /student-dashboard).
+  // Role home path (evaluator / paper-setter / student dashboards).
   if (items[0]?.label === "Home") {
     items = [{ ...items[0], href: homeHref }, ...items.slice(1)];
   }

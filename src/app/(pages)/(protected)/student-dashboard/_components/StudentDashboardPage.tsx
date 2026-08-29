@@ -28,6 +28,7 @@ import {
   formatStudentDashboardTime,
   listStudentAudienceNotifications,
   listStudentDashboardEvents,
+  listStudentFeeStructuresByStudent,
   loadStudentTodayTimetable,
   resolveStudentAudienceId,
   studentDashboardProfileFromDetail,
@@ -35,11 +36,21 @@ import {
   type StudentDashboardNotification,
   type TimetableDayTiming,
 } from "@/services";
+import { PieChart } from "@/common/components/charts";
 import { cn } from "@/lib/utils";
 
 type AnyRow = Record<string, unknown>;
 
 type ProfileState = ReturnType<typeof studentDashboardProfileFromDetail>;
+
+/** Angular FusionCharts Fee Due palette: Balance then Paid. */
+const FEE_DUE_COLORS = ["#f2726f", "#62b58f"] as const;
+
+type FeeDueTotals = {
+  balance: number;
+  paid: number;
+  total: number;
+};
 
 const QUICK_LINKS = [
   { href: "/student-academics/student-my-attendance", label: "My Attendance" },
@@ -205,6 +216,79 @@ function PanelCard({
   );
 }
 
+/** Angular Fee Due doughnut — Balance (#f2726f) / Paid (#62b58f), center Total Fee. */
+function FeeDueCard({
+  totals,
+  loading,
+}: {
+  totals: FeeDueTotals | null;
+  loading?: boolean;
+}) {
+  const balance = totals?.balance ?? 0;
+  const paid = totals?.paid ?? 0;
+  const total = totals?.total ?? 0;
+  const chartData = [
+    { name: "Balance", value: Math.max(0, balance), color: FEE_DUE_COLORS[0] },
+    { name: "Paid", value: Math.max(0, paid), color: FEE_DUE_COLORS[1] },
+  ];
+  // Recharts needs a non-zero slice when both are 0 so the ring still renders
+  const data =
+    balance <= 0 && paid <= 0
+      ? [
+          { name: "Balance", value: 1, color: "#e8e8e8" },
+          { name: "Paid", value: 0, color: FEE_DUE_COLORS[1] },
+        ]
+      : chartData;
+
+  return (
+    <PanelCard title="Fee Due" bodyClassName="relative px-2 pb-3 pt-1">
+      {loading && !totals ? (
+        <div className="flex h-[260px] items-center justify-center">
+          <Skeleton className="h-40 w-40 rounded-full" />
+        </div>
+      ) : (
+        <div className="relative">
+          <PieChart
+            data={data}
+            colors={[...FEE_DUE_COLORS]}
+            donut
+            showLabels={false}
+            showLegend={false}
+            paddingAngle={0}
+            height={260}
+          />
+          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center pb-6">
+            <span className="text-[12px] font-medium text-slate-800">
+              Total Fee:
+            </span>
+            <span className="text-[15px] font-bold leading-tight text-slate-900">
+              {total}
+            </span>
+          </div>
+          <div className="mt-[-0.5rem] flex items-center justify-center gap-6 text-[13px] text-slate-800">
+            <span className="inline-flex items-center gap-1.5">
+              <span
+                className="inline-block h-2.5 w-2.5 rounded-full"
+                style={{ background: FEE_DUE_COLORS[0] }}
+                aria-hidden
+              />
+              Balance
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span
+                className="inline-block h-2.5 w-2.5 rounded-full"
+                style={{ background: FEE_DUE_COLORS[1] }}
+                aria-hidden
+              />
+              Paid
+            </span>
+          </div>
+        </div>
+      )}
+    </PanelCard>
+  );
+}
+
 function DashboardSkeleton() {
   return (
     <PageContainer className="space-y-3">
@@ -232,6 +316,8 @@ export function StudentDashboardPage() {
   const [notifications, setNotifications] = useState<
     StudentDashboardNotification[]
   >([]);
+  const [feeDue, setFeeDue] = useState<FeeDueTotals | null>(null);
+  const [feeDueLoading, setFeeDueLoading] = useState(false);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -268,6 +354,31 @@ export function StudentDashboardPage() {
 
       setProfile(nextProfile);
       syncStudentLocalStorage(nextProfile);
+
+      // Angular getFeeDetails — studentfeelist?studentId=&status=true
+      if (nextProfile.studentId) {
+        setFeeDueLoading(true);
+        void listStudentFeeStructuresByStudent(nextProfile.studentId)
+          .then((rows) => {
+            let tBalFee = 0;
+            let tPaidFee = 0;
+            for (const row of rows) {
+              tBalFee += Number(row.balanceAmount ?? 0) || 0;
+              tPaidFee += Number(row.paidAmount ?? 0) || 0;
+            }
+            setFeeDue({
+              balance: tBalFee,
+              paid: tPaidFee,
+              total: tBalFee + tPaidFee,
+            });
+          })
+          .catch(() => {
+            setFeeDue({ balance: 0, paid: 0, total: 0 });
+          })
+          .finally(() => setFeeDueLoading(false));
+      } else {
+        setFeeDue(null);
+      }
 
       const studentPayload: AnyRow = {
         ...(detail ?? {}),
@@ -374,10 +485,10 @@ export function StudentDashboardPage() {
         }
       />
 
-      {/* Angular: ~22% profile | ~56% timetable | ~22% events — match screenshot proportions */}
+      {/* Angular: ~22% profile+Fee Due | ~56% timetable | ~22% events */}
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,22%)_minmax(0,1fr)_minmax(0,22%)] lg:items-start">
-        {/* Profile card — fills left column; passport ~118×145 like Angular */}
-        <div className="min-w-0">
+        {/* Profile + Fee Due — left column like Angular screenshot */}
+        <div className="min-w-0 space-y-3">
           <div className="rounded-md border border-border bg-card px-4 pb-5 pt-4 text-center shadow-sm">
             <div className="mx-auto mb-3 w-[118px]">
               <div className="overflow-hidden border-[3px] border-[#dedede] bg-white p-[3px]">
@@ -408,6 +519,8 @@ export function StudentDashboardPage() {
               </div>
             ) : null}
           </div>
+
+          <FeeDueCard totals={feeDue} loading={feeDueLoading} />
         </div>
 
         {/* Today Timetable — widest card; flat period rows like Angular screenshot */}

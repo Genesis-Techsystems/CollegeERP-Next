@@ -8,7 +8,10 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { createPortal } from "react-dom";
+import { isChiefEvaluatorRole } from "@/config/constants/app";
+import { useSessionContext } from "@/context/SessionContext";
 import { PageContainer, PageHeader } from "@/components/layout";
+import { ChiefEvaluatorDashboard } from "./chief-evaluator-dashboard";
 import { EvaluatorDashboard } from "./evaluator-dashboard";
 import { AnswerScriptsList, type ScriptRow } from "./answer-scripts-list";
 import { EvaluationWorkbench } from "./evaluation-workbench";
@@ -57,15 +60,25 @@ async function exitBrowserFullscreen() {
 export function EvaluatorPortal({
   pageTitle,
   pageSubtitle,
+  isChiefEvaluator: isChiefEvaluatorProp,
 }: {
   /** When set, shown above the subjects dashboard (e.g. "My Subjects"). */
   pageTitle?: string;
   pageSubtitle?: string;
+  /** Resolved on the server for /evaluator — avoids hydration mismatch from client-only role detection. */
+  isChiefEvaluator?: boolean;
 } = {}) {
+  const { user } = useSessionContext();
+  const isChiefEvaluator =
+    isChiefEvaluatorProp ??
+    user?.isChiefEvaluator ??
+    isChiefEvaluatorRole(user?.userRole, user?.roleName);
   const [openScript, setOpenScript] = useState<ScriptRow | null>(null);
   const [openSubject, setOpenSubject] = useState<SubjectCard | null>(null);
   /** Remember Evaluator/Moderator tab so Back from answer papers restores it. */
-  const [roleTab, setRoleTab] = useState<RoleTab>("evaluator");
+  const [roleTab, setRoleTab] = useState<RoleTab>(
+    isChiefEvaluator ? "moderator" : "evaluator",
+  );
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -137,11 +150,15 @@ export function EvaluatorPortal({
         <PageHeader title={pageTitle} subtitle={pageSubtitle} />
       ) : null}
       <Suspense fallback={null}>
-        <EvaluatorDashboard
-          onOpenSubject={openSubjectFromDashboard}
-          roleTab={roleTab}
-          onRoleTabChange={setRoleTab}
-        />
+        {isChiefEvaluator ? (
+          <ChiefEvaluatorDashboard onOpenSubject={openSubjectFromDashboard} />
+        ) : (
+          <EvaluatorDashboard
+            onOpenSubject={openSubjectFromDashboard}
+            roleTab={roleTab}
+            onRoleTabChange={setRoleTab}
+          />
+        )}
       </Suspense>
     </PageContainer>
   );

@@ -11,7 +11,11 @@ import { useQuery } from "@tanstack/react-query";
 import { Printer } from "lucide-react";
 import { PageContainer } from "@/components/layout";
 import { Button } from "@/components/ui/button";
-import { getSecuredValue, setSecuredValue } from "@/common/generic-functions";
+import {
+  getSecuredValue,
+  setSecuredValue,
+  utcMidnightIso,
+} from "@/common/generic-functions";
 import { useSession } from "@/hooks/useSession";
 import { QK } from "@/lib/query-keys";
 import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
@@ -20,7 +24,7 @@ import {
   getFinancialYearForReceiptDate,
   getOnlineFeeLimit,
   getStudentOnlineFeePaymentLookups,
-  initiatePayment,
+  initiateStudentCollegeFeePayment,
   listCollegePaymentSettings,
   listFeeStructureParticularsForPayment,
   listStudentFeeReceiptDetails,
@@ -126,6 +130,31 @@ function cloneParticulars(
   }));
 }
 
+/** Angular `genericFunctions.moment()` — presentDate (DD-MM-YYYY) or UTC midnight. */
+function angularReceiptDt(): string {
+  if (typeof window === "undefined") return utcMidnightIso();
+  const present = String(window.localStorage.getItem("presentDate") ?? "").trim();
+  const parts = present.split("-");
+  if (parts.length === 3) {
+    const [dd, mm, yyyy] = parts;
+    const d = Number(dd);
+    const m = Number(mm);
+    const y = Number(yyyy);
+    if (d > 0 && m > 0 && y > 0) {
+      return `${yyyy}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}T00:00:00Z`;
+    }
+  }
+  return utcMidnightIso();
+}
+
+/** Angular fee-due-payment `payFeeDetails` body for `stgOnlineFeereceipts`. */
+type StudentOnlinePayPayload = FeeReceiptPaymentPayload & {
+  tranCatDetailsId?: number;
+  orderId?: null;
+  courseYearNo?: string;
+  stgOnlineFeeParticularwisePaymentDTOS?: FeeStudentParticularRow[];
+};
+
 export function StudentFeeDuePaymentPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -143,14 +172,9 @@ export function StudentFeeDuePaymentPage() {
   const [dialogData, setDialogData] = useState<StudentPayDialogData | null>(
     null,
   );
-  const [payPayload, setPayPayload] = useState<
-    | (FeeReceiptPaymentPayload & {
-        tranCatDetailsId?: number;
-        orderId?: null;
-        stgOnlineFeeParticularwisePaymentDTOS?: FeeStudentParticularRow[];
-      })
-    | null
-  >(null);
+  const [payPayload, setPayPayload] = useState<StudentOnlinePayPayload | null>(
+    null,
+  );
   const [submitting, setSubmitting] = useState(false);
   const [photoError, setPhotoError] = useState(false);
   const statusToastShown = useRef(false);
@@ -325,7 +349,6 @@ export function StudentFeeDuePaymentPage() {
   const balanceAmount = num(feeData?.balanceAmount);
   const showPaySection = Boolean(feeData) && balanceAmount > 0;
   const hasFinancialYear = financialYears.length > 0;
-  const isLessThan = balanceAmount < num(feeLimit);
 
   const splitParticulars = useCallback(
     (rawAmt: number): ParticularPayRow[] | null => {
@@ -357,25 +380,20 @@ export function StudentFeeDuePaymentPage() {
     splitParticulars(rawAmt);
   }
 
+  /** Angular `checkAmount` (active branch — isLessThan path is commented out). */
   function checkAmount(amtValue: number): boolean {
     if (amtValue <= balanceAmount) {
-      if (!isLessThan) {
-        if (amtValue >= num(feeLimit) || amtValue === balanceAmount) {
-          return true;
-        }
-        toastInfo(`Pay amount should be greater than or equal to ${feeLimit}.`);
-        setAmount("0");
-        return false;
+      if (amtValue >= num(feeLimit) || amtValue === balanceAmount) {
+        return true;
       }
-      if (balanceAmount !== amtValue) {
-        toastInfo("Pay amount should be equal to balance amount.");
-        setAmount("0");
-        return false;
-      }
-      return true;
+      toastInfo(`Pay amount should be greater than or equal to ${feeLimit}.`);
+      setAmount(String(feeLimit));
+      applyAmountSplit(num(feeLimit));
+      return false;
     }
     toastInfo("Pay amount should be lessthan or equal to balance amount.");
-    setAmount("0");
+    setAmount(String(balanceAmount));
+    applyAmountSplit(balanceAmount);
     return false;
   }
 
@@ -418,10 +436,15 @@ export function StudentFeeDuePaymentPage() {
     const paymentTypeId = Number(
       lookups?.paymentTypes[0]?.generalDetailId ?? 0,
     );
+    if (!paymentModeId || !paymentTypeId) {
+      toastInfo("Online payment mode/type is missing, please contact admin.");
+      return;
+    }
     const payerTypeId = lookups?.payerTypes.find(
       (p) => String(p.generalDetailCode ?? "").toUpperCase() === "STD",
     )?.generalDetailId;
     const fyId = financialYears[0].financialYearId;
+    // Angular: localStorage.getItem('employeeId') (often null for student login)
     const employeeId =
       user?.employeeId ??
       (typeof window !== "undefined"
@@ -448,17 +471,23 @@ export function StudentFeeDuePaymentPage() {
         });
       }
     }
+    if (lines.length === 0) {
+      toastInfo("No payable fee particulars found for this amount.");
+      return;
+    }
 
-    const payload: FeeReceiptPaymentPayload & {
-      tranCatDetailsId?: number;
-      orderId?: null;
-      stgOnlineFeeParticularwisePaymentDTOS?: FeeStudentParticularRow[];
-    } = {
+    const payload: StudentOnlinePayPayload = {
       paymentFor: "",
-      receiptDt: receiptDate,
+      fineReason: "",
+      receiptDt: angularReceiptDt(),
       amount: amtValue,
       paymentTypeId,
       paymentModeId,
+      transactionNo: "",
+      otherPaymentNumber: "",
+      referenceNumber: "",
+      ddno: "",
+      chequeNo: "",
       collegeId,
       academicYearId,
       studentId,
@@ -466,7 +495,6 @@ export function StudentFeeDuePaymentPage() {
       isFeeRefund: false,
       receiptAmount: amtValue,
       feeStdDataId: Number(feeData.feeStdDataId ?? 0),
-      feeStructureId: Number(feeData.feeStructureId ?? feeStructureId),
       revertbByEmployeeId: employeeId ?? undefined,
       feeParticularwisePayments: lines,
       stgOnlineFeeParticularwisePaymentDTOS: lines,
@@ -481,6 +509,7 @@ export function StudentFeeDuePaymentPage() {
       groupCode: searchParams.get("groupCode") ?? undefined,
       courseYearName: searchParams.get("courseYearName") ?? undefined,
       section: searchParams.get("section") ?? undefined,
+      courseYearNo: courseYearNo || undefined,
     };
 
     setPayPayload(payload);
@@ -502,10 +531,13 @@ export function StudentFeeDuePaymentPage() {
     if (!payPayload) return;
     setSubmitting(true);
     try {
+      // Angular savePayDetails → POST stgOnlineFeereceipts then initiatePayment.
       const result = await submitOnlineFeeReceipt(payPayload);
       const orderId = result.orderId;
       if (orderId == null || orderId === "") {
-        throw new Error("Online payment order was not created.");
+        throw new Error(
+          "Unable to process your request at this time, please try again!",
+        );
       }
       const isPhd = courseCode.toUpperCase() === "PHD";
       const gatewayCollegeId = isPhd
@@ -524,7 +556,8 @@ export function StudentFeeDuePaymentPage() {
         setSecuredValue("payFeeDueDetails", req);
       }
       setDialogOpen(false);
-      await initiatePayment(
+      // This page only: paymentGateway/initiatePayment (not BillDesk/PayPhi).
+      await initiateStudentCollegeFeePayment(
         num(payPayload.receiptAmount),
         orderId,
         gatewayCollegeId,
