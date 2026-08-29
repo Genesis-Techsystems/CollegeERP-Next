@@ -36,6 +36,7 @@ import type { ApiResponse } from "@/types/api";
 import { AppError, parseApiError } from "@/lib/errors";
 import { format } from "date-fns";
 import { GM_CODES } from "@/config/constants/ui";
+import { getEncryptedValue } from "@/common/generic-functions";
 import {
   buildQuery,
   domainList,
@@ -44,6 +45,7 @@ import {
   getAllRecords,
   getAllRecordsEnvelope,
   postDetails,
+  postDetailsEnvelope,
   putDetails,
   uploadFile,
 } from "./crud";
@@ -395,14 +397,131 @@ export async function submitOnlineFeeReceipt(
   payload: FeeReceiptPaymentPayload & {
     tranCatDetailsId?: number;
     orderId?: null;
+    courseYearNo?: string;
     stgOnlineFeeParticularwisePaymentDTOS?: FeeStudentParticularRow[];
   },
 ): Promise<{ orderId?: string | number; collegeId?: number }> {
-  const data = await postDetails<{
+  const envelope = await postDetailsEnvelope<{
     orderId?: string | number;
     collegeId?: number;
   }>(FEE_API.STG_ONLINE_FEE_RECEIPTS, payload);
-  return data ?? {};
+  if (!envelope.success) {
+    throw new AppError(
+      "API_ERROR",
+      envelope.message ??
+        "Unable to process your request at this time, please try again!",
+    );
+  }
+  return envelope.data ?? {};
+}
+
+type GatewayInitiateData = {
+  actionurl?: string;
+  actionUrl?: string;
+  merchantid?: string;
+  merchantId?: string;
+  bdorderid?: string;
+  bdOrderId?: string;
+  rdata?: string;
+  rData?: string;
+  redirectUrl?: string;
+  paymentUrl?: string;
+  url?: string;
+};
+
+/** Angular GenericFunctions.callBillDesk — used only by student college-fee gateway. */
+function submitBillDeskForm(
+  actionurl: string,
+  merchantid: string,
+  bdorderid: string,
+  rdata: string,
+): void {
+  if (typeof document === "undefined") return;
+  const form = document.createElement("form");
+  form.method = "POST";
+  form.action = actionurl;
+  form.target = "_blank";
+  for (const [name, value] of Object.entries({
+    merchantid,
+    bdorderid,
+    rdata,
+  })) {
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = name;
+    input.value = value ?? "";
+    form.appendChild(input);
+  }
+  document.body.appendChild(form);
+  form.submit();
+}
+
+/**
+ * Student portal fee-due payment only (`fee-due-payment` → after `stgOnlineFeereceipts`).
+ * Always posts to Angular `CONSTANTS.initaitePaymentUrl` =
+ * `paymentGateway/initiatePayment`. Do not use from staff Pay Fees / exam /
+ * other gateway pages (those keep BillDesk / PayPhi via `initiatePayment`).
+ */
+export async function initiateStudentCollegeFeePayment(
+  receiptAmount: number,
+  orderId: string | number,
+  collegeId: number,
+  feeType: string,
+): Promise<void> {
+  const request = {
+    amount: Number(receiptAmount).toFixed(2),
+    collegeId,
+    order_id: String(orderId),
+    feeType,
+  };
+
+  const formData = new FormData();
+  formData.append("data", getEncryptedValue(request));
+
+  const body = (await uploadFile(
+    PAYMENT_GATEWAY_API.INITIATE_PAYMENT,
+    formData,
+  )) as ApiResponse<GatewayInitiateData | string>;
+
+  if (body?.success === false) {
+    throw new AppError(
+      "API_ERROR",
+      body.message || "Payment initiation failed",
+    );
+  }
+
+  const data = body?.data;
+
+  if (typeof data === "string" && /^https?:\/\//i.test(data)) {
+    window.open(data, "_self");
+    return;
+  }
+
+  if (data && typeof data === "object") {
+    const actionurl = String(data.actionurl ?? data.actionUrl ?? "");
+    if (actionurl) {
+      submitBillDeskForm(
+        actionurl,
+        String(data.merchantid ?? data.merchantId ?? ""),
+        String(data.bdorderid ?? data.bdOrderId ?? ""),
+        String(data.rdata ?? data.rData ?? ""),
+      );
+      return;
+    }
+
+    const redirect = String(
+      data.redirectUrl ?? data.paymentUrl ?? data.url ?? "",
+    );
+    if (/^https?:\/\//i.test(redirect)) {
+      window.open(redirect, "_self");
+      return;
+    }
+  }
+
+  throw new AppError(
+    "API_ERROR",
+    body?.message || "Payment initiation failed",
+  );
 }
 
 /** Angular `feeparticularwisepayments` — receipts for one student particular. */
