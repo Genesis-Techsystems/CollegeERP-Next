@@ -70,6 +70,7 @@ export function AppShell({
     !hideChrome &&
     pathname !== "/dashboard" &&
     pathname !== "/evaluator" &&
+    pathname !== "/question-paper-setter" &&
     pathname !== "/student-dashboard" &&
     pathname !== "/hr-payroll/service-book/service-book-entries" &&
     pathname !== "/hr-payroll/service-book/employee-wallet" &&

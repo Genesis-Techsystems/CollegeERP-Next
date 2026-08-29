@@ -61,11 +61,26 @@ export async function GET() {
     }
   }
 
-  // Keep role home path current for sessions created before student-dashboard routing.
-  const nextHome = resolveDefaultDashboardPath(
+  // Keep role home path current (paper-setter / evaluator / student routing).
+  // When home looks like evaluator, re-check Spring userRoles — QPS often only
+  // appears there while top-level userRole still contains "Evaluator".
+  let nextHome = resolveDefaultDashboardPath(
     session.user.userRole,
     session.user.roleName,
   );
+  const homeLooksEvaluator =
+    session.user.defaultDashboardPath === "/evaluator" ||
+    nextHome === "/evaluator";
+  if (session.jwt && homeLooksEvaluator) {
+    const homeDto = await springGetUserDetails(session.jwt).catch(() => null);
+    if (homeDto) {
+      nextHome = resolveDefaultDashboardPath(
+        homeDto.userRole ?? session.user.userRole,
+        homeDto.roleName ?? session.user.roleName,
+        homeDto.userRoles,
+      );
+    }
+  }
   if (session.user.defaultDashboardPath !== nextHome) {
     session.user.defaultDashboardPath = nextHome;
     await session.save();
@@ -103,6 +118,11 @@ export async function GET() {
       session.user.isChiefEvaluator = isChiefEvaluatorRole(
         dto.userRole,
         dto.roleName,
+        dto.userRoles,
+      );
+      session.user.defaultDashboardPath = resolveDefaultDashboardPath(
+        dto.userRole ?? session.user.userRole,
+        dto.roleName ?? session.user.roleName,
         dto.userRoles,
       );
       session.roleFlagsVersion = ROLE_FLAGS_VERSION;

@@ -221,9 +221,14 @@ export async function POST(request: NextRequest) {
         roleName,
         userDto.userRoles,
       ),
-      // Angular parity: evaluators → /evaluator, students → /student-dashboard,
+      // Angular parity: QuestionPaperSetter → /question-paper-setter,
+      // evaluators → /evaluator, students → /student-dashboard,
       // Admin/Staff/others → /dashboard.
-      defaultDashboardPath: resolveDefaultDashboardPath(userRole, roleName),
+      defaultDashboardPath: resolveDefaultDashboardPath(
+        userRole,
+        roleName,
+        userDto.userRoles,
+      ),
     };
 
     // /api/authorization returns employeeId=null. Angular login getEmployee()

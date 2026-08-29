@@ -103,6 +103,7 @@ export function Sidebar() {
       if (
         href === "/dashboard" ||
         href === "/evaluator" ||
+        href === "/question-paper-setter" ||
         href === "/student-dashboard" ||
         href.includes("main-dashboard")
       )
