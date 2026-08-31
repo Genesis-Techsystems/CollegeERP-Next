@@ -384,70 +384,76 @@ export default function AssignQuestionPaperTemplatePage() {
     <FilteredListPage
       title="Assign Question Paper Template"
       filters={
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-          <div className="md:col-span-1.5 space-y-1">
-            <Label className="text-[12px] text-muted-foreground">Course</Label>
-            <SearchableSelect
-              value={courseId ? String(courseId) : null}
-              onChange={(v) => setCourseId(num(v) || null)}
-              options={courseOptions}
-              placeholder="Course"
-            />
+        <div className="inv-allot-report-filters space-y-2">
+          <div className="inv-allot-report-filters__row">
+            <div className="inv-allot-report-filters__fx20">
+              <Label className="text-[12px] text-muted-foreground">
+                Course
+              </Label>
+              <SearchableSelect
+                value={courseId ? String(courseId) : null}
+                onChange={(v) => setCourseId(num(v) || null)}
+                options={courseOptions}
+                placeholder="Course"
+              />
+            </div>
+            <div className="inv-allot-report-filters__fx20">
+              <Label className="text-[12px] text-muted-foreground">
+                Exam Year
+              </Label>
+              <SearchableSelect
+                value={academicYearId ? String(academicYearId) : null}
+                onChange={(v) => setAcademicYearId(num(v) || null)}
+                options={academicYearOptions}
+                placeholder="Exam Year"
+              />
+            </div>
+            <div className="inv-allot-report-filters__fx60">
+              <Label className="text-[12px] text-muted-foreground">
+                Exam Master
+              </Label>
+              <SearchableSelect
+                value={examId ? String(examId) : null}
+                onChange={(v) => setExamId(num(v) || null)}
+                options={examOptions}
+                placeholder="Search exam…"
+                searchable
+              />
+            </div>
           </div>
-          <div className="md:col-span-2 space-y-1">
-            <Label className="text-[12px] text-muted-foreground">
-              Exam Year
-            </Label>
-            <SearchableSelect
-              value={academicYearId ? String(academicYearId) : null}
-              onChange={(v) => setAcademicYearId(num(v) || null)}
-              options={academicYearOptions}
-              placeholder="Exam Year"
-            />
-          </div>
-          <div className="md:col-span-4 space-y-1">
-            <Label className="text-[12px] text-muted-foreground">
-              Exam Master
-            </Label>
-            <SearchableSelect
-              value={examId ? String(examId) : null}
-              onChange={(v) => setExamId(num(v) || null)}
-              options={examOptions}
-              placeholder="Search exam…"
-              searchable
-            />
-          </div>
-          <div className="md:col-span-2 space-y-1">
-            <Label className="text-[12px] text-muted-foreground">
-              Regulation
-            </Label>
-            <SearchableSelect
-              value={regulationId != null ? String(regulationId) : ALL_VALUE}
-              onChange={(v) => setRegulationId(num(v))}
-              options={regulationOptions}
-              placeholder="Regulation"
-            />
-          </div>
-          <div className="md:col-span-2 space-y-1">
-            <Label className="text-[12px] text-muted-foreground">
-              Course Years
-            </Label>
-            <SearchableSelect
-              value={courseYearId != null ? String(courseYearId) : ALL_VALUE}
-              onChange={(v) => setCourseYearId(num(v))}
-              options={courseYearOptions}
-              placeholder="Course Year"
-            />
-          </div>
-          <div className="md:col-span-1 flex justify-end">
-            <Button
-              type="button"
-              className="h-8 text-[12px]"
-              onClick={() => void getList()}
-              disabled={loading || !examId}
-            >
-              Get List
-            </Button>
+          <div className="inv-allot-report-filters__row">
+            <div className="inv-allot-report-filters__fx20">
+              <Label className="text-[12px] text-muted-foreground">
+                Regulation
+              </Label>
+              <SearchableSelect
+                value={regulationId != null ? String(regulationId) : ALL_VALUE}
+                onChange={(v) => setRegulationId(num(v))}
+                options={regulationOptions}
+                placeholder="Regulation"
+              />
+            </div>
+            <div className="inv-allot-report-filters__fx20">
+              <Label className="text-[12px] text-muted-foreground">
+                Course Years
+              </Label>
+              <SearchableSelect
+                value={courseYearId != null ? String(courseYearId) : ALL_VALUE}
+                onChange={(v) => setCourseYearId(num(v))}
+                options={courseYearOptions}
+                placeholder="Course Year"
+              />
+            </div>
+            <div className="inv-allot-report-filters__fx15 md:col-span-1 flex justify-end">
+              <Button
+                type="button"
+                className="h-8 text-[12px] w-full"
+                onClick={() => void getList()}
+                disabled={loading || !examId}
+              >
+                Get List
+              </Button>
+            </div>
           </div>
         </div>
       }
@@ -455,10 +461,13 @@ export default function AssignQuestionPaperTemplatePage() {
       columnDefs={cols}
       pagination
       loading={loading}
+      tableHeader=""
       toolbar={{
         search: true,
         searchPlaceholder: "Search subject, group, course year…",
         pdfDocumentTitle: "Assign Question Paper Template",
+        exportExcel: false,
+        exportPdf: false,
       }}
     >
       <Dialog open={templateOpen} onOpenChange={setTemplateOpen}>

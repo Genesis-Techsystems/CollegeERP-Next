@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { FilteredListPage } from "@/components/layout";
 import type { ColDef, ColGroupDef } from "ag-grid-community";
@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchInput } from "@/common/components/search";
-import { Select } from "@/common/components/select";
+import { Select, type SelectOption } from "@/common/components/select";
 import {
   getEvaluatorAssignmentBundle,
   getRegSupBaseFilters,
@@ -22,15 +22,6 @@ import { toastError, toastSuccess } from "@/lib/toast";
 
 type AnyRow = Record<string, any>;
 
-function getEvaluatorProfileId(row: AnyRow): number {
-  return num(
-    row.pk_exam_evaluator_profile_id ??
-      row.fk_exam_evaluator_profile_id ??
-      row.exam_evaluator_profile_id ??
-      row.evaluator_profile_id,
-  );
-}
-
 function getAssignmentId(row: AnyRow): number {
   return num(
     row.fk_exam_evaluationassignment_id ??
@@ -38,6 +29,60 @@ function getAssignmentId(row: AnyRow): number {
       row.exam_evaluationassignment_id ??
       row.id,
   );
+}
+
+function truthyFlag(value: unknown): boolean {
+  return value === true || value === 1 || value === "1";
+}
+
+function formatExamDate(value: unknown): string {
+  const raw = value != null ? String(value).trim() : "";
+  if (!raw) return "";
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return raw.slice(0, 10);
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function buildExamSelectOption(e: AnyRow): SelectOption {
+  const name = txt(e.exam_name);
+  const from = formatExamDate(e.from_date ?? e.fromDate);
+  const to = formatExamDate(e.to_date ?? e.toDate);
+  const range = from && to ? ` (${from} - ${to})` : "";
+  const tags: string[] = [];
+  if (truthyFlag(e.is_internal_exam ?? e.isInternalExam)) {
+    tags.push("(Internal)");
+  }
+  if (truthyFlag(e.is_regular_exam ?? e.isRegularExam)) {
+    tags.push("(Regular)");
+  }
+  if (truthyFlag(e.is_supply_exam ?? e.isSupplyExam)) {
+    tags.push("(Supple)");
+  }
+  const label = `${name}${range}${tags.join("")}`;
+  return {
+    value: String(num(e.fk_exam_id)),
+    label,
+    title: label,
+    labelNode: (
+      <span className="block truncate">
+        {name}
+        {range}
+        {tags.map((tag) => (
+          <span key={tag} className="font-medium text-[#0014ff]">
+            {tag}
+          </span>
+        ))}
+      </span>
+    ),
+  };
+}
+
+function isUnmappedUploaded(row: AnyRow): boolean {
+  return Number(row.is_mapped) == 0 && Number(row.is_answerpaper_uploaded) == 1;
 }
 
 export default function AssignEvaluatorsManualPage() {
@@ -81,14 +126,18 @@ export default function AssignEvaluatorsManualPage() {
     () => dedupeBy(baseRows, (r) => num(r.fk_course_id)),
     [baseRows],
   );
-  const academicYears = useMemo(
-    () =>
-      dedupeBy(
-        baseRows.filter((r) => num(r.fk_course_id) === num(courseId)),
-        (r) => num(r.fk_academic_year_id),
-      ),
-    [baseRows, courseId],
-  );
+  const academicYears = useMemo(() => {
+    if (!courseId) return [];
+    const rows = dedupeBy(
+      baseRows.filter((r) => num(r.fk_course_id) === num(courseId)),
+      (r) => num(r.fk_academic_year_id),
+    );
+    return [...rows].sort(
+      (a, b) =>
+        parseInt(txt(b.academic_year) || "0", 10) -
+        parseInt(txt(a.academic_year) || "0", 10),
+    );
+  }, [baseRows, courseId]);
   const exams = useMemo(
     () =>
       dedupeBy(
@@ -105,14 +154,13 @@ export default function AssignEvaluatorsManualPage() {
     () => dedupeBy(restRows, (r) => num(r.fk_course_year_id)),
     [restRows],
   );
-  const regulations = useMemo(
-    () =>
-      dedupeBy(
-        restRows.filter((r) => num(r.fk_course_year_id) === num(courseYearId)),
-        (r) => num(r.fk_regulation_id),
-      ),
-    [restRows, courseYearId],
-  );
+  const regulations = useMemo(() => {
+    if (!courseYearId) return [];
+    return dedupeBy(
+      restRows.filter((r) => num(r.fk_course_year_id) === num(courseYearId)),
+      (r) => num(r.fk_regulation_id),
+    );
+  }, [restRows, courseYearId]);
   const subjects = useMemo(
     () => dedupeBy(subjectRows, (r) => num(r.fk_subject_id)),
     [subjectRows],
@@ -134,36 +182,7 @@ export default function AssignEvaluatorsManualPage() {
     [academicYears],
   );
   const examOptions = useMemo(
-    () =>
-      exams.map((r) => {
-        let label = txt(r.exam_name);
-        if (r.from_date && r.to_date) {
-          const fromDate = new Date(r.from_date).toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          });
-          const toDate = new Date(r.to_date).toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          });
-          label += ` (${fromDate} - ${toDate})`;
-        }
-        if (num(r.is_internal_exam) === 1 || r.is_internal_exam === true) {
-          label += " (Internal)";
-        }
-        if (num(r.is_regular_exam) === 1 || r.is_regular_exam === true) {
-          label += " (Regular)";
-        }
-        if (num(r.is_supply_exam) === 1 || r.is_supply_exam === true) {
-          label += " (Supple)";
-        }
-        return {
-          value: String(num(r.fk_exam_id)),
-          label,
-        };
-      }),
+    () => exams.map((e) => buildExamSelectOption(e)),
     [exams],
   );
   const courseYearOptions = useMemo(
@@ -200,10 +219,7 @@ export default function AssignEvaluatorsManualPage() {
   }, [evaluatorRows, searchEvaluator]);
 
   const unMappedUploadedStudents = useMemo(
-    () =>
-      studentRows.filter(
-        (r) => num(r.is_mapped) === 0 && num(r.is_answerpaper_uploaded) === 1,
-      ),
+    () => studentRows.filter(isUnmappedUploaded),
     [studentRows],
   );
 
@@ -249,6 +265,201 @@ export default function AssignEvaluatorsManualPage() {
     );
   }
 
+  const restReqSeq = useRef(0);
+  const subjectReqSeq = useRef(0);
+
+  function resetPanelState() {
+    setShowPanel(false);
+    setSelectedEvaluatorProfileId(null);
+    setSelectedOmrs([]);
+    setEvaluatorRows([]);
+    setStudentRows([]);
+    setStatsInfo(null);
+    setSearchEvaluator("");
+    setSearchOmr("");
+  }
+
+  function clearBelowCourse() {
+    setAcademicYearId(null);
+    setExamId(null);
+    setCourseYearId(null);
+    setRegulationId(null);
+    setSubjectId(null);
+    setRestRows([]);
+    setSubjectRows([]);
+  }
+
+  function clearBelowAcademicYear() {
+    setExamId(null);
+    setCourseYearId(null);
+    setRegulationId(null);
+    setSubjectId(null);
+    setRestRows([]);
+    setSubjectRows([]);
+  }
+
+  function clearBelowExam() {
+    setCourseYearId(null);
+    setRegulationId(null);
+    setSubjectId(null);
+    setRestRows([]);
+    setSubjectRows([]);
+  }
+
+  function clearBelowCourseYear() {
+    setRegulationId(null);
+    setSubjectId(null);
+    setSubjectRows([]);
+  }
+
+  function clearBelowRegulation() {
+    setSubjectId(null);
+    setSubjectRows([]);
+  }
+
+  type CascadeCtx = {
+    courseId: number;
+    academicYearId: number;
+    examId: number;
+    courseYearId: number;
+  };
+
+  function applyCourse(
+    nextCourseId: number | null,
+    fromBase: AnyRow[] = baseRows,
+  ) {
+    resetPanelState();
+    restReqSeq.current += 1;
+    subjectReqSeq.current += 1;
+    setCourseId(nextCourseId);
+    clearBelowCourse();
+    if (!nextCourseId) return;
+    const ayRows = dedupeBy(
+      fromBase.filter((r) => num(r.fk_course_id) === nextCourseId),
+      (r) => num(r.fk_academic_year_id),
+    );
+    const sorted = [...ayRows].sort(
+      (a, b) =>
+        parseInt(txt(b.academic_year) || "0", 10) -
+        parseInt(txt(a.academic_year) || "0", 10),
+    );
+    const firstAy = num(sorted[0]?.fk_academic_year_id) || null;
+    if (firstAy) applyAcademicYear(firstAy, nextCourseId, fromBase);
+  }
+
+  function applyAcademicYear(
+    nextAyId: number | null,
+    forCourseId = courseId,
+    fromBase: AnyRow[] = baseRows,
+  ) {
+    resetPanelState();
+    restReqSeq.current += 1;
+    subjectReqSeq.current += 1;
+    setAcademicYearId(nextAyId);
+    clearBelowAcademicYear();
+    if (!nextAyId || !forCourseId) return;
+    const examRows = dedupeBy(
+      fromBase.filter(
+        (r) =>
+          num(r.fk_course_id) === num(forCourseId) &&
+          num(r.fk_academic_year_id) === nextAyId,
+      ),
+      (r) => num(r.fk_exam_id),
+    );
+    const firstExam = num(examRows[0]?.fk_exam_id) || null;
+    if (firstExam) applyExam(firstExam, forCourseId, nextAyId);
+  }
+
+  function applyExam(
+    nextExamId: number | null,
+    forCourseId = courseId,
+    forAyId = academicYearId,
+  ) {
+    resetPanelState();
+    subjectReqSeq.current += 1;
+    setExamId(nextExamId);
+    clearBelowExam();
+    if (!nextExamId || !forCourseId || !forAyId) return;
+    const seq = ++restReqSeq.current;
+    void (async () => {
+      const rows = await getRegSupRestFilters({
+        courseId: forCourseId,
+        academicYearId: forAyId,
+        examId: nextExamId,
+        employeeId,
+      }).catch(() => [] as AnyRow[]);
+      if (seq !== restReqSeq.current) return;
+      setRestRows(rows);
+      const years = dedupeBy(rows, (r) => num(r.fk_course_year_id));
+      const firstYear = num(years[0]?.fk_course_year_id) || null;
+      if (firstYear) {
+        applyCourseYear(firstYear, rows, {
+          courseId: forCourseId,
+          academicYearId: forAyId,
+          examId: nextExamId,
+          courseYearId: firstYear,
+        });
+      }
+    })();
+  }
+
+  function applyCourseYear(
+    nextYearId: number | null,
+    fromRest: AnyRow[] = restRows,
+    ctx?: Partial<CascadeCtx>,
+  ) {
+    resetPanelState();
+    subjectReqSeq.current += 1;
+    setCourseYearId(nextYearId);
+    clearBelowCourseYear();
+    if (!nextYearId) return;
+    const regs = dedupeBy(
+      fromRest.filter((r) => num(r.fk_course_year_id) === nextYearId),
+      (r) => num(r.fk_regulation_id),
+    );
+    const firstReg = num(regs[0]?.fk_regulation_id) || null;
+    if (!firstReg) return;
+    applyRegulation(firstReg, {
+      courseId: num(ctx?.courseId ?? courseId),
+      academicYearId: num(ctx?.academicYearId ?? academicYearId),
+      examId: num(ctx?.examId ?? examId),
+      courseYearId: nextYearId,
+    });
+  }
+
+  function applyRegulation(
+    nextRegId: number | null,
+    ctx?: Partial<CascadeCtx>,
+  ) {
+    resetPanelState();
+    setRegulationId(nextRegId);
+    clearBelowRegulation();
+    const cId = num(ctx?.courseId ?? courseId);
+    const ayId = num(ctx?.academicYearId ?? academicYearId);
+    const eId = num(ctx?.examId ?? examId);
+    const yId = num(ctx?.courseYearId ?? courseYearId);
+    if (!nextRegId || !cId || !ayId || !eId || !yId) return;
+    const seq = ++subjectReqSeq.current;
+    void (async () => {
+      const rows = await getRegSupSubjectFilters({
+        courseId: cId,
+        academicYearId: ayId,
+        examId: eId,
+        courseYearId: yId,
+        regulationId: nextRegId,
+        employeeId,
+      }).catch(() => [] as AnyRow[]);
+      if (seq !== subjectReqSeq.current) return;
+      setSubjectRows(rows);
+      // Angular selectedRegulation: loads subjects but leaves subjectId empty.
+    })();
+  }
+
+  function applySubject(nextSubjectId: number | null) {
+    resetPanelState();
+    setSubjectId(nextSubjectId);
+  }
+
   useEffect(() => {
     setIsClient(true);
   }, []);
@@ -258,72 +469,17 @@ export default function AssignEvaluatorsManualPage() {
       setLoading(true);
       try {
         const list = await getRegSupBaseFilters(employeeId);
-        setBaseRows(list);
-        setCourseId(num(list[0]?.fk_course_id) || null);
+        const rows = Array.isArray(list) ? list : [];
+        setBaseRows(rows);
+        const firstCourse = num(rows[0]?.fk_course_id) || null;
+        if (firstCourse) applyCourse(firstCourse, rows);
       } finally {
         setLoading(false);
       }
     }
     void init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Angular getFiltersList() once on mount
   }, [employeeId]);
-
-  useEffect(() => {
-    setAcademicYearId(num(academicYears[0]?.fk_academic_year_id) || null);
-  }, [academicYears]);
-
-  useEffect(() => {
-    setExamId(num(exams[0]?.fk_exam_id) || null);
-  }, [exams]);
-
-  useEffect(() => {
-    async function loadRest() {
-      if (!courseId || !academicYearId || !examId) return;
-      const rest = await getRegSupRestFilters({
-        courseId,
-        academicYearId,
-        examId,
-        employeeId,
-      });
-      setRestRows(rest);
-      setCourseYearId(num(rest[0]?.fk_course_year_id) || null);
-    }
-    void loadRest();
-  }, [courseId, academicYearId, examId, employeeId]);
-
-  useEffect(() => {
-    setRegulationId(num(regulations[0]?.fk_regulation_id) || null);
-  }, [regulations]);
-
-  useEffect(() => {
-    async function loadSubjects() {
-      if (
-        !courseId ||
-        !academicYearId ||
-        !examId ||
-        !courseYearId ||
-        !regulationId
-      )
-        return;
-      const sub = await getRegSupSubjectFilters({
-        courseId,
-        academicYearId,
-        examId,
-        courseYearId,
-        regulationId,
-        employeeId,
-      });
-      setSubjectRows(sub);
-      setSubjectId(num(sub[0]?.fk_subject_id) || null);
-    }
-    void loadSubjects();
-  }, [
-    courseId,
-    academicYearId,
-    examId,
-    courseYearId,
-    regulationId,
-    employeeId,
-  ]);
 
   async function getEvaluationList() {
     if (
@@ -333,9 +489,13 @@ export default function AssignEvaluatorsManualPage() {
       !courseYearId ||
       !regulationId ||
       !subjectId
-    )
+    ) {
+      toastError("Please select all filters.");
       return;
+    }
     setLoading(true);
+    setSelectedEvaluatorProfileId(null);
+    setSelectedOmrs([]);
     try {
       const { evaluators, students, stats } =
         await getEvaluatorAssignmentBundle({
@@ -351,9 +511,9 @@ export default function AssignEvaluatorsManualPage() {
       setEvaluatorRows(evaluators);
       setStudentRows(students);
       setStatsInfo(stats ?? null);
-      setSelectedEvaluatorProfileId(null);
-      setSelectedOmrs([]);
       setShowPanel(true);
+    } catch (err) {
+      toastError(err, "Failed to load manual assign evaluator data.");
     } finally {
       setLoading(false);
     }
@@ -362,12 +522,9 @@ export default function AssignEvaluatorsManualPage() {
   async function assign() {
     if (!selectedEvaluatorProfileId || selectedOmrs.length === 0) return;
     const selectedEvaluator = evaluatorRows.find(
-      (r) => getEvaluatorProfileId(r) === selectedEvaluatorProfileId,
+      (r) => num(r.pk_exam_evaluator_profile_id) === selectedEvaluatorProfileId,
     );
-    const timetableDetIds = txt(
-      selectedEvaluator?.pk_exam_timetable_det_ids ??
-        selectedEvaluator?.fk_exam_timetable_det_ids,
-    );
+    const timetableDetIds = txt(selectedEvaluator?.pk_exam_timetable_det_ids);
 
     const assignmentIds = selectedRows
       .map((r) => getAssignmentId(r))
@@ -397,16 +554,10 @@ export default function AssignEvaluatorsManualPage() {
     row: AnyRow,
     mode: "assigned" | "evaluated" | "due",
   ) {
-    const profileId = getEvaluatorProfileId(row);
-    let list = studentRows.filter((x) => {
-      const xProfileId = num(
-        x.fk_exam_evaluator_profile_id ??
-          x.pk_exam_evaluator_profile_id ??
-          x.exam_evaluator_profile_id ??
-          x.fk_exam_evaluatorprofile_id,
-      );
-      return xProfileId === profileId;
-    });
+    const profileId = num(row.pk_exam_evaluator_profile_id);
+    let list = studentRows.filter(
+      (x) => num(x.fk_exam_evaluator_profile_id) === profileId,
+    );
     if (mode === "evaluated")
       list = list.filter(
         (x) => x.evaluated_totalmarks != null || x.evaluatedTotalMarks != null,
@@ -431,8 +582,11 @@ export default function AssignEvaluatorsManualPage() {
       ? num(statsInfo.UnAssinged)
       : unMappedUploadedStudents.length;
   const assigned =
-    statsInfo?.Assigned != null
-      ? num(statsInfo.Assigned)
+    statsInfo?.NoOfAnswerpapersUploaded != null && statsInfo?.UnAssinged != null
+      ? Math.max(
+          num(statsInfo.NoOfAnswerpapersUploaded) - num(statsInfo.UnAssinged),
+          0,
+        )
       : Math.max(uploadedCount - unAssigned, 0);
 
   const filteredDetailRows = useMemo(() => {
@@ -525,99 +679,122 @@ export default function AssignEvaluatorsManualPage() {
       title="Manual Assign Evaluator"
       filtersCollapsible={false}
       filters={
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-          <div className="space-y-1 md:col-span-2">
-            <Label className="text-[12px] font-semibold text-slate-700">
-              Course *
-            </Label>
-            <Select
-              value={courseId ? String(courseId) : null}
-              onChange={(v) => setCourseId(num(v) || null)}
-              options={courseOptions}
-              placeholder="Course"
-            />
+        <div className="inv-allot-report-filters space-y-2">
+          <div className="inv-allot-report-filters__row">
+            <div className="inv-allot-report-filters__fx20">
+              <Label className="text-[12px] font-semibold text-slate-700">
+                Course *
+              </Label>
+              <Select
+                value={courseId ? String(courseId) : null}
+                onChange={(v) => applyCourse(v ? Number(v) : null)}
+                options={courseOptions}
+                placeholder="Course"
+              />
+            </div>
+            <div className="inv-allot-report-filters__fx20">
+              <Label className="text-[12px] font-semibold text-slate-700">
+                Academic Year *
+              </Label>
+              <Select
+                value={academicYearId ? String(academicYearId) : null}
+                onChange={(v) => applyAcademicYear(v ? Number(v) : null)}
+                options={academicYearOptions}
+                placeholder="Academic Year"
+                disabled={!courseId}
+              />
+            </div>
+            <div className="inv-allot-report-filters__fx60">
+              <Label className="text-[12px] font-semibold text-slate-700">
+                Exam *
+              </Label>
+              <Select
+                value={examId ? String(examId) : null}
+                onChange={(v) => applyExam(v ? Number(v) : null)}
+                options={examOptions}
+                placeholder="Exam"
+                searchable
+                disabled={!academicYearId}
+              />
+            </div>
           </div>
-          <div className="space-y-1 md:col-span-2">
-            <Label className="text-[12px] font-semibold text-slate-700">
-              Academic Year *
-            </Label>
-            <Select
-              value={academicYearId ? String(academicYearId) : null}
-              onChange={(v) => setAcademicYearId(num(v) || null)}
-              options={academicYearOptions}
-              placeholder="Academic Year"
-            />
-          </div>
-          <div className="space-y-1 md:col-span-8">
-            <Label className="text-[12px] font-semibold text-slate-700">
-              Exam *
-            </Label>
-            <Select
-              value={examId ? String(examId) : null}
-              onChange={(v) => setExamId(num(v) || null)}
-              options={examOptions}
-              placeholder="Exam"
-              searchable
-            />
-          </div>
-          <div className="space-y-1 md:col-span-2">
-            <Label className="text-[12px] font-semibold text-slate-700">
-              Course Year *
-            </Label>
-            <Select
-              value={courseYearId ? String(courseYearId) : null}
-              onChange={(v) => setCourseYearId(num(v) || null)}
-              options={courseYearOptions}
-              placeholder="Course Year"
-            />
-          </div>
-          <div className="space-y-1 md:col-span-2">
-            <Label className="text-[12px] font-semibold text-slate-700">
-              Regulation *
-            </Label>
-            <Select
-              value={regulationId ? String(regulationId) : null}
-              onChange={(v) => setRegulationId(num(v) || null)}
-              options={regulationOptions}
-              placeholder="Regulation"
-            />
-          </div>
-          <div className="space-y-1 md:col-span-5">
-            <Label className="text-[12px] font-semibold text-slate-700">
-              Subject *
-            </Label>
-            <Select
-              value={subjectId ? String(subjectId) : null}
-              onChange={(v) => setSubjectId(num(v) || null)}
-              options={subjectOptions}
-              placeholder="Subject"
-              searchable
-            />
-          </div>
-          <div className="md:col-span-3 flex items-end justify-end gap-2 h-9">
-            <Button
-              type="button"
-              onClick={getEvaluationList}
-              disabled={loading}
-              className="h-8 px-4 text-[12px] bg-[#0E7096] hover:bg-[#0E7096]/90 text-white"
-            >
-              Get List
-            </Button>
+          <div className="inv-allot-report-filters__row">
+            <div className="inv-allot-report-filters__fx15">
+              <Label className="text-[12px] font-semibold text-slate-700">
+                Course Year *
+              </Label>
+              <Select
+                value={courseYearId ? String(courseYearId) : null}
+                onChange={(v) =>
+                  applyCourseYear(v ? Number(v) : null, restRows, {
+                    courseId: num(courseId),
+                    academicYearId: num(academicYearId),
+                    examId: num(examId),
+                  })
+                }
+                options={courseYearOptions}
+                placeholder="Course Year"
+                disabled={!examId}
+              />
+            </div>
+            <div className="inv-allot-report-filters__fx15">
+              <Label className="text-[12px] font-semibold text-slate-700">
+                Regulation *
+              </Label>
+              <Select
+                value={regulationId ? String(regulationId) : null}
+                onChange={(v) =>
+                  applyRegulation(v ? Number(v) : null, {
+                    courseId: num(courseId),
+                    academicYearId: num(academicYearId),
+                    examId: num(examId),
+                    courseYearId: num(courseYearId),
+                  })
+                }
+                options={regulationOptions}
+                placeholder="Regulation"
+                disabled={!courseYearId}
+              />
+            </div>
+            <div className="inv-allot-report-filters__fx40">
+              <Label className="text-[12px] font-semibold text-slate-700">
+                Subject *
+              </Label>
+              <Select
+                value={subjectId ? String(subjectId) : null}
+                onChange={(v) => applySubject(v ? Number(v) : null)}
+                options={subjectOptions}
+                placeholder="Subject"
+                searchable
+                disabled={!regulationId}
+              />
+            </div>
+            <div className="inv-allot-report-filters__fx15 flex items-end justify-end gap-2 h-9">
+              <Button
+                type="button"
+                onClick={getEvaluationList}
+                disabled={loading}
+                className="h-8 px-4 text-[12px] text-white w-full"
+              >
+                Get List
+              </Button>
+            </div>
           </div>
         </div>
       }
       filtersFooter={
         showPanel && (
-          <div className="mt-4 pt-4 border-t p-3 text-[12px] font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded">
-            Total Students:{" "}
-            <span className="text-red-600 font-bold">{totalStudents}</span> |
-            No.Of AnswerPapers Uploaded:{" "}
-            <span className="text-red-600 font-bold">{uploadedCount}</span> |
-            UnAssigned:{" "}
-            <span className="text-red-600 font-bold">{unAssigned}</span> |
-            Assigned: <span className="text-red-600 font-bold">{assigned}</span>{" "}
-            | No of Evaluators:{" "}
-            <span className="text-red-600 font-bold">
+          <div className="mt-4 pt-4 border-t p-3 text-[15px] font-bold text-foreground bg-slate-50 border border-slate-200 rounded">
+            Total Students :{" "}
+            <span className="font-bold text-red-600">{totalStudents}</span> |
+            No.Of AnswerPapers Uploaded :{" "}
+            <span className="font-bold text-red-600">{uploadedCount}</span> |
+            UnAssigned :{" "}
+            <span className="font-bold text-red-600">{unAssigned}</span> |
+            Assigned :{" "}
+            <span className="font-bold text-red-600">{assigned}</span> | No of
+            Evaluators :{" "}
+            <span className="font-bold text-red-600">
               {evaluatorRows.length}
             </span>
           </div>
@@ -629,7 +806,7 @@ export default function AssignEvaluatorsManualPage() {
           <div className="app-card p-3 space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
               <div className="md:col-span-3 rounded border p-2">
-                <h3 className="text-[13px] font-semibold text-blue-700 mb-2">
+                <h3 className="text-[14px] font-semibold text-blue-700 mb-2">
                   Evaluators (Completed/Assigned)
                 </h3>
                 <SearchInput
@@ -640,11 +817,11 @@ export default function AssignEvaluatorsManualPage() {
                 />
                 <div className="max-h-[320px] overflow-auto space-y-1">
                   {filteredEvaluators.map((row) => {
-                    const profId = getEvaluatorProfileId(row);
+                    const profId = num(row.pk_exam_evaluator_profile_id);
                     return (
                       <label
                         key={profId || txt(row.evaluator_name)}
-                        className="flex items-start gap-2 text-[12px] cursor-pointer"
+                        className="flex items-start gap-2 text-[14px] cursor-pointer"
                       >
                         <input
                           type="radio"
@@ -736,7 +913,7 @@ export default function AssignEvaluatorsManualPage() {
                     !selectedEvaluatorProfileId ||
                     selectedOmrs.length === 0
                   }
-                  className="h-8 px-4 text-[12px] bg-[#0E7096] hover:bg-[#0E7096]/90 text-white"
+                  className="h-8 px-4 text-[12px] text-white"
                 >
                   Assign
                 </Button>
@@ -745,14 +922,18 @@ export default function AssignEvaluatorsManualPage() {
           </div>
 
           <div className="app-card p-3 space-y-2">
-            <h3 className="text-[14px] font-semibold text-slate-800">
-              Evaluators List
-            </h3>
             <DataTable
+              title=""
               rowData={evaluatorRows}
               columnDefs={cols}
               pagination
               paginationPageSize={25}
+              toolbar={{
+                search: true,
+                searchPlaceholder: "Search…",
+                exportPdf: false,
+                exportExcel: false,
+              }}
             />
           </div>
         </div>

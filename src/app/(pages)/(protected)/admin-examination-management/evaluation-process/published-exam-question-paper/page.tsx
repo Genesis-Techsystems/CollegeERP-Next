@@ -21,6 +21,7 @@ import {
   listPublishedExamQuestionPapers,
   validateSecretCodeForPublishedQp,
 } from "@/services/evaluation-process";
+import { dedupeCoursesSorted } from "@/common/utils/data-helpers";
 
 type AnyRow = Record<string, any>;
 
@@ -133,10 +134,7 @@ export default function PublishedExamQuestionPaperPage() {
   );
   const minio = String(globalThis?.localStorage?.getItem("MINIO") ?? "");
 
-  const courses = useMemo(
-    () => dedupeBy(baseRows, (r) => pickNum(r, ["fk_course_id", "courseId"])),
-    [baseRows],
-  );
+  const courses = useMemo(() => dedupeCoursesSorted(baseRows), [baseRows]);
   const academicYears = useMemo(
     () =>
       dedupeBy(
@@ -170,7 +168,12 @@ export default function PublishedExamQuestionPaperPage() {
         );
         const r = Array.isArray(list) ? list : [];
         setBaseRows(r);
-        if (r[0]) setCourseId(pickNum(r[0], ["fk_course_id", "courseId"]));
+        const sortedCourses = dedupeCoursesSorted(r);
+        if (sortedCourses[0]) {
+          setCourseId(
+            pickNum(sortedCourses[0], ["fk_course_id", "courseId"]),
+          );
+        }
       } finally {
         setLoading(false);
       }

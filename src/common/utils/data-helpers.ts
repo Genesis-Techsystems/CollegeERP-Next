@@ -20,6 +20,23 @@ export const dedupeBy = <T,>(rows: T[], keyFn: (row: T) => number | string): T[]
   })
 }
 
+/**
+ * Angular exam-final-question-paper / published-exam-question-paper getFiltersData():
+ * dedupe by fk_course_id, then sort by course_code (case-insensitive localeCompare).
+ */
+export function dedupeCoursesSorted<T extends Record<string, unknown>>(
+  rows: T[],
+): T[] {
+  const deduped = dedupeBy(rows, (r) => num(r.fk_course_id ?? r.courseId))
+  return [...deduped].sort((a, b) =>
+    txt(a.course_code ?? a.courseCode).localeCompare(
+      txt(b.course_code ?? b.courseCode),
+      undefined,
+      { sensitivity: 'base' },
+    ),
+  )
+}
+
 const subjectRowId = (row: Record<string, unknown>): number =>
   num(row.fk_subject_id ?? row.subjectId)
 

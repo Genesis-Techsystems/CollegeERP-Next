@@ -20,6 +20,7 @@ import {
   uploadQuestionPaperFiles,
 } from "@/services/evaluation-process";
 import { clearProcGetCache } from "@/services/crud";
+import { dedupeCoursesSorted } from "@/common/utils/data-helpers";
 import { FilteredListPage } from "@/components/layout";
 import { StatusBadge } from "@/common/components/data-display";
 import { Button } from "@/components/ui/button";
@@ -427,10 +428,7 @@ export default function ExamQuestionPaperMarksPage() {
     }
   }
 
-  const courses = useMemo(
-    () => dedupeBy(baseRows, (r) => pickNum(r, ["fk_course_id", "courseId"])),
-    [baseRows],
-  );
+  const courses = useMemo(() => dedupeCoursesSorted(baseRows), [baseRows]);
   const academicYears = useMemo(
     () =>
       dedupeBy(
@@ -614,8 +612,12 @@ export default function ExamQuestionPaperMarksPage() {
         const list = await getQpSetterExamFilters(employeeId).catch(() => []);
         const rows = Array.isArray(list) ? list : [];
         setBaseRows(rows);
-        if (rows[0])
-          setCourseId(pickNum(rows[0], ["fk_course_id", "courseId"]));
+        const sortedCourses = dedupeCoursesSorted(rows);
+        if (sortedCourses[0]) {
+          setCourseId(
+            pickNum(sortedCourses[0], ["fk_course_id", "courseId"]),
+          );
+        }
       } finally {
         setLoading(false);
       }

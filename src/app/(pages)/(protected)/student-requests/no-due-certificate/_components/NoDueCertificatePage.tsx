@@ -682,7 +682,7 @@ export function NoDueCertificatePage() {
           columnDefs={historyColumnDefs}
           loading={loadingIssues}
           height="auto"
-          pagination={false}
+          pagination={true}
           toolbar={{
             search: true,
             searchPlaceholder: "Search history",

@@ -24,6 +24,7 @@ import {
   listFinalizableQuestionPapers,
   verifyFinalQuestionPapers,
 } from "@/services";
+import { dedupeCoursesSorted } from "@/common/utils/data-helpers";
 
 type AnyRow = Record<string, any>;
 const pickNum = (row: AnyRow | null | undefined, keys: string[]) => {
@@ -113,10 +114,7 @@ export default function ExamFinalQuestionPaperPage() {
     globalThis?.localStorage?.getItem("employeeId") ?? 0,
   );
 
-  const courses = useMemo(
-    () => dedupeBy(baseRows, (r) => pickNum(r, ["fk_course_id", "courseId"])),
-    [baseRows],
-  );
+  const courses = useMemo(() => dedupeCoursesSorted(baseRows), [baseRows]);
   const academicYears = useMemo(
     () =>
       dedupeBy(
@@ -190,7 +188,10 @@ export default function ExamFinalQuestionPaperPage() {
         );
         const r = Array.isArray(list) ? list : [];
         setBaseRows(r);
-        if (r[0]) setCourseId(pickNum(r[0], ["fk_course_id", "courseId"]));
+        const sortedCourses = dedupeCoursesSorted(r);
+        if (sortedCourses[0]) {
+          setCourseId(pickNum(sortedCourses[0], ["fk_course_id", "courseId"]));
+        }
       } finally {
         setLoading(false);
       }
@@ -420,111 +421,122 @@ export default function ExamFinalQuestionPaperPage() {
       title="Finalize Exam Question Paper"
       showTable={showDetails}
       filters={
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end text-[13px]">
-          <div className="md:col-span-3">
-            <Label className="text-[12px] text-muted-foreground">Course</Label>
-            <Select
-              value={courseId ? String(courseId) : null}
-              onChange={(v) => setCourseId(v ? Number(v) : 0)}
-              options={courses.map((c) => ({
-                value: String(pickNum(c, ["fk_course_id", "courseId"])),
-                label: pickText(c, ["course_code", "courseCode"]),
-              }))}
-              placeholder="Course"
-            />
-          </div>
-          <div className="md:col-span-3">
-            <Label className="text-[12px] text-muted-foreground">
-              Academic Year
-            </Label>
-            <Select
-              value={academicYearId ? String(academicYearId) : null}
-              onChange={(v) => setAcademicYearId(v ? Number(v) : 0)}
-              options={academicYears.map((a) => ({
-                value: String(
-                  pickNum(a, ["fk_academic_year_id", "academicYearId"]),
-                ),
-                label: pickText(a, ["academic_year", "academicYear"]),
-              }))}
-              placeholder="Academic Year"
-            />
-          </div>
-          <div className="md:col-span-6">
-            <Label className="text-[12px] text-muted-foreground">Exam</Label>
-            <Select
-              value={examId ? String(examId) : null}
-              onChange={(v) => setExamId(v ? Number(v) : 0)}
-              options={exams.map((e) => ({
-                value: String(pickNum(e, ["fk_exam_id", "examId"])),
-                label: pickText(e, ["exam_name", "examName"]),
-              }))}
-              placeholder="Exam"
-            />
-          </div>
-          <div className="md:col-span-2">
-            <Label className="text-[12px] text-muted-foreground">
-              Regulation Id
-            </Label>
-            <Select
-              value={regulationId ? String(regulationId) : null}
-              onChange={(v) => setRegulationId(v ? Number(v) : 0)}
-              options={regulations.map((r) => ({
-                value: String(pickNum(r, ["fk_regulation_id", "regulationId"])),
-                label: pickText(r, ["regulation_code", "regulationCode"]),
-              }))}
-              placeholder="Regulation"
-            />
-          </div>
-          <div className="md:col-span-3">
-            <Label className="text-[12px] text-muted-foreground">
-              Course Years *
-            </Label>
-            <Select
-              value={courseYearValue ?? null}
-              onChange={(v) => setCourseYearId(v ? Number(v) : 0)}
-              options={[
-                { value: "0", label: "All" },
-                ...courseYears.map((y) => ({
+        <div className="inv-allot-report-filters space-y-2">
+          <div className="inv-allot-report-filters__row">
+            <div className="inv-allot-report-filters__fx20">
+              <Label className="text-[12px] text-muted-foreground">
+                Course
+              </Label>
+              <Select
+                value={courseId ? String(courseId) : null}
+                onChange={(v) => setCourseId(v ? Number(v) : 0)}
+                options={courses.map((c) => ({
+                  value: String(pickNum(c, ["fk_course_id", "courseId"])),
+                  label: pickText(c, ["course_code", "courseCode"]),
+                }))}
+                placeholder="Course"
+                searchable
+              />
+            </div>
+            <div className="inv-allot-report-filters__fx20">
+              <Label className="text-[12px] text-muted-foreground">
+                Academic Year
+              </Label>
+              <Select
+                value={academicYearId ? String(academicYearId) : null}
+                onChange={(v) => setAcademicYearId(v ? Number(v) : 0)}
+                options={academicYears.map((a) => ({
                   value: String(
-                    pickNum(y, ["fk_course_year_id", "courseYearId"]),
+                    pickNum(a, ["fk_academic_year_id", "academicYearId"]),
                   ),
-                  label: pickText(y, [
-                    "course_year_code",
-                    "courseYearCode",
-                    "course_year_name",
-                    "courseYearName",
-                  ]),
-                })),
-              ]}
-              placeholder="Course Year"
-            />
+                  label: pickText(a, ["academic_year", "academicYear"]),
+                }))}
+                placeholder="Academic Year"
+              />
+            </div>
+            <div className="inv-allot-report-filters__fx60">
+              <Label className="text-[12px] text-muted-foreground">Exam</Label>
+              <Select
+                value={examId ? String(examId) : null}
+                onChange={(v) => setExamId(v ? Number(v) : 0)}
+                options={exams.map((e) => ({
+                  value: String(pickNum(e, ["fk_exam_id", "examId"])),
+                  label: pickText(e, ["exam_name", "examName"]),
+                }))}
+                placeholder="Exam"
+              />
+            </div>
           </div>
-          <div className="md:col-span-5">
-            <Label className="text-[12px] text-muted-foreground">Subject</Label>
-            <Select
-              value={subjectId ? String(subjectId) : null}
-              onChange={(v) => setSubjectId(v ? Number(v) : 0)}
-              options={subjects.map((s) => {
-                const code = pickText(s, ["subject_code", "subjectCode"]);
-                const name = pickText(s, ["subject_name", "subjectName"]);
-                const label =
-                  code && name ? `${code}-${name}` : name || code || "-";
-                return {
-                  value: String(pickNum(s, ["fk_subject_id", "subjectId"])),
-                  label,
-                };
-              })}
-              placeholder="Subject"
-            />
-          </div>
-          <div className="md:col-span-2">
-            <Button
-              className="h-8 px-3 text-[12px] w-full"
-              onClick={() => void getList()}
-              disabled={loading}
-            >
-              Get List
-            </Button>
+          <div className="inv-allot-report-filters__row">
+            <div className="inv-allot-report-filters__fx20">
+              <Label className="text-[12px] text-muted-foreground">
+                Regulation Id
+              </Label>
+              <Select
+                value={regulationId ? String(regulationId) : null}
+                onChange={(v) => setRegulationId(v ? Number(v) : 0)}
+                options={regulations.map((r) => ({
+                  value: String(
+                    pickNum(r, ["fk_regulation_id", "regulationId"]),
+                  ),
+                  label: pickText(r, ["regulation_code", "regulationCode"]),
+                }))}
+                placeholder="Regulation"
+              />
+            </div>
+            <div className="inv-allot-report-filters__fx20">
+              <Label className="text-[12px] text-muted-foreground">
+                Course Years *
+              </Label>
+              <Select
+                value={courseYearValue ?? null}
+                onChange={(v) => setCourseYearId(v ? Number(v) : 0)}
+                options={[
+                  { value: "0", label: "All" },
+                  ...courseYears.map((y) => ({
+                    value: String(
+                      pickNum(y, ["fk_course_year_id", "courseYearId"]),
+                    ),
+                    label: pickText(y, [
+                      "course_year_code",
+                      "courseYearCode",
+                      "course_year_name",
+                      "courseYearName",
+                    ]),
+                  })),
+                ]}
+                placeholder="Course Year"
+              />
+            </div>
+            <div className="inv-allot-report-filters__fx33">
+              <Label className="text-[12px] text-muted-foreground">
+                Subject
+              </Label>
+              <Select
+                value={subjectId ? String(subjectId) : null}
+                onChange={(v) => setSubjectId(v ? Number(v) : 0)}
+                options={subjects.map((s) => {
+                  const code = pickText(s, ["subject_code", "subjectCode"]);
+                  const name = pickText(s, ["subject_name", "subjectName"]);
+                  const label =
+                    code && name ? `${code}-${name}` : name || code || "-";
+                  return {
+                    value: String(pickNum(s, ["fk_subject_id", "subjectId"])),
+                    label,
+                  };
+                })}
+                placeholder="Subject"
+              />
+            </div>
+            <div className="inv-allot-report-filters__fx15">
+              <Button
+                className="h-8 px-3 text-[12px] w-full"
+                onClick={() => void getList()}
+                disabled={loading}
+              >
+                Get List
+              </Button>
+            </div>
           </div>
         </div>
       }

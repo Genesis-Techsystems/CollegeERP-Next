@@ -62,12 +62,41 @@ function isEmptyObject(
   return !obj || Object.keys(obj).length === 0;
 }
 
+/** Angular openFile: `window.open(CONSTANTS.MINIO + path, '_blank', 'width=700,height=600')` */
+function resolveMinioBase(): string {
+  const fromEnv = String(MINIO_URL ?? "").trim();
+  if (fromEnv) return fromEnv.endsWith("/") ? fromEnv : `${fromEnv}/`;
+
+  if (typeof globalThis !== "undefined") {
+    const fromLs = String(
+      globalThis.localStorage?.getItem("MINIO") ?? "",
+    ).trim();
+    if (fromLs) return fromLs.endsWith("/") ? fromLs : `${fromLs}/`;
+  }
+
+  return "";
+}
+
 function openStoredFile(path: string) {
-  if (!path) return;
-  const url = /^https?:\/\//i.test(path)
-    ? path
-    : `${MINIO_URL.replace(/\/$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
-  window.open(url, "_blank", "noopener,noreferrer");
+  const raw = String(path ?? "").trim();
+  if (!raw) return;
+
+  if (/^https?:\/\//i.test(raw)) {
+    window.open(raw, "_blank", "width=700,height=600");
+    return;
+  }
+
+  const base = resolveMinioBase();
+  if (!base) {
+    toastError(
+      "Document storage URL (MINIO) is not configured. Set NEXT_PUBLIC_MINIO_URL or login again.",
+    );
+    return;
+  }
+
+  // Angular: MINIO + path (path may already start with / or not)
+  const url = `${base.replace(/\/$/, "")}/${raw.replace(/^\/+/, "")}`;
+  window.open(url, "_blank", "width=700,height=600");
 }
 
 export default function TransferCertificatePage() {

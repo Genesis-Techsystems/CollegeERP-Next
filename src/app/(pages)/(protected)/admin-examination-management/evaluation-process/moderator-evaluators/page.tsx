@@ -638,87 +638,107 @@ export default function ModeratorEvaluatorsPage() {
   );
 
   const filters = (
-    <GlobalFilterBarRow>
-      <GlobalFilterField label="Course">
-        <Select
-          value={courseId != null ? String(courseId) : null}
-          onChange={(v) => setCourseId(v ? num(v) : null)}
-          options={courseOptions}
-          placeholder="Course"
-          clearable={false}
-        />
-      </GlobalFilterField>
-      <GlobalFilterField label="Academic Year">
-        <Select
-          value={academicYearId != null ? String(academicYearId) : null}
-          onChange={(v) => setAcademicYearId(v ? num(v) : null)}
-          options={academicYearOptions}
-          placeholder="Academic Year"
-          clearable={false}
-        />
-      </GlobalFilterField>
-      <GlobalFilterField label="Exam">
-        <Select
-          value={examId != null ? String(examId) : null}
-          onChange={(v) => setExamId(v ? num(v) : null)}
-          options={examOptions}
-          placeholder="Exam"
-          searchable
-          clearable={false}
-        />
-      </GlobalFilterField>
-      <GlobalFilterField label="Course Year">
-        <Select
-          value={courseYearId != null ? String(courseYearId) : null}
-          onChange={(v) => setCourseYearId(v ? num(v) : null)}
-          options={courseYearOptions}
-          placeholder="Course Year"
-          clearable={false}
-        />
-      </GlobalFilterField>
-      <GlobalFilterField label="Regulation">
-        <Select
-          value={regulationId != null ? String(regulationId) : null}
-          onChange={(v) => setRegulationId(v ? num(v) : null)}
-          options={regulationOptions}
-          placeholder="Regulation"
-          clearable={false}
-        />
-      </GlobalFilterField>
-      <GlobalFilterField label="Subject">
-        <Select
-          value={subjectId != null ? String(subjectId) : null}
-          onChange={(v) => void setSubjectId(v ? num(v) : null)}
-          options={subjectOptions}
-          placeholder="Subject"
-          searchable
-          clearable={false}
-        />
-      </GlobalFilterField>
-      <GlobalFilterField label="Moderator Name">
-        <Select
-          value={String(examModeratorId)}
-          onChange={(v) => onModeratorChange(num(v ?? 0))}
-          options={moderatorOptions}
-          placeholder="Moderator Name"
-          searchable
-          clearable={false}
-        />
-      </GlobalFilterField>
-      <GlobalFilterField
-        label=""
-        className="global-filter-field--shrink global-filter-field--action"
-      >
-        <Button
-          type="button"
-          onClick={() => void getList()}
-          disabled={loading || !formValid}
-          className="h-[30px] px-3 text-[12px]"
-        >
-          Get List
-        </Button>
-      </GlobalFilterField>
-    </GlobalFilterBarRow>
+    <div className="inv-allot-report-filters space-y-2">
+      <div className="inv-allot-report-filters__row">
+        <div className="inv-allot-report-filters__fx20">
+          <GlobalFilterField label="Course">
+            <Select
+              value={courseId != null ? String(courseId) : null}
+              onChange={(v) => setCourseId(v ? num(v) : null)}
+              options={courseOptions}
+              placeholder="Course"
+              clearable={false}
+            />
+          </GlobalFilterField>
+        </div>
+        <div className="inv-allot-report-filters__fx20">
+          <GlobalFilterField label="Academic Year">
+            <Select
+              value={academicYearId != null ? String(academicYearId) : null}
+              onChange={(v) => setAcademicYearId(v ? num(v) : null)}
+              options={academicYearOptions}
+              placeholder="Academic Year"
+              clearable={false}
+            />
+          </GlobalFilterField>
+        </div>
+        <div className="inv-allot-report-filters__fx60">
+          <GlobalFilterField label="Exam">
+            <Select
+              value={examId != null ? String(examId) : null}
+              onChange={(v) => setExamId(v ? num(v) : null)}
+              options={examOptions}
+              placeholder="Exam"
+              searchable
+              clearable={false}
+            />
+          </GlobalFilterField>
+        </div>
+      </div>
+      <div className="inv-allot-report-filters__row">
+        <div className="inv-allot-report-filters__fx15">
+          <GlobalFilterField label="Course Year">
+            <Select
+              value={courseYearId != null ? String(courseYearId) : null}
+              onChange={(v) => setCourseYearId(v ? num(v) : null)}
+              options={courseYearOptions}
+              placeholder="Course Year"
+              clearable={false}
+            />
+          </GlobalFilterField>
+        </div>
+        <div className="inv-allot-report-filters__fx15">
+          <GlobalFilterField label="Regulation">
+            <Select
+              value={regulationId != null ? String(regulationId) : null}
+              onChange={(v) => setRegulationId(v ? num(v) : null)}
+              options={regulationOptions}
+              placeholder="Regulation"
+              clearable={false}
+            />
+          </GlobalFilterField>
+        </div>
+        <div className="inv-allot-report-filters__fx30">
+          <GlobalFilterField label="Subject">
+            <Select
+              value={subjectId != null ? String(subjectId) : null}
+              onChange={(v) => void setSubjectId(v ? num(v) : null)}
+              options={subjectOptions}
+              placeholder="Subject"
+              searchable
+              clearable={false}
+            />
+          </GlobalFilterField>
+        </div>
+        <div className="inv-allot-report-filters__fx25">
+          <GlobalFilterField label="Moderator Name">
+            <Select
+              value={String(examModeratorId)}
+              onChange={(v) => onModeratorChange(num(v ?? 0))}
+              options={moderatorOptions}
+              placeholder="Moderator Name"
+              searchable
+              clearable={false}
+            />
+          </GlobalFilterField>
+        </div>
+        <div className="inv-allot-report-filters__fx15">
+          <GlobalFilterField
+            label=""
+            className="global-filter-field--shrink global-filter-field--action"
+          >
+            <Button
+              type="button"
+              onClick={() => void getList()}
+              disabled={loading || !formValid}
+              className="h-[30px] px-3 text-[12px] w-full"
+            >
+              Get List
+            </Button>
+          </GlobalFilterField>
+        </div>
+      </div>
+    </div>
   );
 
   // Angular: filters-only until Get List (`flag`); then Available Evaluator + optional Mapped list

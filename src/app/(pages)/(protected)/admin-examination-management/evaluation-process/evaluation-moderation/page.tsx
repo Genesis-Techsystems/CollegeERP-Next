@@ -3,15 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ColDef } from "ag-grid-community";
 import type { LucideIcon } from "lucide-react";
-import {
-  CloudUpload,
-  FileText,
-  GraduationCap,
-  SquareCheck,
-  User,
-  UserMinus,
-  Users,
-} from "lucide-react";
+import { FileText, SquareCheck, Users } from "lucide-react";
 import { SearchInput } from "@/common/components/search";
 import {
   GlobalFilterBarRow,
@@ -44,30 +36,20 @@ import { cn } from "@/lib/utils";
 
 type AnyRow = Record<string, any>;
 
-function ModerationStat({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: number;
-}) {
-  return (
-    <div className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3">
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#0c51a4]/10 text-[#0c51a4]">
-        <Icon className="h-4 w-4" aria-hidden />
-      </span>
-      <div className="min-w-0">
-        <p className="truncate text-[12px] font-medium text-[#0c51a4]">
-          {label}
-        </p>
-        <p className="text-[18px] font-semibold leading-tight text-[#0c51a4]">
-          {value}
-        </p>
-      </div>
-    </div>
-  );
+function truthyFlag(value: unknown): boolean {
+  return value === true || value === 1 || value === "1";
+}
+
+function formatExamDate(value: unknown): string {
+  const raw = value != null ? String(value).trim() : "";
+  if (!raw) return "";
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return raw.slice(0, 10);
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 function ModerationPanel({
@@ -144,6 +126,40 @@ const dedupeBy = <T,>(rows: T[], keyFn: (r: T) => string | number) => {
     return true;
   });
 };
+
+function buildExamSelectOption(e: AnyRow): SelectOption {
+  const name = pickText(e, ["exam_name", "examName"]);
+  const from = formatExamDate(e.from_date ?? e.fromDate);
+  const to = formatExamDate(e.to_date ?? e.toDate);
+  const range = from && to ? ` (${from} - ${to})` : "";
+  const tags: string[] = [];
+  if (truthyFlag(e.is_internal_exam ?? e.isInternalExam)) {
+    tags.push("(Internal)");
+  }
+  if (truthyFlag(e.is_regular_exam ?? e.isRegularExam)) {
+    tags.push("(Regular)");
+  }
+  if (truthyFlag(e.is_supply_exam ?? e.isSupplyExam)) {
+    tags.push("(Supple)");
+  }
+  const label = `${name}${range}${tags.join("")}`;
+  return {
+    value: String(pickNum(e, ["fk_exam_id", "examId"])),
+    label,
+    title: label,
+    labelNode: (
+      <span className="block truncate">
+        {name}
+        {range}
+        {tags.map((tag) => (
+          <span key={tag} className="font-medium text-[#0014ff]">
+            {tag}
+          </span>
+        ))}
+      </span>
+    ),
+  };
+}
 
 /** Profile id used in exclude_fk_* lists (Angular radioChange). */
 function evaluatorProfileId(row: AnyRow | null | undefined): number {
@@ -315,6 +331,10 @@ export default function EvaluationModerationPage() {
       (r) => pickNum(r, ["fk_exam_id", "examId"]),
     );
   }, [baseRows, courseId, academicYearId]);
+  const examOptions = useMemo(
+    () => exams.map((e) => buildExamSelectOption(e)),
+    [exams],
+  );
   const courseYears = useMemo(
     () =>
       dedupeBy(restRows, (r) =>
@@ -918,13 +938,7 @@ export default function EvaluationModerationPage() {
           <Select
             value={examId ? String(examId) : null}
             onChange={(v) => applyExam(v ? Number(v) : null)}
-            options={exams.map(
-              (e) =>
-                ({
-                  value: String(pickNum(e, ["fk_exam_id", "examId"])),
-                  label: pickText(e, ["exam_name", "examName"]),
-                }) as SelectOption,
-            )}
+            options={examOptions}
             placeholder="Exam"
             searchable
             disabled={!academicYearId}
@@ -1024,6 +1038,19 @@ export default function EvaluationModerationPage() {
           </Button>
         </GlobalFilterField>
       </GlobalFilterBarRow>
+      {hasFetched ? (
+        <p className=" mt-5 px-1 text-[15px] font-bold text-foreground">
+          Total Students :{" "}
+          <span className="font-bold text-red-600">{totalStudents}</span> |
+          No.Of AnswerPapers Uploaded :{" "}
+          <span className="font-bold text-red-600">{uploaded}</span> |
+          UnAssigned :{" "}
+          <span className="font-bold text-red-600">{unassigned}</span> |
+          Assigned : <span className="font-bold text-red-600">{assigned}</span>{" "}
+          | No of Evaluators :{" "}
+          <span className="font-bold text-red-600">{evaluatorRows.length}</span>
+        </p>
+      ) : null}
     </>
   );
 
@@ -1035,30 +1062,6 @@ export default function EvaluationModerationPage() {
       body={
         hasFetched ? (
           <div className="space-y-4">
-            <div className="flex flex-wrap items-stretch overflow-hidden rounded-lg border border-border/70 bg-card divide-x divide-border/70">
-              <ModerationStat
-                icon={GraduationCap}
-                label="Total Students"
-                value={totalStudents}
-              />
-              <ModerationStat
-                icon={CloudUpload}
-                label="Uploaded"
-                value={uploaded}
-              />
-              <ModerationStat
-                icon={UserMinus}
-                label="UnAssigned"
-                value={unassigned}
-              />
-              <ModerationStat icon={Users} label="Assigned" value={assigned} />
-              <ModerationStat
-                icon={User}
-                label="No of Evaluators"
-                value={evaluatorRows.length}
-              />
-            </div>
-
             <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
               <ModerationPanel
                 title="Evaluator List / Assigned Count"
@@ -1310,6 +1313,8 @@ export default function EvaluationModerationPage() {
             search: true,
             searchPlaceholder: "Search…",
             pdfDocumentTitle: "Evaluation Moderation",
+            exportExcel: false,
+            exportPdf: false,
           }}
         />
       ) : null}

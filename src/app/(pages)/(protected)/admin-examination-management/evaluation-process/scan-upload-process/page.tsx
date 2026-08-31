@@ -412,104 +412,123 @@ export default function ScanUploadProcessPage() {
       title="Upload Scanned Answer Papers"
       filters={
         <>
-          <GlobalFilterBarRow>
-            <GlobalFilterField label="Faculty">
-              <Select
-                value={String(collegeId)}
-                onChange={(v) => setCollegeId(num(v))}
-                options={collegeOptions}
-                placeholder="Faculty"
-              />
-            </GlobalFilterField>
-            <GlobalFilterField label="Exam Month Year">
-              <Select
-                value={examMonthYear || null}
-                onChange={(v) => setExamMonthYear(v ?? "")}
-                options={monthYearOptions}
-                placeholder="Exam Month Year"
-              />
-            </GlobalFilterField>
-            <GlobalFilterField label="Exam">
-              <Select
-                value={String(examId)}
-                onChange={(v) => setExamId(num(v))}
-                options={examOptions}
-                placeholder="Exam"
-                searchable
-              />
-            </GlobalFilterField>
-            <GlobalFilterField label="Subjects">
-              <Select
-                value={subjectId > 0 ? String(subjectId) : null}
-                onChange={(v) => setSubjectId(num(v))}
-                options={subjectOptions}
-                placeholder="Subjects"
-                searchable
-              />
-            </GlobalFilterField>
-            {subjectId > 0 && (
-              <GlobalFilterField label="Exam Date">
-                <DatePicker
-                  value={examDate}
-                  onChange={(d) => {
-                    setExamDate(d);
-                    setDateConvert(toDateStr(d));
-                    setShowResult(false);
-                  }}
-                  displayFormat="dd/MM/yyyy"
-                  clearable={false}
-                  placeholder="Exam Date"
-                />
-              </GlobalFilterField>
-            )}
-            <GlobalFilterField
-              label="Action"
-              className="global-filter-field--shrink global-filter-field--action"
-            >
-              <Button
-                type="button"
-                className="h-[30px] px-4 text-[12px]"
-                disabled={!canGetList}
-                onClick={() => void getList()}
-              >
-                Get List
-              </Button>
-            </GlobalFilterField>
-          </GlobalFilterBarRow>
-
-          {showResult && (
-            <div className="px-5 pb-3 grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-              <GlobalFilterField label="Folder Path" className="md:col-span-4">
-                <Input
-                  value={folderPathDisplay}
-                  readOnly
-                  disabled
-                  placeholder="Folder Path"
-                  className="h-8 text-[12px]"
-                />
-              </GlobalFilterField>
-              <div className="md:col-span-2">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  className="hidden"
-                  multiple
-                  onChange={(e) => onPickFiles(e.target.files)}
-                  {...({ webkitdirectory: "", directory: "" } as Record<
-                    string,
-                    string
-                  >)}
-                />
-                <Button
-                  type="button"
-                  className="h-8 px-4 text-[12px] w-full bg-sky-600 hover:bg-sky-700"
-                  onClick={() => fileInputRef.current?.click()}
+          <div className="inv-allot-report-filters space-y-2">
+            <div className="inv-allot-report-filters__row">
+              <div className="inv-allot-report-filters__fx15">
+                <GlobalFilterField label="Faculty">
+                  <Select
+                    value={String(collegeId)}
+                    onChange={(v) => setCollegeId(num(v))}
+                    options={collegeOptions}
+                    placeholder="Faculty"
+                  />
+                </GlobalFilterField>
+              </div>
+              <div className="inv-allot-report-filters__fx15">
+                <GlobalFilterField label="Exam Month Year">
+                  <Select
+                    value={examMonthYear || null}
+                    onChange={(v) => setExamMonthYear(v ?? "")}
+                    options={monthYearOptions}
+                    placeholder="Exam Month Year"
+                  />
+                </GlobalFilterField>
+              </div>
+              <div className="inv-allot-report-filters__fx15">
+                <GlobalFilterField label="Exam">
+                  <Select
+                    value={String(examId)}
+                    onChange={(v) => setExamId(num(v))}
+                    options={examOptions}
+                    placeholder="Exam"
+                    searchable
+                  />
+                </GlobalFilterField>
+              </div>
+              <div className="inv-allot-report-filters__fx15">
+                <GlobalFilterField label="Subjects">
+                  <Select
+                    value={subjectId > 0 ? String(subjectId) : null}
+                    onChange={(v) => setSubjectId(num(v))}
+                    options={subjectOptions}
+                    placeholder="Subjects"
+                    searchable
+                  />
+                </GlobalFilterField>
+              </div>
+              {subjectId > 0 && (
+                <div className="inv-allot-report-filters__fx15">
+                  <GlobalFilterField label="Exam Date">
+                    <DatePicker
+                      value={examDate}
+                      onChange={(d) => {
+                        setExamDate(d);
+                        setDateConvert(toDateStr(d));
+                        setShowResult(false);
+                      }}
+                      displayFormat="dd/MM/yyyy"
+                      clearable={false}
+                      placeholder="Exam Date"
+                    />
+                  </GlobalFilterField>
+                </div>
+              )}
+              <div className="inv-allot-report-filters__fx15">
+                <GlobalFilterField
+                  label="Action"
+                  className="global-filter-field--shrink global-filter-field--action"
                 >
-                  Browse
-                </Button>
+                  <Button
+                    type="button"
+                    className="h-[30px] px-4 text-[12px]"
+                    disabled={!canGetList}
+                    onClick={() => void getList()}
+                  >
+                    Get List
+                  </Button>
+                </GlobalFilterField>
               </div>
             </div>
-          )}
+
+            {showResult && (
+              <div className="px-5 pb-3 grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+                <div className="inv-allot-report-filters__fx15">
+                  <GlobalFilterField
+                    label="Folder Path"
+                    className="md:col-span-4"
+                  >
+                    <Input
+                      value={folderPathDisplay}
+                      readOnly
+                      disabled
+                      placeholder="Folder Path"
+                      className="h-8 text-[12px]"
+                    />
+                  </GlobalFilterField>
+                </div>
+                <div className="md:col-span-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    multiple
+                    onChange={(e) => onPickFiles(e.target.files)}
+                    {...({ webkitdirectory: "", directory: "" } as Record<
+                      string,
+                      string
+                    >)}
+                  />
+                  <Button
+                    type="button"
+                    className="h-8 px-4 text-[12px] w-full bg-sky-600 hover:bg-sky-700"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    Browse
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
         </>
       }
     >
